@@ -1,0 +1,72 @@
+# Rust / Cargo
+/target/
+target/
+**/*.rs.bk
+artifacts/aegis_core.[0-9]*.wasm
+
+# Node / Next.js / TypeScript
+node_modules/
+.next/
+.next-*/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+apps/web/next-env.d.ts
+.swc/
+
+# Testing & Test Coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Copied at build time from artifacts/ (see apps/web/scripts/copy-wasm.mjs).
+# Source artifacts stay committed; the web build recreates these public copies.
+apps/web/public/aegis_core.wasm
+apps/web/public/evidence/
+
+# Local generated design assets
+.ui-backup/
+.icon-tmp/
+
+# Vercel CLI: project link (.vercel/project.json), `vercel pull` env files, `vercel build` output
+.vercel/
+
+# Secrets, credentials and personal data (`vercel env pull` writes .env.local)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.near-credentials/
+neardev/
+.submission/
+
+# IDE, editor and local tooling state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS noise
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+~$*

@@ -1,0 +1,8 @@
+# Pins the compiler used by `cargo test`, clippy (`-D warnings`) and the WASM build, so a newer
+# stable release cannot introduce new lints or different bytes on a judge's machine. It matches
+# the rustc inside the digest-pinned image used by scripts/build-reproducible.sh.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

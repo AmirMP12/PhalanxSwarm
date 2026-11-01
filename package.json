@@ -1,0 +1,38 @@
+{
+  "name": "aegis-swarm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AegisSwarm Protocol: policy-enforced autonomous agent treasury, swarm bidding market and NEAR Intents / Chain Signatures settlement on NEAR",
+  "license": "MIT",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "lint": "pnpm lint:code",
+    "lint:code": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write . && cargo fmt --all",
+    "format:check": "prettier --check . && cargo fmt --all -- --check"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss@<=8.5.17": "8.5.32"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "15.5.28",
+    "@types/node": "^20.19.0",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "near-api-js": "^7.4.0",
+    "playwright-core": "^1.64.1",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

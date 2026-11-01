@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["contracts/aegis-core", "contracts/aegis-sandbox-tests"]
+# `cargo test` at the root runs the fast, hermetic unit tests only.
+# The near-workspaces sandbox suite is opt-in: `cargo test -p aegis-sandbox-tests`.
+default-members = ["contracts/aegis-core"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT"
+
+# Size/safety profile used for the on-chain WASM build (mirrors cargo-near defaults).
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+strip = true
