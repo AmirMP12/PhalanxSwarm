@@ -1,0 +1,341 @@
+/**
+ * AegisSwarm MCP server: any MCP client (Claude, Kiro, Cursor, an agent framework) can ask the
+ * AegisSwarm treasury contract about a payment before an agent signs it.
+ *
+ * The tools are read-only. They call contract views and never hold a key, sign, or send a
+ * transaction. An agent that decides to pay signs the returned intent message with its own scoped
+ * key and submits it itself, and the contract enforces the same rules again on-chain.
+ *
+ * - `aegis_check_recipient`: the contract's allow / warn / block answer for a recipient, on-chain
+ *   history signals (account age, activity, code changes, prior payments), and what the agent may do.
+ * - `aegis_preview_payment`: a dry run of a payment through the contract's policy engine
+ *   (`evaluate_intent`), the facts a Sentinel audit must judge (v2.3), and the exact message to sign.
+ * - `aegis_get_policy`: the DAO's current limits and rules.
+ *
+ * Protocol: JSON-RPC 2.0, transport-agnostic (`mcp-cli.ts` runs it over stdio). It serves both MCP
+ * eras: the stateless 2026-07-28 revision (`server/discover`, protocol version in every request's
+ * `_meta`) and the `initialize` handshake of 2025-11-25 and earlier.
+ */
+import { z } from "zod";
+
+import type { AegisViews } from "./contract-client.ts";
+import { formatNear, ONE_NEAR, toBase58, toBase64 } from "./encoding.ts";
+import { decidePreflight, preflightRecipient, type HistorySource } from "./preflight.ts";
+import { ASSETS } from "./swarm-orchestrator.ts";
+import { ContractInfo, ProtocolConfig, type CrossChainIntentRequestT, type PolicyViolationT } from "./types.ts";
+import { describeViolation } from "./violations.ts";
+
+export const MCP_MODERN_VERSIONS = ["2026-07-28"] as const;
+export const MCP_LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
+const VERSION_KEY = "io.modelcontextprotocol/protocolVersion";
+const SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo";
+const UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
+type JsonRpcId = string | number;
+interface JsonRpcResponse {
+  jsonrpc: "2.0";
+  id: JsonRpcId | null;
+  result?: Record<string, unknown>;
+  error?: { code: number; message: string; data?: unknown };
+}
+
+export interface AegisMcpOptions {
+  /** Contract views over NEAR RPC (`RpcTransport`) or the in-process AegisSim (`VmTransport`). */
+  views: AegisViews;
+  /** Where the contract runs; history lookups are skipped for `sim`. */
+  network: "testnet" | "mainnet" | "sim";
+  /** Recipient history for `aegis_check_recipient` (see `nearHistorySource`). */
+  history?: HistorySource;
+  /** Block time for request deadlines. Default: wall clock. */
+  nowNs?: () => bigint;
+  serverVersion?: string;
+}
+
+const SAFE_TEXT = /^[\x20-\x7e]*$/;
+const CheckArgs = z.strictObject({
+  chain: z.string().regex(/^[a-z0-9-]{2,32}$/, "a lower-case chain id such as near, arb, base or basesepolia"),
+  recipient: z.string().min(2).max(128).regex(SAFE_TEXT),
+  history: z.boolean().optional(),
+});
+const PreviewArgs = z.strictObject({
+  agent_id: z.string().regex(/^[a-z0-9._-]{2,64}$/, "the paying agent's NEAR account id"),
+  chain: CheckArgs.shape.chain,
+  recipient: CheckArgs.shape.recipient,
+  amount_near: z.number().positive().max(1_000_000),
+  memo: z.string().max(120).regex(SAFE_TEXT).optional(),
+});
+
+/** Destination asset of a cross-chain vendor payment (USDC on the chain). */
+const PAYOUT_ASSET: Record<string, string> = { arb: ASSETS.USDC_ARB, base: ASSETS.USDC_BASE, eth: ASSETS.USDC_ETH, sol: ASSETS.USDC_SOL };
+/**
+ * Findings a preview cannot avoid: it is unsigned and has no audit yet, and a cross-chain preview
+ * has no 1Click quote, so its minimum output (and with it the price-floor check) is a placeholder.
+ */
+const isPending = (v: PolicyViolationT, crossChain: boolean) =>
+  v.code === "invalid_intent_signature" ||
+  v.code === "missing_tee_attestation" ||
+  v.code === "invalid_tee_attestation" ||
+  (crossChain && v.code === "quote_invalid" && v.reason === "cross_chain_requires_quote") ||
+  (crossChain && v.code === "price_below_floor");
+
+const TOOLS = [
+  {
+    name: "aegis_check_recipient",
+    title: "Check a payment recipient",
+    description:
+      "Ask the AegisSwarm treasury contract whether an agent may pay this recipient, before signing anything. Returns the contract's verdict (allow, warn or block) with its reasons, on-chain history signals, and the action to take: sign, refuse, submit for DAO approval, or ask the DAO to allow-list or confirm the recipient. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chain: { type: "string", description: "Settlement chain: near, arb, base, eth, sol, or an EVM chain id such as basesepolia." },
+        recipient: { type: "string", description: "A NEAR account id or a 0x address." },
+        history: { type: "boolean", description: "Also look up the recipient's on-chain history. Default true on testnet and mainnet." },
+      },
+      required: ["chain", "recipient"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "aegis_get_policy",
+    title: "Read the treasury policy",
+    description:
+      "The AegisSwarm DAO's current rules: per-payment limit, epoch spending cap, allowed chains, what happens to unknown recipients, the DAO approval threshold, the pinned audit prompt and the task-prompt registry. Read-only.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "aegis_preview_payment",
+    title: "Preview a payment",
+    description:
+      "Dry-run a payment through the AegisSwarm policy engine before the agent signs it. Returns every policy finding (limits, chain, asset, recipient), whether the payment needs a DAO vote, the facts a Sentinel audit must judge, and the exact NEP-413 message the agent signs with its own key to submit it. Never signs or sends anything.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "The paying agent's account id, registered with the treasury." },
+        chain: { type: "string", description: "Settlement chain: near for a NEAR transfer, or arb, base, eth, sol for USDC via NEAR Intents." },
+        recipient: { type: "string", description: "A NEAR account id or a 0x address." },
+        amount_near: { type: "number", exclusiveMinimum: 0, description: "Amount in NEAR." },
+        memo: { type: "string", maxLength: 120, description: "Invoice reference, printable ASCII." },
+      },
+      required: ["agent_id", "chain", "recipient", "amount_near"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+] as const;
+
+const INSTRUCTIONS =
+  "Call aegis_check_recipient before an agent pays anyone, and follow its action. Use aegis_preview_payment to see what the contract would decide and get the message to sign. These tools never sign or send; the contract enforces the same rules when the agent submits.";
+
+export class AegisMcpServer {
+  private readonly serverInfo: { name: string; title: string; version: string };
+
+  constructor(private readonly opts: AegisMcpOptions) {
+    this.serverInfo = { name: "aegis-swarm", title: "AegisSwarm treasury guard", version: opts.serverVersion ?? "0.1.0" };
+  }
+
+  /** One newline-delimited message in, at most one out (`null` for notifications). */
+  async handleLine(line: string): Promise<string | null> {
+    let message: unknown;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      return JSON.stringify(this.error(null, -32700, "Parse error"));
+    }
+    const response = await this.handle(message);
+    return response ? JSON.stringify(response) : null;
+  }
+
+  async handle(message: unknown): Promise<JsonRpcResponse | null> {
+    if (typeof message !== "object" || message === null || Array.isArray(message)) return this.error(null, -32600, "Invalid Request");
+    const m = message as { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown };
+    const hasId = typeof m.id === "string" || typeof m.id === "number";
+    if (m.jsonrpc !== "2.0" || typeof m.method !== "string") return hasId ? this.error(m.id as JsonRpcId, -32600, "Invalid Request") : null;
+    if (!hasId) return null; // Notifications (notifications/initialized, notifications/cancelled) need no answer.
+    const id = m.id as JsonRpcId;
+    const params = (typeof m.params === "object" && m.params !== null ? m.params : {}) as Record<string, unknown>;
+    const meta = (typeof params._meta === "object" && params._meta !== null ? params._meta : {}) as Record<string, unknown>;
+    const requested = meta[VERSION_KEY];
+    const modern = typeof requested === "string";
+    if (modern && !(MCP_MODERN_VERSIONS as readonly string[]).includes(requested)) {
+      return this.error(id, UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", { supported: [...MCP_MODERN_VERSIONS], requested });
+    }
+    const ok = (result: Record<string, unknown>, cacheable = false): JsonRpcResponse => ({
+      jsonrpc: "2.0",
+      id,
+      result: modern
+        ? { ...result, resultType: "complete", ...(cacheable ? { ttlMs: 3_600_000, cacheScope: "public" } : {}), _meta: { [SERVER_INFO_KEY]: this.serverInfo } }
+        : result,
+    });
+
+    switch (m.method) {
+      case "server/discover":
+        return ok({ supportedVersions: [...MCP_MODERN_VERSIONS], capabilities: { tools: {} }, instructions: INSTRUCTIONS }, true);
+      case "initialize": {
+        const asked = typeof params.protocolVersion === "string" ? params.protocolVersion : "";
+        const version = (MCP_LEGACY_VERSIONS as readonly string[]).includes(asked) ? asked : MCP_LEGACY_VERSIONS[0];
+        return ok({ protocolVersion: version, capabilities: { tools: {} }, serverInfo: this.serverInfo, instructions: INSTRUCTIONS });
+      }
+      case "ping":
+        return ok({});
+      case "tools/list":
+        return ok({ tools: TOOLS }, true);
+      case "tools/call": {
+        const name = params.name;
+        if (typeof name !== "string" || !TOOLS.some((t) => t.name === name)) return this.error(id, -32602, `Unknown tool: ${String(name)}`);
+        try {
+          const output = await this.callTool(name, params.arguments ?? {});
+          return ok({ content: [{ type: "text", text: JSON.stringify(output, null, 2) }], structuredContent: output, isError: false });
+        } catch (err) {
+          const text =
+            err instanceof z.ZodError
+              ? `Invalid arguments: ${err.issues.map((i) => `${i.path.join(".") || "arguments"}: ${i.message}`).join("; ")}`
+              : String((err as Error).message ?? err);
+          return ok({ content: [{ type: "text", text: text.slice(0, 1_000) }], isError: true });
+        }
+      }
+      default:
+        return this.error(id, -32601, `Method not found: ${m.method}`);
+    }
+  }
+
+  private error(id: JsonRpcId | null, code: number, message: string, data?: unknown): JsonRpcResponse {
+    return { jsonrpc: "2.0", id, error: data === undefined ? { code, message } : { code, message, data } };
+  }
+
+  async callTool(name: string, args: unknown): Promise<Record<string, unknown>> {
+    switch (name) {
+      case "aegis_check_recipient":
+        return this.checkRecipient(CheckArgs.parse(args));
+      case "aegis_preview_payment":
+        return this.previewPayment(PreviewArgs.parse(args));
+      case "aegis_get_policy":
+        z.strictObject({}).parse(args);
+        return this.getPolicy();
+      default:
+        throw new Error(`unknown tool ${name}`);
+    }
+  }
+
+  private async checkRecipient(a: z.infer<typeof CheckArgs>): Promise<Record<string, unknown>> {
+    const withHistory = (a.history ?? true) && this.opts.network !== "sim" && this.opts.history !== undefined;
+    const decision = withHistory
+      ? await preflightRecipient(this.opts.views, a.chain, a.recipient, { history: this.opts.history })
+      : decidePreflight(await this.opts.views.checkRecipient(a.chain, a.recipient));
+    return {
+      contract_id: this.opts.views.contractId,
+      chain: a.chain,
+      recipient: a.recipient,
+      action: decision.action,
+      verdict: decision.verdict,
+      contract_verdict: decision.check.verdict,
+      reasons: decision.check.reasons,
+      allow_listed: decision.check.allow_listed,
+      blocked: decision.check.blocked,
+      unknown_recipient_rule: decision.check.unknown_recipient,
+      history: decision.signals,
+      summary: decision.summary,
+    };
+  }
+
+  private async previewPayment(a: z.infer<typeof PreviewArgs>): Promise<Record<string, unknown>> {
+    const views = this.opts.views;
+    const [info, config, policy] = await Promise.all([
+      views.parse("contract_info", {}, ContractInfo),
+      views.parse("get_config", {}, ProtocolConfig),
+      views.policy(),
+    ]);
+    const agent = await views.agent(a.agent_id);
+    if (!agent) throw new Error(`${a.agent_id} is not an agent of ${views.contractId}`);
+    const isNear = a.chain === "near";
+    const amount = (BigInt(Math.round(a.amount_near * 1_000)) * ONE_NEAR) / 1_000n;
+    const nowNs = this.opts.nowNs?.() ?? BigInt(Date.now()) * 1_000_000n;
+    const request: CrossChainIntentRequestT = {
+      kind: "vendor_payment",
+      destination_chain: a.chain,
+      origin_asset: ASSETS.WNEAR,
+      destination_asset: isNear ? ASSETS.WNEAR : (PAYOUT_ASSET[a.chain] ?? ASSETS.WNEAR),
+      amount: amount.toString(),
+      min_amount_out: isNear ? amount.toString() : "1",
+      recipient: a.recipient,
+      execution_contract: config.intents_contract_id,
+      slippage_bps: isNear ? 0 : 50,
+      deadline_ns: (nowNs + 900n * 1_000_000_000n).toString(),
+      quote: null,
+      nonce: toBase64(crypto.getRandomValues(new Uint8Array(32))),
+      // Unsigned: the preview never holds the agent's key.
+      signature: `ed25519:${toBase58(new Uint8Array(64))}`,
+      attestation: null,
+      memo: a.memo ?? null,
+    };
+    const assessment = await views.evaluateIntent(a.agent_id, request);
+    let facts: { facts_hash: string; facts: unknown } | null = null;
+    if (assessment.audit_facts_hash) {
+      const f = await views.intentAuditFacts(a.agent_id, request);
+      facts = { facts_hash: f.facts_hash, facts: JSON.parse(f.facts) as unknown };
+    }
+    const violations = assessment.decision.violations;
+    const findings = violations.filter((v) => !isPending(v, !isNear));
+    // The contract's rule once the request is signed and audited: a new recipient under `hold` is the
+    // DAO's call when it is the only finding, and a large approved payment also waits for the DAO.
+    const held = findings.length > 0 && findings.every((v) => v.code === "recipient_needs_approval");
+    const wouldPass = findings.length === 0 || held;
+    const approvalReasons = wouldPass
+      ? [...(amount >= BigInt(policy.dao_approval_threshold) ? ["amount_at_or_above_dao_threshold"] : []), ...(held ? ["recipient_needs_approval"] : [])]
+      : [];
+    const describe = (v: PolicyViolationT) => ({ code: v.code, detail: describeViolation(v) });
+    const stillNeeded = [
+      `the agent's NEP-413 signature over intent_message (with the nonce below, recipient ${info.nep413_recipient})`,
+      ...(violations.some((v) => v.code === "missing_tee_attestation")
+        ? ["a Sentinel audit: a NEAR AI proof under the DAO-pinned prompt whose user message is the audit facts"]
+        : []),
+      ...(isNear ? [] : ["a 1Click dry quote bound to the request, whose minimum output meets the DAO's price floor"]),
+    ];
+    return {
+      contract_id: views.contractId,
+      contract_version: info.version,
+      agent_id: a.agent_id,
+      agent_status: agent.status.kind,
+      amount_near: formatNear(amount, 3),
+      would_pass_policy: wouldPass,
+      requires_dao_approval: approvalReasons.length > 0,
+      approval_reasons: approvalReasons,
+      findings: wouldPass ? [] : findings.map(describe),
+      still_needed: stillNeeded,
+      limits: assessment.decision.limits,
+      audit_facts: facts,
+      intent_message: assessment.intent_message,
+      nep413_hash_unsigned: assessment.nep413_hash,
+      nonce: request.nonce,
+      note: "Nothing was signed or sent. A submitted payment is checked again on-chain; findings that depend on time (epoch caps, velocity, deadlines) can change.",
+    };
+  }
+
+  private async getPolicy(): Promise<Record<string, unknown>> {
+    const views = this.opts.views;
+    const [info, policy, owner] = await Promise.all([views.parse("contract_info", {}, ContractInfo), views.policy(), views.transport.view("get_owner", {})]);
+    // Contracts before 2.3 have no policy version.
+    const version = await views.policyVersion().catch(() => null);
+    return {
+      contract_id: views.contractId,
+      contract_version: info.version,
+      owner,
+      policy_version: version,
+      max_payment_near: formatNear(BigInt(policy.max_tx_amount_yocto), 3),
+      epoch_spending_cap_near: formatNear(BigInt(policy.epoch_spending_cap_yocto), 3),
+      dao_approval_threshold_near: formatNear(BigInt(policy.dao_approval_threshold), 3),
+      allowed_chains: policy.allowed_target_chains,
+      allowed_recipients: policy.allowed_recipients.length,
+      unknown_recipient_rule: policy.unknown_recipient,
+      require_tee_attestation: policy.require_tee_attestation,
+      max_slippage_bps: policy.max_slippage_bps,
+      velocity: `${policy.velocity_limit} requests per ${policy.velocity_window_sec} s`,
+      quarantine_after_strikes: policy.quarantine_after_strikes,
+      audit_prompt_hash: policy.audit_prompt_hash,
+      task_prompt_hashes: policy.task_prompt_hashes,
+      min_task_confidence_bps: policy.min_task_confidence_bps,
+      min_task_reputation_bps: policy.min_task_reputation_bps,
+    };
+  }
+}
