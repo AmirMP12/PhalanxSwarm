@@ -212,7 +212,7 @@ function trackPointer(e: PointerEvent<HTMLElement>) {
 
 export function Card({ className, children, spotlight = true, ...rest }: HTMLAttributes<HTMLElement> & { spotlight?: boolean }) {
   return (
-    <section {...rest} onPointerMove={spotlight ? trackPointer : undefined} className={cx("surface min-w-0 rounded-2xl p-3 sm:p-4 md:p-5", spotlight && "spotlight", className)}>
+    <section {...rest} onPointerMove={spotlight ? trackPointer : undefined} className={cx("surface min-w-0 rounded-2xl", spotlight && "spotlight", className)}>
       {children}
     </section>
   );
@@ -237,23 +237,27 @@ export function CardHeader({
 }) {
   return (
     <header className={cx("space-y-1.5", className)}>
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           {Icon && (
-            <span className="mt-0.5 grid size-8 sm:size-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] text-emerald-300 shadow-inner shadow-white/5">
-              <Icon className="size-[16px] sm:size-[18px]" aria-hidden />
+            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] text-emerald-300 shadow-inner shadow-white/5">
+              <Icon className="size-[18px]" aria-hidden />
             </span>
           )}
           <div className="min-w-0 flex-1">
-            {eyebrow && <div className="text-[9px] sm:text-[10.5px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em] text-slate-500 break-words">{eyebrow}</div>}
-            <h3 id={titleId} className="text-[14px] sm:text-[15px] font-semibold tracking-tight text-slate-50 break-words">
+            {eyebrow && (
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-slate-500 leading-tight max-sm:text-[9.5px] max-sm:tracking-[0.08em] max-sm:normal-case max-sm:leading-snug">
+                {eyebrow}
+              </div>
+            )}
+            <h3 id={titleId} className="text-[15px] font-semibold tracking-tight text-slate-50 leading-tight">
               {title}
             </h3>
           </div>
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">{actions}</div>}
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      {description && <p className="text-[11.5px] sm:text-[12.5px] leading-relaxed text-slate-400 break-words">{description}</p>}
+      {description && <p className="text-[12.5px] leading-relaxed text-slate-400">{description}</p>}
     </header>
   );
 }
