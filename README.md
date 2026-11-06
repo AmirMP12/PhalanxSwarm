@@ -8,7 +8,9 @@
 [![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet-00C08B)](https://testnet.near.org/)
 [![Contract Version](https://img.shields.io/badge/version-2.3.0-blue)](https://github.com/phalanxswarm/swarm)
 
-[Live Demo](https://phalanx-swarm.vercel.app) • [Documentation](./DEPLOYMENT.md) • [Testnet Contract](https://testnet.nearblocks.io/address/aegis-69b4.phalanxswarm.testnet)
+[Live Demo](https://phalanx-swarm.vercel.app) • [Deploy to Vercel](./VERCEL_DEPLOYMENT.md) • [Documentation](./DEPLOYMENT.md) • [Testnet Contract](https://testnet.nearblocks.io/address/aegis-69b4.phalanxswarm.testnet)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/AmirMP12/PhalanxSwarm)
 
 </div>
 
