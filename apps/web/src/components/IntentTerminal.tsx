@@ -654,7 +654,13 @@ export function IntentLedger() {
         eyebrow="On-chain settlement records"
         title="Settlement ledger"
         description="Real NEAR payments, dry-run rehearsals and MPC-signed EVM transactions, as the contract stores them."
-        actions={dashboard && <Badge tone="slate">{count} {count === 1 ? "record" : "records"}</Badge>}
+        actions={
+          dashboard && (
+            <Badge tone="slate">
+              {count} {count === 1 ? "record" : "records"}
+            </Badge>
+          )
+        }
       />
       <div className="mt-4 flex flex-1 flex-col justify-center">
         {!dashboard ? (

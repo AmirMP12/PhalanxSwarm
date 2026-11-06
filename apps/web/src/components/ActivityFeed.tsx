@@ -78,7 +78,9 @@ export function ActivityFeed() {
                     </span>
                   </div>
                   <div className="num mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
-                    <span title={a.signer} className="break-all">{short(a.signer, 28, 4)}</span>
+                    <span title={a.signer} className="break-all">
+                      {short(a.signer, 28, 4)}
+                    </span>
                     <span className="text-slate-600">→</span>
                     <span className="break-all text-slate-300">{a.method}</span>
                     {a.txHash && (

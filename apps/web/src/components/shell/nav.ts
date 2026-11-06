@@ -114,9 +114,7 @@ export const SECTIONS: NavSection[] = [
     label: "Activity",
     icon: ScrollText,
     group: "explore",
-    subItems: [
-      { id: "activity-feed", label: "Transaction Feed & Receipts", href: "#activity-feed", icon: CheckCircle2 },
-    ],
+    subItems: [{ id: "activity-feed", label: "Transaction Feed & Receipts", href: "#activity-feed", icon: CheckCircle2 }],
   },
 ];
 

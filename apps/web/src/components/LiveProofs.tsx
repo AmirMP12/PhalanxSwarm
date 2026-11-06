@@ -205,12 +205,19 @@ export function LiveProofs() {
                   <p>
                     Contract <span className="num font-medium text-emerald-300">{swarm.contract_id}</span> (v{swarm.contract_version}) is owned by SputnikDAO{" "}
                     <span className="num text-sky-300">{swarm.dao_id}</span>. Agents operate under scoped FunctionCall keys with models on{" "}
-                    {swarm.inference === "nearai" ? `NEAR AI Cloud (${swarm.model})` : swarm.inference === "generic_llm" ? `Live LLM (${swarm.model})` : "the stand-in model"}.
+                    {swarm.inference === "nearai"
+                      ? `NEAR AI Cloud (${swarm.model})`
+                      : swarm.inference === "generic_llm"
+                        ? `Live LLM (${swarm.model})`
+                        : "the stand-in model"}
+                    .
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
                     <div className="rounded-lg border border-white/[0.06] bg-black/20 p-2">
                       <span className="text-slate-500">Vendor Payment</span>
-                      <div className="num font-medium text-slate-200">{swarm.vendor_payment ? `${swarm.vendor_payment.amount_near} NEAR · ${swarm.vendor_payment.status}` : "—"}</div>
+                      <div className="num font-medium text-slate-200">
+                        {swarm.vendor_payment ? `${swarm.vendor_payment.amount_near} NEAR · ${swarm.vendor_payment.status}` : "—"}
+                      </div>
                     </div>
                     <div className="rounded-lg border border-white/[0.06] bg-black/20 p-2">
                       <span className="text-slate-500">MPC Cross-Chain</span>
@@ -398,7 +405,8 @@ export function LiveProofs() {
             >
               {data.live ? (
                 <>
-                  Automated public verification script verified all {data.live.checks.length} testnet properties: reproducible bytecode, TDX quotes, SputnikDAO governance, and fraud prevention.
+                  Automated public verification script verified all {data.live.checks.length} testnet properties: reproducible bytecode, TDX quotes, SputnikDAO
+                  governance, and fraud prevention.
                   <div className="num mt-2 text-[10.5px] text-slate-500">
                     Re-check locally: <code className="rounded bg-white/[0.05] px-1 text-slate-300">pnpm verify:live</code>
                   </div>
