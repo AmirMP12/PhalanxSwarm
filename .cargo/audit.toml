@@ -8,11 +8,29 @@ ignore = [
   # It is compiled only for host-side tests; contract crypto uses NEAR host functions in WASM.
   "RUSTSEC-2026-0387",
 
-  # near-sdk `unit-testing` and near-workspaces -> near-primitives 0.38 -> zstd 0.13.3. These
+  # near-sdk `unit-testing` and near-workspaces -> near-primitives 0.38 -> zstd 0.13.3/7.4.0. These
   # host-side test dependencies do not occur in the deployed WASM, and the tests never decode
   # attacker-controlled zstd streams or use the affected context/seekable APIs.
   "RUSTSEC-2026-0391",
+  "RUSTSEC-2026-0395",
+  "RUSTSEC-2026-0396",
+  "RUSTSEC-2026-0397",
   "RUSTSEC-2026-0398",
+  "RUSTSEC-2026-0399",
+  "RUSTSEC-2026-0400",
+  "RUSTSEC-2026-0401",
+  "RUSTSEC-2026-0402",
   "RUSTSEC-2026-0403",
+  "RUSTSEC-2026-0404",
+  "RUSTSEC-2026-0405",
+  "RUSTSEC-2026-0406",
+
+  # unsafe-libyaml is unmaintained but used indirectly by near-workspaces. Does not appear in
+  # production WASM. Monitoring for upstream fix.
+  "RUSTSEC-2024-0449",
+
+  # wee_alloc is unmaintained. Previously used by NEAR contracts but phased out. Ignored
+  # as it doesn't appear in current production builds.
+  "RUSTSEC-2022-0054",
 ]
 informational_warnings = ["unmaintained", "unsound"]
