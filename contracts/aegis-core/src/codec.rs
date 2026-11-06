@@ -50,6 +50,11 @@ pub fn is_hash32_hex(s: &str) -> bool {
     s.len() == 64 && parse_hash32(s).is_some()
 }
 
+/// Like `is_hash32_hex`, but lower-case only: values compared byte-for-byte with `to_hex` output.
+pub fn is_lower_hash32_hex(s: &str) -> bool {
+    is_hash32_hex(s) && !s.bytes().any(|c| c.is_ascii_uppercase())
+}
+
 /// A TEE code measurement in hex: 32 bytes (a synthetic sha256) or 48 bytes (a real Intel TDX
 /// MRTD / RTMR, which is SHA-384). Both are accepted so real NEAR AI Cloud `mr_td` values and
 /// deterministic offline measurements validate the same way.
@@ -221,7 +226,10 @@ mod codec_tests {
 
     #[test]
     fn recipient_entries_are_canonical() {
-        assert_eq!(recipient_key("arb", "0xAbC0000000000000000000000000000000000001"), "arb:0xabc0000000000000000000000000000000000001");
+        assert_eq!(
+            recipient_key("arb", "0xAbC0000000000000000000000000000000000001"),
+            "arb:0xabc0000000000000000000000000000000000001"
+        );
         assert_eq!(recipient_key("near", "vendor-a.testnet"), "near:vendor-a.testnet");
         assert!(is_valid_recipient_entry("arb:0xabc0000000000000000000000000000000000001"));
         assert!(!is_valid_recipient_entry("arb:0xABC0000000000000000000000000000000000001"), "EVM entries must be lower-case");

@@ -1,0 +1,229 @@
+{
+  "network": "testnet",
+  "contract_id": "aegis-v21.aegis-deploy-6dc23c.testnet",
+  "contract_version": "2.1.0",
+  "wasm_sha256": "d726539cf2ccb736d657ac04d8d1f95db9460ed8343ffc3406e40654e7ee0057",
+  "dao_id": "aegis-v21.sputnikv2.testnet",
+  "owner_id": "aegis-v21.sputnikv2.testnet",
+  "funder_id": "aegis-deploy-6dc23c.testnet",
+  "inference": "standin",
+  "model": "aegis-standin/deterministic-v1",
+  "timestamp": "2026-11-04T12:51:21.820Z",
+  "deployer_full_access_keys": 0,
+  "agents": [
+    {
+      "agent_id": "nexus-orchestrator.aegis-v21.aegis-deploy-6dc23c.testnet",
+      "role": "orchestrator",
+      "spawn_mode": "sub_account",
+      "keys": [
+        "function_call"
+      ],
+      "status": "active"
+    },
+    {
+      "agent_id": "rhea-yield-strategist.aegis-v21.aegis-deploy-6dc23c.testnet",
+      "role": "yield_strategist",
+      "spawn_mode": "sub_account",
+      "keys": [
+        "function_call"
+      ],
+      "status": "active"
+    },
+    {
+      "agent_id": "aegis-sentinel.aegis-v21.aegis-deploy-6dc23c.testnet",
+      "role": "sentinel",
+      "spawn_mode": "sub_account",
+      "keys": [
+        "function_call"
+      ],
+      "status": "active"
+    },
+    {
+      "agent_id": "cipher-compute-worker.aegis-v21.aegis-deploy-6dc23c.testnet",
+      "role": "compute_worker",
+      "spawn_mode": "sub_account",
+      "keys": [
+        "function_call"
+      ],
+      "status": "active"
+    },
+    {
+      "agent_id": "mallory-ap-agent.aegis-v21.aegis-deploy-6dc23c.testnet",
+      "role": "compute_worker",
+      "spawn_mode": "contract_key",
+      "keys": [],
+      "status": "revoked"
+    }
+  ],
+  "model_keys": [
+    {
+      "enclave_id": "standin-offline-model",
+      "vendor": "Offline stand-in (no TEE)",
+      "tee_type": "none",
+      "attestation_ref": "none: deterministic local stand-in with a random key"
+    }
+  ],
+  "transactions": {
+    "dao_create": {
+      "hash": "9UTjjeFxGkeUa7966nzQTr6hxtDLKW2f1uZ2V3eiZFkA",
+      "explorer": "https://testnet.nearblocks.io/txns/9UTjjeFxGkeUa7966nzQTr6hxtDLKW2f1uZ2V3eiZFkA"
+    },
+    "vendor_account": {
+      "hash": "yfbHZr4zRYQYaDgWRBjFUSuYgpqzvzKB5y64SMpZ1nn",
+      "explorer": "https://testnet.nearblocks.io/txns/yfbHZr4zRYQYaDgWRBjFUSuYgpqzvzKB5y64SMpZ1nn"
+    },
+    "contract_account": {
+      "hash": "5zHfB2y9tiaF5fvVGKwHjxNgiCfiA7aEzioBZY176UxC",
+      "explorer": "https://testnet.nearblocks.io/txns/5zHfB2y9tiaF5fvVGKwHjxNgiCfiA7aEzioBZY176UxC"
+    },
+    "deploy_and_init": {
+      "hash": "98AuUNQWrxXPn89Ln3d8DrEjbrHQtcWmdr8hGjdiMCr3",
+      "explorer": "https://testnet.nearblocks.io/txns/98AuUNQWrxXPn89Ln3d8DrEjbrHQtcWmdr8hGjdiMCr3"
+    },
+    "delete_deploy_key": {
+      "hash": "886dF8Qa3eZiPTVTXHFyhv8SLK3oYJ7CUoBWFPqRTZUo",
+      "explorer": "https://testnet.nearblocks.io/txns/886dF8Qa3eZiPTVTXHFyhv8SLK3oYJ7CUoBWFPqRTZUo"
+    },
+    "fund_treasury": {
+      "hash": "HxfvAMiMwtUDW7C7PxL4p7c6Q2WExnqeJtV6hdT8PRJF",
+      "explorer": "https://testnet.nearblocks.io/txns/HxfvAMiMwtUDW7C7PxL4p7c6Q2WExnqeJtV6hdT8PRJF"
+    },
+    "deposit_revenue": {
+      "hash": "1x833GtxturhymqhntPbaEv3V2imbS4HgNiZHssN9ko",
+      "explorer": "https://testnet.nearblocks.io/txns/1x833GtxturhymqhntPbaEv3V2imbS4HgNiZHssN9ko"
+    },
+    "spawn_nexus": {
+      "hash": "FJrWC551uEDcsxszaKPx128HAkxcFB3Z1w22ADKP9R38",
+      "explorer": "https://testnet.nearblocks.io/txns/FJrWC551uEDcsxszaKPx128HAkxcFB3Z1w22ADKP9R38"
+    },
+    "spawn_rhea": {
+      "hash": "7LWRFp4ZQnaBGUspgEVsZ3W3jetjXBh9U2Jt5Bb1zTi3",
+      "explorer": "https://testnet.nearblocks.io/txns/7LWRFp4ZQnaBGUspgEVsZ3W3jetjXBh9U2Jt5Bb1zTi3"
+    },
+    "spawn_sentinel": {
+      "hash": "D6SJKK7HionLtC2ZnDfFn5vFRdvGGdVEUZbVsJusXi99",
+      "explorer": "https://testnet.nearblocks.io/txns/D6SJKK7HionLtC2ZnDfFn5vFRdvGGdVEUZbVsJusXi99"
+    },
+    "spawn_cipher": {
+      "hash": "32Gsr6eLMo1tNQvBZyFDMCgBGjPxuSJdsF8Qv7LzkF3s",
+      "explorer": "https://testnet.nearblocks.io/txns/32Gsr6eLMo1tNQvBZyFDMCgBGjPxuSJdsF8Qv7LzkF3s"
+    },
+    "spawn_mallory": {
+      "hash": "83m1ar4qbdXoPmtVzTTNsYNXUBvUXH4Bdw4XLNKF51zU",
+      "explorer": "https://testnet.nearblocks.io/txns/83m1ar4qbdXoPmtVzTTNsYNXUBvUXH4Bdw4XLNKF51zU"
+    },
+    "register_standin-offline-model": {
+      "hash": "629rczx1vFSanmM54SEnoAukiaSNbqCZcfReknZgwYpz",
+      "explorer": "https://testnet.nearblocks.io/txns/629rczx1vFSanmM54SEnoAukiaSNbqCZcfReknZgwYpz"
+    },
+    "transfer_ownership": {
+      "hash": "FTG31Kv6xqmzWBXZn4e6oiLDxbvX39tiCvgnEgi45QME",
+      "explorer": "https://testnet.nearblocks.io/txns/FTG31Kv6xqmzWBXZn4e6oiLDxbvX39tiCvgnEgi45QME"
+    },
+    "post_task_rfp": {
+      "hash": "7uCFET2MWSTHpPyEMUmQcsja5twVMQEWe2o2TF9U2QGF",
+      "explorer": "https://testnet.nearblocks.io/txns/7uCFET2MWSTHpPyEMUmQcsja5twVMQEWe2o2TF9U2QGF"
+    },
+    "mallory_bid_rejected": {
+      "hash": "DgfZ9GQ5pccP2MAr7RbxYgABGGrQjmsrqXi4cfFSW3F2",
+      "explorer": "https://testnet.nearblocks.io/txns/DgfZ9GQ5pccP2MAr7RbxYgABGGrQjmsrqXi4cfFSW3F2"
+    },
+    "cipher_commit": {
+      "hash": "72FEt2H2fKK2KkQ9cLKoCSaBy3WBHXJtZ1bfpRVa9LVz",
+      "explorer": "https://testnet.nearblocks.io/txns/72FEt2H2fKK2KkQ9cLKoCSaBy3WBHXJtZ1bfpRVa9LVz"
+    },
+    "cipher_reveal": {
+      "hash": "C8ftT1PE2VCV9AjWd99bygH5i8rmmo5pDb1ogvXpFJd2",
+      "explorer": "https://testnet.nearblocks.io/txns/C8ftT1PE2VCV9AjWd99bygH5i8rmmo5pDb1ogvXpFJd2"
+    },
+    "close_auction": {
+      "hash": "JAk9i7aEerokzdEdAax6aRHTh69TCkHwmy6zCG4ScHqH",
+      "explorer": "https://testnet.nearblocks.io/txns/JAk9i7aEerokzdEdAax6aRHTh69TCkHwmy6zCG4ScHqH"
+    },
+    "execute_verified_task": {
+      "hash": "ArTizhvwWJ2a3mDztQnjE6uwEt5PhEZq232EJyeeyMaB",
+      "explorer": "https://testnet.nearblocks.io/txns/ArTizhvwWJ2a3mDztQnjE6uwEt5PhEZq232EJyeeyMaB"
+    },
+    "cipher_withdraw": {
+      "hash": "8F95iczGsTLT4xFb2T7VFbTAG3cotDsAjuXQS7h7QdzE",
+      "explorer": "https://testnet.nearblocks.io/txns/8F95iczGsTLT4xFb2T7VFbTAG3cotDsAjuXQS7h7QdzE"
+    },
+    "vendor_payment": {
+      "hash": "8raJKWa1ugSeTxaX5ZAKdki7RTFR8acYAGjjVJvJtX9o",
+      "explorer": "https://testnet.nearblocks.io/txns/8raJKWa1ugSeTxaX5ZAKdki7RTFR8acYAGjjVJvJtX9o"
+    },
+    "evm_transfer_request": {
+      "hash": "8aPXMAMs1qhbsCDf1sedRqr4Bq18LgDRyJpvzbHunMQo",
+      "explorer": "https://testnet.nearblocks.io/txns/8aPXMAMs1qhbsCDf1sedRqr4Bq18LgDRyJpvzbHunMQo"
+    },
+    "invoice_fraud_attempt": {
+      "hash": "5mKtMDKbqeZ6KZB5R1RXsTL66Zic1gjs3AAJg4M9qPHa",
+      "explorer": "https://testnet.nearblocks.io/txns/5mKtMDKbqeZ6KZB5R1RXsTL66Zic1gjs3AAJg4M9qPHa"
+    },
+    "distribute_revenue": {
+      "hash": "2i1wbxNtdfF2scGfrwBRm92oGWVp5KveAbH5SWKk5LCw",
+      "explorer": "https://testnet.nearblocks.io/txns/2i1wbxNtdfF2scGfrwBRm92oGWVp5KveAbH5SWKk5LCw"
+    },
+    "dao_add_proposal": {
+      "hash": "41oYpUn4yABqL4nQXsgZMVdtzrVTv6WuKaFSYPsyjRgs",
+      "explorer": "https://testnet.nearblocks.io/txns/41oYpUn4yABqL4nQXsgZMVdtzrVTv6WuKaFSYPsyjRgs"
+    },
+    "dao_approve": {
+      "hash": "57bJMcNWr2rGJizWAFdnZKW2T322csz6zHwknsZpdFMG",
+      "explorer": "https://testnet.nearblocks.io/txns/57bJMcNWr2rGJizWAFdnZKW2T322csz6zHwknsZpdFMG"
+    }
+  },
+  "rejected_bid": {
+    "error": "AEGIS_E_REPUTATION_BELOW_SCHEMA"
+  },
+  "prompt_pins": {
+    "procurement_task": "895fff157931542e00f3f38f3850a6637baec59b0b373fda6972baa4dac4380c",
+    "input_pinned": true,
+    "audit": "7076349d96564f6251fc070369ead8bbd155fb30577a77a6b4d8540460c8a377"
+  },
+  "bid": {
+    "price_near": "0.514",
+    "latency_sec": 360,
+    "cost_near": 0.411,
+    "rationale": "cost 0.411 NEAR (0.45% of $432 planned GPU spend at 4.73 USD/NEAR) + 25% margin"
+  },
+  "task": {
+    "task_id": "0",
+    "winner": "cipher-compute-worker.aegis-v21.aegis-deploy-6dc23c.testnet",
+    "price_near": "0.514",
+    "proof_kind": "near_ai",
+    "settled": true
+  },
+  "vendor_payment": {
+    "recipient": "vendor-v21.aegis-deploy-6dc23c.testnet",
+    "amount_near": "0.200",
+    "status": "settled",
+    "received_near": "0.200"
+  },
+  "evm": {
+    "chain": "basesepolia",
+    "chain_id": 84532,
+    "tx_id": "0",
+    "from": "0x01197df9C7F6CB2c85142Bf7bCeB3c3Df04944E3",
+    "to": "0x2527d02599ba641c19fea793cd0f167589a0f10d",
+    "value_wei": "100000000000000",
+    "tx_hash": "0x5d615f4c5569d8d5e3747a02aa6c6d181c9e62be80be67537d261e395f5401b6",
+    "explorer": "https://sepolia.basescan.org/tx/0x5d615f4c5569d8d5e3747a02aa6c6d181c9e62be80be67537d261e395f5401b6",
+    "status": "signed"
+  },
+  "attack": {
+    "status": "rejected",
+    "violations": [
+      "recipient_not_allowed",
+      "missing_tee_attestation"
+    ],
+    "quarantined": true,
+    "key_deleted": true,
+    "model_fooled": true
+  },
+  "governance": {
+    "proposal_id": 0,
+    "action": "revoke_agent(mallory-ap-agent)",
+    "agent_status": "revoked"
+  }
+}

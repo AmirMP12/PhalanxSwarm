@@ -1,0 +1,30 @@
+{
+  "provider": "NEAR AI Cloud",
+  "tee": "Intel TDX",
+  "verifier": "@phala/dcap-qvl",
+  "source": "live",
+  "status": "UpToDate",
+  "verified": true,
+  "nonce_bound": true,
+  "measurement_match": true,
+  "measurement_mr_td": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
+  "gateway_signing_address": "40599fb284f43953bb356b09080fd803c960fc10285ad90eca462ca711ad4acb",
+  "nonce": "fa7efcdb7b63fb4021a73bdf7d1e37ac03261cb0d38c7bbf1787f9418b7bd57c",
+  "advisory_ids": [],
+  "endpoint": "https://cloud-api.near.ai/v1/attestation/report",
+  "model_attestation": {
+    "model": "Qwen/Qwen3.6-35B-A3B-FP8",
+    "nonce": "bad98c12393eb82e36d2ba5f371e7d1d678e0ab788d61bc301ea4cae6c569e5b",
+    "keys": [
+      {
+        "signing_address": "89fb781a9530473a6d3bddd6bb0a0536c8d155058798edae88b19153bd8f4350",
+        "near_public_key": "ed25519:AHdFoTVrsEat3Le7aAGFtcBbuKxNxsuzve6fW6pujcij",
+        "status": "UpToDate",
+        "nonce_bound": true,
+        "measurement_mr_td": "df4d77c857de652bd0fafa343a2026b51071ee03773d076d283abf1a7d36ff91ffa279ee4a617ac664f7e2a2c8d5891b",
+        "report_sha256": "425ab82083b52a4396d11f39b59643e713d115b6dd1c7272f60bd55154875fba"
+      }
+    ]
+  },
+  "timestamp": "2026-11-04T12:45:06.793Z"
+}

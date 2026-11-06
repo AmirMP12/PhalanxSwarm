@@ -15,7 +15,8 @@
  * Roles:
  * - `orchestrator` (Nexus): turns a business goal and live treasury limits into task RFPs.
  * - `bidder` (Cipher, Rhea): prices a bid from the worker's own cost estimate.
- * - `procurement` (Cipher): plans GPU procurement from a private vendor list (task proof).
+ * - `procurement` (Cipher): plans GPU procurement from the task spec's vendor list (task proof; the
+ *   proof transaction publishes the spec).
  * - `strategy` (Rhea): ranks quoted cross-chain routes (task proof).
  * - `auditor` (Sentinel): approves or rejects a settlement or EVM transfer (settlement proof). Its
  *   user message is the facts document the contract builds (`get_intent_audit_facts`), so the

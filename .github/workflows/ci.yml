@@ -1,0 +1,235 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prettier format check
+        run: npx prettier --check .
+
+      - name: ESLint check
+        run: pnpm lint:code
+
+      - name: ShellCheck lint
+        run: pnpm lint:shell
+
+      - name: Runtime source integrity check
+        run: pnpm check:source
+
+  typecheck:
+    name: TypeScript Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript typecheck (SDK, web, and scripts)
+        run: pnpm typecheck
+
+  rust-checks:
+    name: Rust (Clippy, Format & Unit Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Cargo fmt check
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Contract unit tests (aegis-core)
+        run: cargo test -p aegis-core --locked
+
+  build-and-test:
+    name: Compile, Copy, Builds & Scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install binaryen (wasm-opt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore Next.js cache
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**/*.{ts,tsx}') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile smart contract (build:contract)
+        run: pnpm build:contract
+
+      - name: Run copy script (copy-wasm)
+        run: node apps/web/scripts/copy-wasm.mjs
+
+      - name: Build SDK
+        run: pnpm --filter @aegis/agent-swarm-sdk build
+
+      - name: Run SDK unit tests
+        run: pnpm test
+
+      - name: Run offline judge scenario (11 steps)
+        run: pnpm judge:offline
+
+      - name: Run prompt injection evaluation simulation
+        run: pnpm eval:injection
+
+      - name: Run swarm bidding market simulation
+        run: pnpm market
+
+      - name: Re-run copy script to sync generated evidence
+        run: node apps/web/scripts/copy-wasm.mjs
+
+      - name: Build Next.js web application
+        run: pnpm --filter @aegis/web build
+
+      - name: Verify full workspace build (pnpm build)
+        run: pnpm build
+
+      - name: Upload verification artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-artifacts
+          path: |
+            artifacts/aegis_core.wasm
+            artifacts/aegis_core.wasm.sha256
+            artifacts/injection-eval.json
+            artifacts/market-sim.json
+          if-no-files-found: ignore
+
+  sandbox-tests:
+    name: NEAR Sandbox Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Compile smart contract WASM
+        run: bash scripts/build-contract.sh
+
+      - name: Run near-workspaces sandbox suite
+        run: cargo test -p aegis-sandbox-tests --locked -- --test-threads=2
+
+  ci-status:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, typecheck, rust-checks, build-and-test, sandbox-tests]
+    if: always()
+    steps:
+      - name: Verify all required jobs succeeded
+        run: |
+          echo "Lint & Format:   ${{ needs.lint-and-format.result }}"
+          echo "Typecheck:       ${{ needs.typecheck.result }}"
+          echo "Rust Checks:     ${{ needs.rust-checks.result }}"
+          echo "Build & Test:    ${{ needs.build-and-test.result }}"
+          echo "Sandbox Tests:   ${{ needs.sandbox-tests.result }}"
+
+          if [ "${{ needs.lint-and-format.result }}" != "success" ] || \
+             [ "${{ needs.typecheck.result }}" != "success" ] || \
+             [ "${{ needs.rust-checks.result }}" != "success" ] || \
+             [ "${{ needs.build-and-test.result }}" != "success" ] || \
+             [ "${{ needs.sandbox-tests.result }}" != "success" ]; then
+            echo "❌ CI failed: one or more jobs did not succeed."
+            exit 1
+          fi
+
+          echo "✅ All CI checks passed successfully!"
+

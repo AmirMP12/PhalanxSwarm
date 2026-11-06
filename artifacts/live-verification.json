@@ -1,0 +1,218 @@
+{
+  "passed": true,
+  "checked_at": "2026-11-04T21:32:31.838Z",
+  "checks": [
+    {
+      "section": "build",
+      "name": "canonical WASM was built twice byte-identically",
+      "passed": true,
+      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+    },
+    {
+      "section": "build",
+      "name": "artifacts/aegis_core.wasm is the canonical build",
+      "passed": true,
+      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+    },
+    {
+      "section": "nearai",
+      "name": "fresh gateway TDX quote is DCAP-verified and bound to our nonce",
+      "passed": true,
+      "detail": "UpToDate / mr_td 7fe60787222bd394…"
+    },
+    {
+      "section": "nearai",
+      "name": "every Qwen/Qwen3.6-35B-A3B-FP8 signing key is DCAP-verified and bound to our nonce",
+      "passed": true,
+      "detail": "89fb781a9530… UpToDate"
+    },
+    {
+      "section": "1click",
+      "name": "live quote answers with dry: true",
+      "passed": true,
+      "detail": "e417aefa-b827-4930-9219-e3d3f1706249"
+    },
+    {
+      "section": "v2",
+      "name": "deployed bytecode equals the canonical WASM",
+      "passed": true,
+      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+    },
+    {
+      "section": "v2",
+      "name": "contract version is 2.x",
+      "passed": true,
+      "detail": "2.2.0"
+    },
+    {
+      "section": "v2",
+      "name": "owner is the SputnikDAO",
+      "passed": true,
+      "detail": "aegis-v22.sputnikv2.testnet"
+    },
+    {
+      "section": "v2",
+      "name": "contract account has no FullAccess key (only the DAO can change the code, via upgrade_contract)",
+      "passed": true,
+      "detail": "0 FunctionCall keys"
+    },
+    {
+      "section": "v2",
+      "name": "agent sub-accounts hold only FunctionCall keys scoped to the contract",
+      "passed": true,
+      "detail": "4 scoped keys"
+    },
+    {
+      "section": "v2",
+      "name": "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",
+      "passed": true,
+      "detail": "0d575b6946240cfdc3348edfda4905414751f3897adacfd5d02a65be1eccad3a"
+    },
+    {
+      "section": "v2",
+      "name": "the procurement task pins Cipher's prompt and its exact spec",
+      "passed": true,
+      "detail": "895fff157931542e00f3f38f3850a6637baec59b0b373fda6972baa4dac4380c"
+    },
+    {
+      "section": "v2",
+      "name": "the fraudulent agent's access key no longer exists on the contract account",
+      "passed": true,
+      "detail": "ed25519:BuZ4Th6SNeNwpHnu3Xmn4K7t5ayWsNRQ1542ocsmsgdZ"
+    },
+    {
+      "section": "v2",
+      "name": "real NEAR vendor payment emitted vendor_paid",
+      "passed": true,
+      "detail": "D2xCGfcJkiiv7CRhVYq8M8XbqsNzdzhHhvzmqCRf8Qio"
+    },
+    {
+      "section": "v2",
+      "name": "signed model output released escrow (task_settled)",
+      "passed": true,
+      "detail": "mTNkoaLsm4UsWdBq6bQXz29ec5WHhe9LEnirY52hiN4"
+    },
+    {
+      "section": "v2",
+      "name": "the escrow-releasing proof is a NEAR AI TEE signature by a model key DCAP-verified in this run",
+      "passed": true,
+      "detail": "89fb781a9530473a… (NEAR AI Cloud (Intel TDX + NVIDIA CC))"
+    },
+    {
+      "section": "v2",
+      "name": "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
+      "passed": true,
+      "detail": "5ScLLLZgrVv9h4TWKzzXL5FuNPFvvnVtPCFBuTKoVHYz"
+    },
+    {
+      "section": "v2",
+      "name": "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
+      "passed": true,
+      "detail": "FUk91NDAAGjG5oEViajGEcND4k3vruHrJJWvJorxrYH9"
+    },
+    {
+      "section": "v2",
+      "name": "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
+      "passed": true,
+      "detail": "AX85syDrRh7oaFauP4KjU9CAcsy3aXikseaVpN59vHhc"
+    },
+    {
+      "section": "v2",
+      "name": "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
+      "passed": true,
+      "detail": "81wovR9xJ6NpDTMkxbcuU8MRR1fjwcuxSrPmEjNhLbah"
+    },
+    {
+      "section": "v2",
+      "name": "MPC-signed basesepolia transaction is sent from the treasury's derived address",
+      "passed": true,
+      "detail": "0xA82fB5fFE4E3f1E77CfC9Be5275726FeaDa909fa"
+    },
+    {
+      "section": "v2",
+      "name": "DAO proposal revoked the fraudulent agent",
+      "passed": true,
+      "detail": "proposal 2: revoked"
+    },
+    {
+      "section": "v1",
+      "name": "v1 deployment runs the bytecode recorded in its evidence",
+      "passed": true,
+      "detail": "8e160aacc1a83f46f1052e0b3be8b0b89a2ba85aa6d5461f8601b37668452bb0"
+    },
+    {
+      "section": "v1",
+      "name": "SDK key derivation equals the real MPC contract",
+      "passed": true,
+      "detail": "secp256k1:4iQ94D8xQcFSbsM3UjLRHonU5KkkHgMTNbvg6i2RHuLk4BTAh33yUHBKSt5cqF5wu19K5UMJHCWZa59nb8JxRCPw"
+    },
+    {
+      "section": "v1",
+      "name": "real MPC signature ecrecovers to the derived treasury address",
+      "passed": true,
+      "detail": "0x8de75fFE4e73cb5A4afa2FEA390fE08f61fbA9F6"
+    },
+    {
+      "section": "v1",
+      "name": "intent transaction contains the successful MPC callback (archival RPC)",
+      "passed": true,
+      "detail": "3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS"
+    },
+    {
+      "section": "v1",
+      "name": "NEAR Connect wallet signed pause and resume (archival RPC)",
+      "passed": true,
+      "detail": "ErTziU95… / C75PG5YA…"
+    },
+    {
+      "section": "economic",
+      "name": "treasury funding succeeded on testnet (money entered the contract)",
+      "passed": true,
+      "detail": "DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz · events=treasury_funded"
+    },
+    {
+      "section": "economic",
+      "name": "intent reached settled on-chain (MPC-signed rehearsal closed)",
+      "passed": true,
+      "detail": "status=settled · tx 3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS"
+    }
+  ],
+  "skipped": [
+    {
+      "section": "v2",
+      "reason": "EVM transfer #0 is signed: not broadcast yet (pnpm evm:relay)"
+    }
+  ],
+  "canonical_wasm_sha256": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8",
+  "nearai": {
+    "gateway_status": "UpToDate",
+    "gateway_source": "live",
+    "measurement": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
+    "model": "Qwen/Qwen3.6-35B-A3B-FP8",
+    "model_keys": [
+      {
+        "signing_address": "89fb781a9530473a6d3bddd6bb0a0536c8d155058798edae88b19153bd8f4350",
+        "status": "UpToDate"
+      }
+    ]
+  },
+  "oneclick": {
+    "correlation_id": "e417aefa-b827-4930-9219-e3d3f1706249",
+    "dry": true
+  },
+  "v2": {
+    "contract_id": "aegis-v22.aegis-deploy-6dc23c.testnet",
+    "dao_id": "aegis-v22.sputnikv2.testnet"
+  },
+  "v1": {
+    "contract_id": "aegisswarm-d49c65bf.testnet"
+  },
+  "economic": {
+    "contract_id": "aegisswarm-d49c65bf.testnet",
+    "fund_tx": "DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz",
+    "intent_tx": "3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS",
+    "confirm_tx": "FGtNNeWTGVuvpDehT3PfnYx2kQ2aVjGCrGs9YmktvuFT",
+    "intent_status": "settled",
+    "note": "1Click quotes remain dry:true (Q-007). NEAR-side funding + MPC settlement prove a real economic loop without a 1Click deposit."
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "network": "testnet",
+  "wallet_connector": "@hot-labs/near-connect",
+  "wallet_type": "injected disposable self-custodial test wallet",
+  "account_id": "aegisswarm-d49c65bf.testnet",
+  "contract_id": "aegisswarm-d49c65bf.testnet",
+  "login_observed": true,
+  "rpc_dashboard_loaded": true,
+  "pause_observed": true,
+  "resume_observed": true,
+  "transactions": [
+    {
+      "method": "set_protocol_paused",
+      "receiver_id": "aegisswarm-d49c65bf.testnet",
+      "hash": "ErTziU95j9UQ7RuxTGgDZE2gStjroyvUYW3ac6tDPt4x",
+      "explorer": "https://testnet.nearblocks.io/txns/ErTziU95j9UQ7RuxTGgDZE2gStjroyvUYW3ac6tDPt4x"
+    },
+    {
+      "method": "set_protocol_paused",
+      "receiver_id": "aegisswarm-d49c65bf.testnet",
+      "hash": "C75PG5YAUENhD5U2u4Y49CpUEweXKyTUVZQ2HSxeEg5r",
+      "explorer": "https://testnet.nearblocks.io/txns/C75PG5YAUENhD5U2u4Y49CpUEweXKyTUVZQ2HSxeEg5r"
+    }
+  ],
+  "timestamp": "2026-10-30T09:16:01.543Z"
+}

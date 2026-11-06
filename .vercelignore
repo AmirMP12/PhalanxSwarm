@@ -1,0 +1,42 @@
+# Files the Vercel CLI must not upload when you run `vercel deploy` from the repository root.
+# The CLI does not read .gitignore (it only skips node_modules, .next, .vercel, .git, .env.local
+# and a few others), so secrets and local build output are listed here explicitly.
+#
+# Do not add: package.json files, pnpm-lock.yaml, pnpm-workspace.yaml, apps/web, packages/ or
+# artifacts/aegis_core.wasm. The web build needs all of them (prebuild copies the WASM into
+# apps/web/public).
+
+# Secrets and personal data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.submission
+.near-credentials
+neardev
+
+# Local tooling and IDE state (may hold tokens, e.g. .kiro/settings/mcp.json)
+.vscode
+.idea
+.ui-backup
+.icon-tmp
+
+# Rust, Node and test build output
+/target
+target
+.next-*
+out
+dist
+coverage
+.swc
+test-results
+playwright-report
+blob-report
+*.tsbuildinfo
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini

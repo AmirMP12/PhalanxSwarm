@@ -73,7 +73,7 @@ async function gatewayFetch(input: string | URL | Request, init?: RequestInit): 
 async function main(): Promise<void> {
   const wasm = loadContractWasm();
   if (!json) {
-    console.log(bold(focus === "attack" ? "AegisSwarm judge · security hero (invoice fraud)" : "AegisSwarm judge scenario"));
+    console.log(bold(focus === "attack" ? "PhalanxSwarm judge · security hero (invoice fraud)" : "PhalanxSwarm judge scenario"));
     console.log(
       dim(
         `wasm: artifacts/aegis_core.wasm (${wasm.length} bytes, ${testnetMatch(wasm)}) · runtime: AegisSim local rehearsal · 1Click mode: ${mode} (dry: true)${focus === "attack" ? " · focus: attack" : ""}`,

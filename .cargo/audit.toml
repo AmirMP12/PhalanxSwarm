@@ -1,0 +1,18 @@
+# cargo-audit scans every package in Cargo.lock, including host-only unit/sandbox-test tooling.
+# These exceptions do not occur in the production wasm32 dependency graph (`cargo tree -p
+# aegis-core --target wasm32-unknown-unknown -e normal`). Keep each exception narrow and remove it
+# as soon as near-sdk / near-workspaces update their host-side dependency graph.
+[advisories]
+ignore = [
+  # near-sdk 5.30's `unit-testing` feature -> near-vm-runner -> p256 0.13 -> crypto-bigint 0.5.
+  # It is compiled only for host-side tests; contract crypto uses NEAR host functions in WASM.
+  "RUSTSEC-2026-0387",
+
+  # near-sdk `unit-testing` and near-workspaces -> near-primitives 0.38 -> zstd 0.13.3. These
+  # host-side test dependencies do not occur in the deployed WASM, and the tests never decode
+  # attacker-controlled zstd streams or use the affected context/seekable APIs.
+  "RUSTSEC-2026-0391",
+  "RUSTSEC-2026-0398",
+  "RUSTSEC-2026-0403",
+]
+informational_warnings = ["unmaintained", "unsound"]

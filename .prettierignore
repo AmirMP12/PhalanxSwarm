@@ -1,0 +1,39 @@
+# Dependencies and build output
+node_modules/
+target/
+dist/
+coverage/
+.next/
+.next-*/
+apps/web/next-env.d.ts
+next-env.d.ts
+*.tsbuildinfo
+out/
+.swc/
+
+# Testing
+test-results/
+playwright-report/
+blob-report/
+
+# Generated or verbatim content
+pnpm-lock.yaml
+# Rewritten by `next build` / `next dev` in its own JSON style.
+apps/web/tsconfig.json
+Cargo.lock
+artifacts/
+apps/web/public/
+# HACKATHON.md is the organizers' rules file, kept verbatim; README tables are hand-aligned.
+*.md
+
+# Local, git-ignored state
+.env*
+.submission/
+.vercel/
+.ui-backup/
+.icon-tmp/
+.vscode/
+.idea/
+.near-credentials/
+neardev/
+*.log

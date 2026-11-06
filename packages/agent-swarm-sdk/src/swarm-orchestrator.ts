@@ -365,7 +365,10 @@ export function defaultSplits(): RevenueSplitT[] {
   ];
 }
 
-/** Private task specification (only its hash goes on-chain). */
+/**
+ * Task specification. The RFP carries only its hash; for an `input_pinned` task the winner's proof
+ * transaction carries the full spec, so it becomes public then.
+ */
 export interface ProcurementSpec {
   schema: "aegis.procurement-plan.v1";
   objective: string;
@@ -456,7 +459,7 @@ export interface CostEstimate {
 /** Cipher's fee model: 0.45% of the GPU spend it plans and manages. */
 export const PROCUREMENT_FEE_RATE = 0.0045;
 
-/** Cipher's cost for a procurement task, from the plan it computes on its private vendor list. */
+/** Cipher's cost for a procurement task, from the plan it computes on the spec's vendor list. */
 export function procurementCost(spec: ProcurementSpec, nearUsd = NEAR_USD): CostEstimate {
   const plan = planProcurement(spec);
   return {

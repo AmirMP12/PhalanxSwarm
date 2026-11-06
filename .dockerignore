@@ -1,0 +1,56 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+target
+
+# Build outputs & caches
+dist
+out
+.next
+.next-*
+coverage
+.nyc_output
+.swc
+*.tsbuildinfo
+
+# Copied build-time artifacts (recreated by scripts/copy-wasm.mjs)
+apps/web/public/aegis_core.wasm
+apps/web/public/evidence
+
+# Secrets & local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.near-credentials
+neardev
+.submission
+
+# IDE, editor & tooling state
+.vscode
+.idea
+.vercel
+.ui-backup
+.icon-tmp
+
+# Testing
+test-results
+playwright-report
+blob-report
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS noise
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+

@@ -28,8 +28,16 @@ pub const WORKER_METHODS: [&str; 6] = [
 ];
 /// Extra methods for the orchestrator role (task decomposition and auction control).
 pub const ORCHESTRATOR_METHODS: [&str; 2] = ["post_task_rfp", "close_auction"];
-/// Extra methods for the sentinel role (settlement confirmation and emergency brakes).
-pub const SENTINEL_METHODS: [&str; 4] = ["confirm_intent_settlement", "confirm_evm_transfer", "report_agent", "set_protocol_paused"];
+/// Extra methods for the sentinel role (settlement confirmation, emergency brakes, shared blocklist,
+/// cancelling a signed EVM transfer before it is mined).
+pub const SENTINEL_METHODS: [&str; 6] = [
+    "confirm_intent_settlement",
+    "confirm_evm_transfer",
+    "cancel_evm_transfer",
+    "report_agent",
+    "set_protocol_paused",
+    "block_recipient",
+];
 
 pub const MAX_AGENTS: u32 = 32;
 /// Upper bound for the gas allowance attached to a single agent key.
@@ -214,7 +222,9 @@ impl AegisCore {
     /// Sub-account mode requires an attached deposit (>= `config.subaccount_min_deposit`)
     /// that funds the new account's storage and gas; contract-key mode takes no deposit and its
     /// gas allowance is booked as a treasury obligation. `initial_reputation_bps` lets the owner
-    /// start unvetted third parties below vetted agents (default 5000).
+    /// start unvetted third parties below vetted agents (default 5000). Without `spawn_mode`, an
+    /// unvetted agent (reputation below the default) gets a contract-account key, so the circuit
+    /// breaker can delete it on-chain; vetted agents get their own sub-account.
     #[payable]
     #[allow(clippy::too_many_arguments)]
     pub fn register_and_spawn_agent(
@@ -244,7 +254,11 @@ impl AegisCore {
         let pk_str = String::from(&public_key);
         require!(!self.agent_by_key.contains_key(&pk_str), "AEGIS_E_KEY_ALREADY_REGISTERED");
 
-        let mode = spawn_mode.unwrap_or(SpawnMode::SubAccount);
+        let mode = spawn_mode.unwrap_or(if reputation < INITIAL_REPUTATION_BPS {
+            SpawnMode::ContractKey
+        } else {
+            SpawnMode::SubAccount
+        });
         let deposit = env::attached_deposit();
         match mode {
             SpawnMode::SubAccount => require!(
@@ -348,7 +362,8 @@ impl AegisCore {
             self.agents.remove(&agent_id);
             self.agent_by_key.remove(&String::from(&agent.public_key));
             if agent.spawn_mode == SpawnMode::ContractKey {
-                self.treasury.contract_key_allowances = self.treasury.contract_key_allowances.saturating_sub(agent.allowance_cap.0);
+                self.treasury.contract_key_allowances =
+                    self.treasury.contract_key_allowances.saturating_sub(agent.allowance_cap.0);
             }
             if deposit.0 > 0 {
                 Promise::new(self.owner_id.clone()).transfer(NearToken::from_yoctonear(deposit.0)).detach();

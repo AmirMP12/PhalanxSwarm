@@ -1,6 +1,6 @@
 /**
- * AegisSwarm MCP server: any MCP client (Claude, Kiro, Cursor, an agent framework) can ask the
- * AegisSwarm treasury contract about a payment before an agent signs it.
+ * PhalanxSwarm MCP server: any MCP client (Claude, Kiro, Cursor, an agent framework) can ask the
+ * PhalanxSwarm treasury contract about a payment before an agent signs it.
  *
  * The tools are read-only. They call contract views and never hold a key, sign, or send a
  * transaction. An agent that decides to pay signs the returned intent message with its own scoped
@@ -13,8 +13,8 @@
  * - `aegis_get_policy`: the DAO's current limits and rules.
  *
  * Protocol: JSON-RPC 2.0, transport-agnostic (`mcp-cli.ts` runs it over stdio). It serves both MCP
- * eras: the stateless 2026-07-28 revision (`server/discover`, protocol version in every request's
- * `_meta`) and the `initialize` handshake of 2025-11-25 and earlier.
+ * eras: the stateless revisions (`server/discover`, protocol version in every request's `_meta`,
+ * `MCP_MODERN_VERSIONS`) and the `initialize` handshake of earlier ones (`MCP_LEGACY_VERSIONS`).
  */
 import { z } from "zod";
 
@@ -25,8 +25,9 @@ import { ASSETS } from "./swarm-orchestrator.ts";
 import { ContractInfo, ProtocolConfig, type CrossChainIntentRequestT, type PolicyViolationT } from "./types.ts";
 import { describeViolation } from "./violations.ts";
 
-export const MCP_MODERN_VERSIONS = ["2026-07-28"] as const;
-export const MCP_LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
+// MCP names its specification revisions by date; these are protocol identifiers.
+export const MCP_MODERN_VERSIONS = ["2026-07-28"] as const; // source-integrity: revision ids
+export const MCP_LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const; // source-integrity: revision ids
 const VERSION_KEY = "io.modelcontextprotocol/protocolVersion";
 const SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo";
 const UNSUPPORTED_PROTOCOL_VERSION = -32022;
@@ -83,7 +84,7 @@ const TOOLS = [
     name: "aegis_check_recipient",
     title: "Check a payment recipient",
     description:
-      "Ask the AegisSwarm treasury contract whether an agent may pay this recipient, before signing anything. Returns the contract's verdict (allow, warn or block) with its reasons, on-chain history signals, and the action to take: sign, refuse, submit for DAO approval, or ask the DAO to allow-list or confirm the recipient. Read-only.",
+      "Ask the PhalanxSwarm treasury contract whether an agent may pay this recipient, before signing anything. Returns the contract's verdict (allow, warn or block) with its reasons, on-chain history signals, and the action to take: sign, refuse, submit for DAO approval, or ask the DAO to allow-list or confirm the recipient. Read-only.",
     inputSchema: {
       type: "object",
       properties: {
@@ -100,7 +101,7 @@ const TOOLS = [
     name: "aegis_get_policy",
     title: "Read the treasury policy",
     description:
-      "The AegisSwarm DAO's current rules: per-payment limit, epoch spending cap, allowed chains, what happens to unknown recipients, the DAO approval threshold, the pinned audit prompt and the task-prompt registry. Read-only.",
+      "The PhalanxSwarm DAO's current rules: per-payment limit, epoch spending cap, allowed chains, what happens to unknown recipients, the DAO approval threshold, the pinned audit prompt and the task-prompt registry. Read-only.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -108,7 +109,7 @@ const TOOLS = [
     name: "aegis_preview_payment",
     title: "Preview a payment",
     description:
-      "Dry-run a payment through the AegisSwarm policy engine before the agent signs it. Returns every policy finding (limits, chain, asset, recipient), whether the payment needs a DAO vote, the facts a Sentinel audit must judge, and the exact NEP-413 message the agent signs with its own key to submit it. Never signs or sends anything.",
+      "Dry-run a payment through the PhalanxSwarm policy engine before the agent signs it. Returns every policy finding (limits, chain, asset, recipient), whether the payment needs a DAO vote, the facts a Sentinel audit must judge, and the exact NEP-413 message the agent signs with its own key to submit it. Never signs or sends anything.",
     inputSchema: {
       type: "object",
       properties: {
@@ -132,7 +133,7 @@ export class AegisMcpServer {
   private readonly serverInfo: { name: string; title: string; version: string };
 
   constructor(private readonly opts: AegisMcpOptions) {
-    this.serverInfo = { name: "aegis-swarm", title: "AegisSwarm treasury guard", version: opts.serverVersion ?? "0.1.0" };
+    this.serverInfo = { name: "phalanx-swarm", title: "PhalanxSwarm treasury guard", version: opts.serverVersion ?? "0.1.0" };
   }
 
   /** One newline-delimited message in, at most one out (`null` for notifications). */

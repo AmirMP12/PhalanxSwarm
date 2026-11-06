@@ -1,5 +1,5 @@
 //! NEP-297 events. Every state transition that matters to an indexer, auditor or
-//! the AegisSwarm UI is logged as `EVENT_JSON:{"standard":"aegis","version":"1.0.0",...}`.
+//! the PhalanxSwarm UI is logged as `EVENT_JSON:{"standard":"aegis","version":"1.0.0",...}`.
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{near, AccountId};
@@ -117,4 +117,12 @@ pub enum AegisEvent {
     EvmTransferSigned { tx_id: U64, tx_hash: String, path: String },
     #[event_version("1.0.0")]
     EvmTransferConfirmed { tx_id: U64, tx_hash: String, confirmed_by: AccountId },
+    #[event_version("1.0.0")]
+    EvmCancelRequested { tx_id: U64, cancel_tx_id: U64, requested_by: AccountId },
+    #[event_version("1.0.0")]
+    EvmTransferCancelled { tx_id: U64, cancel_tx_id: U64 },
+    #[event_version("1.0.0")]
+    RecipientBlocked { recipient: String, reason: String, evidence_hash: String, reported_by: AccountId },
+    #[event_version("1.0.0")]
+    RecipientUnblocked { recipient: String, by: AccountId },
 }

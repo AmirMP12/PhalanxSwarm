@@ -1,4 +1,4 @@
-//! # AegisSwarm Protocol: `aegis-core`
+//! # PhalanxSwarm Protocol: `aegis-core`
 //!
 //! An autonomous business treasury operated by a swarm of AI agents, where humans only set
 //! the constraints:
@@ -6,15 +6,17 @@
 //! * `lib.rs`: treasury ledger, revenue intake, programmable revenue splits (SputnikDAO /
 //!   Trezu compatible stakeholder accounts), governance and dashboard views.
 //! * `policy.rs`: AI security policy engine and anomaly circuit breaker.
+//! * `recipients.rs`: shared recipient blocklist and the allow / warn / block pre-flight.
 //! * `subaccounts.rs`: agent sub-accounts and scoped FunctionCall keys.
 //! * `swarm_market.rs`: task RFPs, sealed / reverse-Dutch bidding, escrow and settlement.
 //! * `attestation.rs`: TEE proofs verified on-chain: NEAR AI signed completions and enclave receipts.
+//! * `facts.rs`: the audit facts the contract builds itself; a NEAR AI audit must judge exactly these.
 //! * `intents.rs`: NEP-413 signed settlement requests, NEAR vendor payments, Chain Signatures
 //!   authorizations of cross-chain rehearsals.
 //! * `evm.rs`: EIP-1559 transfers the contract builds and signs through Chain Signatures.
 //! * `earnings.rs`: agents' spendable earnings, agent-to-agent payments and withdrawals.
 
-use near_sdk::json_types::{U128, U64};
+use near_sdk::json_types::{Base64VecU8, U128, U64};
 use near_sdk::store::{IterableMap, LookupMap, LookupSet, Vector};
 use near_sdk::{env, near, require, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise};
 
@@ -23,8 +25,10 @@ pub mod codec;
 pub mod earnings;
 pub mod events;
 pub mod evm;
+pub mod facts;
 pub mod intents;
 pub mod policy;
+pub mod recipients;
 pub mod subaccounts;
 pub mod swarm_market;
 
@@ -34,9 +38,10 @@ mod tests;
 use attestation::{AttestationRecord, EnclaveRecord};
 use codec::is_safe_ascii;
 use events::{AegisEvent, PayoutLeg};
-use evm::{EvmSpend, EvmTxRecord};
+use evm::{EvmNonceState, EvmSpend, EvmTxRecord};
 use intents::IntentRecord;
 use policy::{GlobalPolicy, SecurityEvent, Severity};
+use recipients::BlockedRecipient;
 use subaccounts::AgentRecord;
 use swarm_market::{Escrow, TaskRfp, TaskView};
 
@@ -45,7 +50,7 @@ pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 pub const STORAGE_BYTE_COST: u128 = 10_000_000_000_000_000_000;
 pub const SECURITY_EVENT_CAPACITY: u32 = 128;
 pub const MAX_PAGE: u32 = 50;
-pub const CONTRACT_VERSION: &str = "2.0.0";
+pub const CONTRACT_VERSION: &str = "2.3.0";
 pub const MAX_REVENUE_SPLITS: usize = 8;
 
 #[near(serializers = [borsh])]
@@ -65,6 +70,8 @@ pub(crate) enum StorageKey {
     Distributions,
     EvmTxs,
     EvmSpend,
+    BlockedRecipients,
+    EvmNonces,
 }
 
 #[near(serializers = [json, borsh])]
@@ -228,6 +235,8 @@ pub struct Dashboard {
     pub enclaves: Vec<EnclaveRecord>,
     pub attestations: Vec<AttestationRecord>,
     pub evm_txs: Vec<EvmTxRecord>,
+    pub blocked_recipients: Vec<BlockedRecipient>,
+    pub policy_version: U64,
     pub block_height: U64,
     pub block_timestamp_ns: U64,
     pub epoch_height: U64,
@@ -260,6 +269,11 @@ pub struct AegisCore {
     pub(crate) next_intent_id: u64,
     pub(crate) next_event_seq: u64,
     pub(crate) next_evm_tx_id: u64,
+    pub(crate) blocked_recipients: IterableMap<String, BlockedRecipient>,
+    /// Bumped by every change to the global policy (stale DAO proposals are rejected).
+    pub(crate) policy_version: u64,
+    /// Per EVM chain: the next nonce the treasury address will sign and the transfer holding it.
+    pub(crate) evm_nonces: LookupMap<String, EvmNonceState>,
 }
 
 fn validate_splits(splits: &[RevenueSplit]) {
@@ -295,7 +309,8 @@ impl AegisCore {
     pub(crate) fn solvent_liquidity(&self) -> u128 {
         let t = &self.treasury;
         let storage = u128::from(env::storage_usage()).saturating_mul(STORAGE_BYTE_COST);
-        let obligations = t.reserved_for_tasks + t.escrow_locked + t.reserved_for_intents + t.agent_balances + t.contract_key_allowances;
+        let obligations =
+            t.reserved_for_tasks + t.escrow_locked + t.reserved_for_intents + t.agent_balances + t.contract_key_allowances;
         env::account_balance().as_yoctonear().saturating_sub(storage).saturating_sub(obligations)
     }
 
@@ -424,6 +439,9 @@ impl AegisCore {
             next_intent_id: 0,
             next_event_seq: 0,
             next_evm_tx_id: 0,
+            blocked_recipients: IterableMap::new(StorageKey::BlockedRecipients),
+            policy_version: 0,
+            evm_nonces: LookupMap::new(StorageKey::EvmNonces),
         }
     }
 
@@ -580,6 +598,30 @@ impl AegisCore {
         self.record_security_event("ownership_transferred", None, Severity::Notice, vec![], detail);
     }
 
+    /// Upgrades the contract bytecode. Owner-only (SputnikDAO / Trezu multisig).
+    ///
+    /// Deploys new WASM bytecode to the contract account via a Promise batch and
+    /// optionally calls `migrate()` with provided arguments in the same transaction.
+    pub fn upgrade_contract(&mut self, code: Base64VecU8, migrate_args: Option<Base64VecU8>) -> Promise {
+        self.assert_owner();
+        require!(!code.0.is_empty(), "AEGIS_E_UPGRADE: code must not be empty");
+        let current = env::current_account_id();
+        let promise = Promise::new(current).deploy_contract(code.0);
+        AegisEvent::PolicyUpdated { scope: "contract_upgraded".to_string() }.emit();
+        self.record_security_event(
+            "contract_upgraded",
+            None,
+            Severity::Notice,
+            vec![],
+            format!("contract bytecode upgraded by owner {}", self.owner_id),
+        );
+        if let Some(args) = migrate_args {
+            promise.function_call("migrate".to_string(), args.0, NearToken::from_yoctonear(0), Gas::from_tgas(30))
+        } else {
+            promise
+        }
+    }
+
     // Views
 
     pub fn contract_info(&self) -> ContractInfo {
@@ -626,6 +668,8 @@ impl AegisCore {
             enclaves: self.list_enclaves(),
             attestations: self.list_attestations(Some(20)),
             evm_txs: self.list_evm_txs(Some(20)),
+            blocked_recipients: self.list_blocked_recipients(None, Some(MAX_PAGE)),
+            policy_version: U64(self.policy_version),
             block_height: U64(env::block_height()),
             block_timestamp_ns: U64(env::block_timestamp()),
             epoch_height: U64(env::epoch_height()),

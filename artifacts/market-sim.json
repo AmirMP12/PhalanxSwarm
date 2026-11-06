@@ -1,0 +1,2400 @@
+{
+  "schema": "aegis.market-sim.v1",
+  "checked_at": "2026-11-06T18:47:31.797Z",
+  "wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
+  "seed": 7,
+  "rounds": 12,
+  "bidders": 20,
+  "max_bidders_per_auction": 16,
+  "reputation_floor_bps": 4000,
+  "summary": {
+    "delivered_rounds": 9,
+    "failed_rounds": 3,
+    "no_winner_rounds": 0,
+    "paid_near": 28.151,
+    "refunded_near": 4.969,
+    "paid_for_undelivered_near": 0,
+    "auction_full_rejections": 20,
+    "reputation_floor_rejections": 28,
+    "rounds_delayed_by_no_shows": 12,
+    "clearing_price_near": {
+      "min": 3.02,
+      "median": 3.088,
+      "max": 3.286
+    },
+    "top_winner": {
+      "handle": "market-w01",
+      "wins": 9,
+      "share": 1
+    },
+    "wins": {
+      "market-w01": 9
+    },
+    "failures": {
+      "market-w15": 3
+    },
+    "final_reputation_bps": {
+      "market-w01": 7250,
+      "market-w02": 5000,
+      "market-w03": 5000,
+      "market-w04": 5000,
+      "market-w05": 5000,
+      "market-w06": 5000,
+      "market-w07": 5000,
+      "market-w08": 5000,
+      "market-w09": 5000,
+      "market-w10": 5000,
+      "market-w11": 5000,
+      "market-w12": 5000,
+      "market-w13": 5000,
+      "market-w14": 5000,
+      "market-w15": 3500,
+      "market-w16": 5000,
+      "market-w17": 5000,
+      "market-w18": 5000,
+      "market-w19": 3000,
+      "market-w20": 3000
+    },
+    "locked_out": {
+      "market-w15": 4
+    }
+  },
+  "profiles": [
+    {
+      "handle": "market-w01",
+      "strategy": "cost_plus",
+      "costNear": 3.023,
+      "marginBps": 700,
+      "latencySec": 3600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w02",
+      "strategy": "cost_plus",
+      "costNear": 4.398,
+      "marginBps": 2100,
+      "latencySec": 1200,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w03",
+      "strategy": "cost_plus",
+      "costNear": 3.932,
+      "marginBps": 1200,
+      "latencySec": 1800,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w04",
+      "strategy": "cost_plus",
+      "costNear": 4.46,
+      "marginBps": 1300,
+      "latencySec": 600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w05",
+      "strategy": "cost_plus",
+      "costNear": 4.528,
+      "marginBps": 2100,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w06",
+      "strategy": "cost_plus",
+      "costNear": 3.736,
+      "marginBps": 1400,
+      "latencySec": 1800,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w07",
+      "strategy": "cost_plus",
+      "costNear": 3.593,
+      "marginBps": 3400,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w08",
+      "strategy": "cost_plus",
+      "costNear": 4.756,
+      "marginBps": 1100,
+      "latencySec": 600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w09",
+      "strategy": "cost_plus",
+      "costNear": 3.309,
+      "marginBps": 1400,
+      "latencySec": 1800,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w10",
+      "strategy": "cost_plus",
+      "costNear": 4.524,
+      "marginBps": 700,
+      "latencySec": 3600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w11",
+      "strategy": "cost_plus",
+      "costNear": 4.107,
+      "marginBps": 2400,
+      "latencySec": 2400,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w12",
+      "strategy": "cost_plus",
+      "costNear": 4.932,
+      "marginBps": 2400,
+      "latencySec": 3600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w13",
+      "strategy": "cost_plus",
+      "costNear": 4.655,
+      "marginBps": 600,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w14",
+      "strategy": "cost_plus",
+      "costNear": 3.714,
+      "marginBps": 1800,
+      "latencySec": 600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w15",
+      "strategy": "undercutter",
+      "costNear": 3.5,
+      "marginBps": -5000,
+      "latencySec": 600,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w16",
+      "strategy": "flaky",
+      "costNear": 3.288,
+      "marginBps": 1000,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w17",
+      "strategy": "flaky",
+      "costNear": 3.968,
+      "marginBps": 1000,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w18",
+      "strategy": "no_show",
+      "costNear": 3.4,
+      "marginBps": 1000,
+      "latencySec": 900,
+      "initialReputationBps": 5000
+    },
+    {
+      "handle": "market-w19",
+      "strategy": "newcomer",
+      "costNear": 3.369,
+      "marginBps": 1500,
+      "latencySec": 1200,
+      "initialReputationBps": 3000
+    },
+    {
+      "handle": "market-w20",
+      "strategy": "newcomer",
+      "costNear": 3.427,
+      "marginBps": 1500,
+      "latencySec": 1200,
+      "initialReputationBps": 3000
+    }
+  ],
+  "results": [
+    {
+      "round": 1,
+      "task_id": "0",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 3,
+      "below_reputation_floor": 1,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w15",
+      "winner_strategy": "undercutter",
+      "clearing_price_near": 1.613,
+      "winning_score_bps": 7477,
+      "runner_up_price_near": 3.051,
+      "delivered": false,
+      "paid_near": 0,
+      "refunded_near": 1.613,
+      "winner_reputation_after_bps": 4500,
+      "bids": [
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.749,
+          "revealed": true,
+          "score_bps": 5489,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.849,
+          "revealed": true,
+          "score_bps": 5455,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.652,
+          "revealed": true,
+          "score_bps": 5571,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.988,
+          "revealed": true,
+          "score_bps": 5965,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 5.017,
+          "revealed": true,
+          "score_bps": 5343,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.309,
+          "revealed": true,
+          "score_bps": 5126,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.051,
+          "revealed": true,
+          "score_bps": 6509,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.52,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.576,
+          "revealed": true,
+          "score_bps": 5001,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.906,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.613,
+          "revealed": true,
+          "score_bps": 7477,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.394,
+          "revealed": true,
+          "score_bps": 6357,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.298,
+          "revealed": true,
+          "score_bps": 5771,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 5.938,
+          "revealed": true,
+          "score_bps": 4705,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 5.208,
+          "revealed": true,
+          "score_bps": 5161,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 4.943,
+          "revealed": true,
+          "score_bps": 5382,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.511,
+          "revealed": true,
+          "score_bps": 5666,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.933,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.072,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.865,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "task_id": "1",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 3,
+      "below_reputation_floor": 1,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w15",
+      "winner_strategy": "undercutter",
+      "clearing_price_near": 1.691,
+      "winning_score_bps": 7279,
+      "runner_up_price_near": 2.98,
+      "delivered": false,
+      "paid_near": 0,
+      "refunded_near": 1.691,
+      "winner_reputation_after_bps": 4000,
+      "bids": [
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.395,
+          "revealed": true,
+          "score_bps": 5072,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.601,
+          "revealed": true,
+          "score_bps": 4978,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.654,
+          "revealed": true,
+          "score_bps": 5570,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.114,
+          "revealed": true,
+          "score_bps": 5886,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 2.98,
+          "revealed": true,
+          "score_bps": 6554,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 5.738,
+          "revealed": true,
+          "score_bps": 4830,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 4.003,
+          "revealed": true,
+          "score_bps": 5956,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.149,
+          "revealed": true,
+          "score_bps": 5864,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.903,
+          "revealed": true,
+          "score_bps": 5414,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.325,
+          "revealed": true,
+          "score_bps": 5782,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.597,
+          "revealed": true,
+          "score_bps": 5543,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.236,
+          "revealed": true,
+          "score_bps": 5213,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.691,
+          "revealed": true,
+          "score_bps": 7279,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.598,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.746,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.931,
+          "revealed": true,
+          "score_bps": 5397,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.596,
+          "revealed": true,
+          "score_bps": 6231,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.595,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.359,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.768,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "task_id": "2",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 2,
+      "below_reputation_floor": 2,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w15",
+      "winner_strategy": "undercutter",
+      "clearing_price_near": 1.665,
+      "winning_score_bps": 7145,
+      "runner_up_price_near": 3.154,
+      "delivered": false,
+      "paid_near": 0,
+      "refunded_near": 1.665,
+      "winner_reputation_after_bps": 3500,
+      "bids": [
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.154,
+          "revealed": true,
+          "score_bps": 6445,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.693,
+          "revealed": true,
+          "score_bps": 5524,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.421,
+          "revealed": true,
+          "score_bps": 5056,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.096,
+          "revealed": true,
+          "score_bps": 5287,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.544,
+          "revealed": true,
+          "score_bps": 5639,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.043,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 4.104,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.427,
+          "revealed": true,
+          "score_bps": 6337,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 5.23,
+          "revealed": true,
+          "score_bps": 5217,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.612,
+          "revealed": true,
+          "score_bps": 5603,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 5.215,
+          "revealed": true,
+          "score_bps": 5219,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.553,
+          "revealed": true,
+          "score_bps": 5015,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.187,
+          "revealed": true,
+          "score_bps": 5237,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.665,
+          "revealed": true,
+          "score_bps": 7145,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.096,
+          "revealed": true,
+          "score_bps": 5919,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.724,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 4.024,
+          "revealed": true,
+          "score_bps": 5943,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 5.083,
+          "revealed": true,
+          "score_bps": 5239,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.585,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.456,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 4,
+      "task_id": "3",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.286,
+      "winning_score_bps": 6362,
+      "runner_up_price_near": 3.536,
+      "delivered": true,
+      "paid_near": 3.286,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 5250,
+      "bids": [
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.709,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.838,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.907,
+          "revealed": true,
+          "score_bps": 5419,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.832,
+          "revealed": true,
+          "score_bps": 4834,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.688,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.737,
+          "revealed": true,
+          "score_bps": 5518,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.86,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.408,
+          "revealed": true,
+          "score_bps": 5703,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.867,
+          "revealed": true,
+          "score_bps": 5374,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.078,
+          "revealed": true,
+          "score_bps": 5930,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.167,
+          "revealed": true,
+          "score_bps": 5215,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.212,
+          "revealed": true,
+          "score_bps": 5228,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.717,
+          "revealed": true,
+          "score_bps": 6155,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.286,
+          "revealed": true,
+          "score_bps": 6362,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.334,
+          "revealed": true,
+          "score_bps": 5138,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.536,
+          "revealed": true,
+          "score_bps": 6248,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.156,
+          "revealed": true,
+          "score_bps": 4569,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.961,
+          "revealed": true,
+          "score_bps": 5378,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.32,
+          "revealed": true,
+          "score_bps": 5758,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.214,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 5,
+      "task_id": "4",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.122,
+      "winning_score_bps": 6540,
+      "runner_up_price_near": 3.466,
+      "delivered": true,
+      "paid_near": 3.122,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 5500,
+      "bids": [
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 4.709,
+          "revealed": true,
+          "score_bps": 5501,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.199,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.155,
+          "revealed": true,
+          "score_bps": 5861,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.75,
+          "revealed": true,
+          "score_bps": 4885,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 5.047,
+          "revealed": true,
+          "score_bps": 5331,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.122,
+          "revealed": true,
+          "score_bps": 6540,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 5.917,
+          "revealed": true,
+          "score_bps": 4718,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.633,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.531,
+          "revealed": true,
+          "score_bps": 5647,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.425,
+          "revealed": true,
+          "score_bps": 5692,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.972,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.466,
+          "revealed": true,
+          "score_bps": 6312,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.855,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.595,
+          "revealed": true,
+          "score_bps": 5607,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.162,
+          "revealed": true,
+          "score_bps": 5884,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.359,
+          "revealed": true,
+          "score_bps": 5122,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.481,
+          "revealed": true,
+          "score_bps": 6282,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.98,
+          "revealed": true,
+          "score_bps": 5366,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.901,
+          "revealed": true,
+          "score_bps": 5353,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.08,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 6,
+      "task_id": "5",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.069,
+      "winning_score_bps": 6648,
+      "runner_up_price_near": 3.649,
+      "delivered": true,
+      "paid_near": 3.069,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 5750,
+      "bids": [
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6,
+          "revealed": true,
+          "score_bps": 4666,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.771,
+          "revealed": true,
+          "score_bps": 5434,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 5.231,
+          "revealed": true,
+          "score_bps": 5209,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.487,
+          "revealed": true,
+          "score_bps": 5653,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.038,
+          "revealed": true,
+          "score_bps": 5955,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.533,
+          "revealed": true,
+          "score_bps": 5652,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.786,
+          "revealed": true,
+          "score_bps": 6091,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.811,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.069,
+          "revealed": true,
+          "score_bps": 6648,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.514,
+          "revealed": true,
+          "score_bps": 5032,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.999,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.589,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.125,
+          "revealed": true,
+          "score_bps": 5879,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.6,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.705,
+          "revealed": true,
+          "score_bps": 5545,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.255,
+          "revealed": true,
+          "score_bps": 5187,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.367,
+          "revealed": true,
+          "score_bps": 5090,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.38,
+          "revealed": true,
+          "score_bps": 5123,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.649,
+          "revealed": true,
+          "score_bps": 6198,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 5.086,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 7,
+      "task_id": "6",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 3,
+      "below_reputation_floor": 1,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.022,
+      "winning_score_bps": 6752,
+      "runner_up_price_near": 3.415,
+      "delivered": true,
+      "paid_near": 3.022,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 6000,
+      "bids": [
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.141,
+          "revealed": true,
+          "score_bps": 5890,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 4.036,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.11,
+          "revealed": true,
+          "score_bps": 5285,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.402,
+          "revealed": true,
+          "score_bps": 5706,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.718,
+          "revealed": true,
+          "score_bps": 5530,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 5.354,
+          "revealed": true,
+          "score_bps": 5139,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.483,
+          "revealed": true,
+          "score_bps": 6281,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.609,
+          "revealed": true,
+          "score_bps": 5577,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.022,
+          "revealed": true,
+          "score_bps": 6752,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.154,
+          "revealed": true,
+          "score_bps": 4570,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.415,
+          "revealed": true,
+          "score_bps": 6344,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.618,
+          "revealed": true,
+          "score_bps": 5530,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.181,
+          "revealed": true,
+          "score_bps": 5872,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.354,
+          "revealed": true,
+          "score_bps": 5098,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 5.048,
+          "revealed": true,
+          "score_bps": 5324,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.523,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.422,
+          "revealed": true,
+          "score_bps": 5097,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.232,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.141,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.628,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 8,
+      "task_id": "7",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.088,
+      "winning_score_bps": 6786,
+      "runner_up_price_near": 3.609,
+      "delivered": true,
+      "paid_near": 3.088,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 6250,
+      "bids": [
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 5,
+          "revealed": true,
+          "score_bps": 5354,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.858,
+          "revealed": true,
+          "score_bps": 6067,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.112,
+          "revealed": true,
+          "score_bps": 4596,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.088,
+          "revealed": true,
+          "score_bps": 6786,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.864,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.721,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.726,
+          "revealed": true,
+          "score_bps": 5525,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 4.004,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.609,
+          "revealed": true,
+          "score_bps": 6202,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.479,
+          "revealed": true,
+          "score_bps": 5658,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.591,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.113,
+          "revealed": true,
+          "score_bps": 5887,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.553,
+          "revealed": true,
+          "score_bps": 5570,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.924,
+          "revealed": true,
+          "score_bps": 5408,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.231,
+          "revealed": true,
+          "score_bps": 5175,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.521,
+          "revealed": true,
+          "score_bps": 5028,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 4.933,
+          "revealed": true,
+          "score_bps": 5388,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.03,
+          "revealed": true,
+          "score_bps": 5960,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.255,
+          "revealed": true,
+          "score_bps": 5826,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.696,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 9,
+      "task_id": "8",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.214,
+      "winning_score_bps": 6782,
+      "runner_up_price_near": 3.79,
+      "delivered": true,
+      "paid_near": 3.214,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 6500,
+      "bids": [
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.514,
+          "revealed": true,
+          "score_bps": 5039,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.489,
+          "revealed": true,
+          "score_bps": 5673,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 4.919,
+          "revealed": true,
+          "score_bps": 5397,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.79,
+          "revealed": true,
+          "score_bps": 6110,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.254,
+          "revealed": true,
+          "score_bps": 5827,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.629,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.689,
+          "revealed": true,
+          "score_bps": 5527,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.636,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.473,
+          "revealed": true,
+          "score_bps": 5683,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.848,
+          "revealed": true,
+          "score_bps": 6053,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.634,
+          "revealed": true,
+          "score_bps": 4957,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.128,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 5.006,
+          "revealed": true,
+          "score_bps": 5357,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.368,
+          "revealed": true,
+          "score_bps": 5089,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 5.779,
+          "revealed": true,
+          "score_bps": 4804,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.214,
+          "revealed": true,
+          "score_bps": 6782,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.713,
+          "revealed": true,
+          "score_bps": 5533,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 4.048,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.189,
+          "revealed": true,
+          "score_bps": 5839,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 4.986,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 10,
+      "task_id": "9",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 2,
+      "below_reputation_floor": 2,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.262,
+      "winning_score_bps": 6827,
+      "runner_up_price_near": 3.605,
+      "delivered": true,
+      "paid_near": 3.262,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 6750,
+      "bids": [
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.328,
+          "revealed": true,
+          "score_bps": 5114,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.605,
+          "revealed": true,
+          "score_bps": 6225,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.186,
+          "revealed": true,
+          "score_bps": 5869,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.082,
+          "revealed": true,
+          "score_bps": 5906,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.262,
+          "revealed": true,
+          "score_bps": 6827,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.359,
+          "revealed": true,
+          "score_bps": 4442,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.638,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 5.069,
+          "revealed": true,
+          "score_bps": 5248,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.942,
+          "revealed": true,
+          "score_bps": 5390,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.225,
+          "revealed": true,
+          "score_bps": 5206,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.777,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.682,
+          "revealed": true,
+          "score_bps": 4934,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.344,
+          "revealed": true,
+          "score_bps": 5139,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 5.35,
+          "revealed": true,
+          "score_bps": 5142,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 4.012,
+          "revealed": true,
+          "score_bps": 5950,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.189,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.574,
+          "revealed": true,
+          "score_bps": 5620,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.135,
+          "revealed": true,
+          "score_bps": 5873,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.498,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.807,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 11,
+      "task_id": "10",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.02,
+      "winning_score_bps": 7054,
+      "runner_up_price_near": 3.353,
+      "delivered": true,
+      "paid_near": 3.02,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 7000,
+      "bids": [
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 5.168,
+          "revealed": true,
+          "score_bps": 5186,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.902,
+          "revealed": true,
+          "score_bps": 5422,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 5.088,
+          "revealed": true,
+          "score_bps": 5264,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.439,
+          "revealed": true,
+          "score_bps": 5683,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.908,
+          "revealed": true,
+          "score_bps": 5411,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.353,
+          "revealed": true,
+          "score_bps": 6383,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.373,
+          "revealed": true,
+          "score_bps": 5724,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.751,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 3.991,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.158,
+          "revealed": true,
+          "score_bps": 5887,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.931,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.388,
+          "revealed": true,
+          "score_bps": 5104,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 5.969,
+          "revealed": true,
+          "score_bps": 4685,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.363,
+          "revealed": true,
+          "score_bps": 5134,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 4.867,
+          "revealed": true,
+          "score_bps": 5437,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.693,
+          "revealed": true,
+          "score_bps": 6149,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.815,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.564,
+          "revealed": true,
+          "score_bps": 5626,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.02,
+          "revealed": true,
+          "score_bps": 7054,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.095,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    },
+    {
+      "round": 12,
+      "task_id": "11",
+      "ceiling_near": 8,
+      "commits": 16,
+      "auction_full": 1,
+      "below_reputation_floor": 3,
+      "revealed": 15,
+      "waited_for_reveal_deadline": true,
+      "winner": "market-w01",
+      "winner_strategy": "cost_plus",
+      "clearing_price_near": 3.068,
+      "winning_score_bps": 7099,
+      "runner_up_price_near": 3.667,
+      "delivered": true,
+      "paid_near": 3.068,
+      "refunded_near": 0,
+      "winner_reputation_after_bps": 7250,
+      "bids": [
+        {
+          "handle": "market-w08",
+          "strategy": "cost_plus",
+          "price_near": 5.537,
+          "revealed": true,
+          "score_bps": 5025,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w18",
+          "strategy": "no_show",
+          "price_near": 3.882,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w04",
+          "strategy": "cost_plus",
+          "price_near": 4.884,
+          "revealed": true,
+          "score_bps": 5433,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w19",
+          "strategy": "newcomer",
+          "price_near": 3.882,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w06",
+          "strategy": "cost_plus",
+          "price_near": 4.377,
+          "revealed": true,
+          "score_bps": 5722,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w13",
+          "strategy": "cost_plus",
+          "price_near": 4.963,
+          "revealed": true,
+          "score_bps": 5377,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w10",
+          "strategy": "cost_plus",
+          "price_near": 5.099,
+          "revealed": true,
+          "score_bps": 5229,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w07",
+          "strategy": "cost_plus",
+          "price_near": 5.108,
+          "revealed": true,
+          "score_bps": 5286,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w14",
+          "strategy": "cost_plus",
+          "price_near": 4.281,
+          "revealed": true,
+          "score_bps": 5810,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w12",
+          "strategy": "cost_plus",
+          "price_near": 6.052,
+          "revealed": true,
+          "score_bps": 4634,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w03",
+          "strategy": "cost_plus",
+          "price_near": 4.206,
+          "revealed": true,
+          "score_bps": 5829,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w02",
+          "strategy": "cost_plus",
+          "price_near": 5.478,
+          "revealed": true,
+          "score_bps": 5048,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w09",
+          "strategy": "cost_plus",
+          "price_near": 3.667,
+          "revealed": true,
+          "score_bps": 6166,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w11",
+          "strategy": "cost_plus",
+          "price_near": 4.777,
+          "revealed": true,
+          "score_bps": 5458,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w17",
+          "strategy": "flaky",
+          "price_near": 4.657,
+          "revealed": true,
+          "score_bps": 5568,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w05",
+          "strategy": "cost_plus",
+          "price_near": 5.891,
+          "revealed": true,
+          "score_bps": 4797,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w15",
+          "strategy": "undercutter",
+          "price_near": 1.879,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w20",
+          "strategy": "newcomer",
+          "price_near": 4.165,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "reputation_below_floor"
+        },
+        {
+          "handle": "market-w01",
+          "strategy": "cost_plus",
+          "price_near": 3.068,
+          "revealed": true,
+          "score_bps": 7099,
+          "commit": "committed"
+        },
+        {
+          "handle": "market-w16",
+          "strategy": "flaky",
+          "price_near": 3.328,
+          "revealed": false,
+          "score_bps": null,
+          "commit": "auction_full"
+        }
+      ]
+    }
+  ],
+  "duration_ms": 1065,
+  "note": "12 sealed-bid rounds among 20 bidders (at most 16 admitted per auction, reputation floor 40%). 9 rounds delivered verified work for 28.151 NEAR; in 3 the winner did not deliver and 4.969 NEAR of escrow went back to the treasury. Failures took market-w15 (undercutter) from round 4 below the floor, so it could no longer bid. No-show bids delayed 12 closes to the reveal deadline but never blocked one. market-w01 won 9 of 9 delivered rounds: reputation is 30% of the score and every verified delivery adds 2.5%, so the incumbent's lead grows."
+}

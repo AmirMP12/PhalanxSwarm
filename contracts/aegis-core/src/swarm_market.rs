@@ -14,20 +14,24 @@
 //! reputation), and reputation is earned on-chain only through verified work. An RFP can require
 //! `min_reputation_bps`, which keeps unvetted agents out.
 //!
+//! The DAO, not the posting agent, decides what releases escrow: an agent-posted RFP may pin only
+//! a task prompt in `GlobalPolicy.task_prompt_hashes`, and its confidence and reputation floors must
+//! meet the DAO's (`min_task_confidence_bps`, `min_task_reputation_bps`).
+//!
 //! The winning price is locked in escrow and released by `execute_verified_task` only after
 //! `attestation.rs` verifies the TEE proof. It is credited to the winner's spendable balance.
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near, require, AccountId};
 
-use crate::attestation::{ExecutionProof, ReceiptExpectation};
-use crate::codec::{is_hash32_hex, is_safe_ascii, to_hex};
+use crate::attestation::{AttestationError, ExecutionProof, ReceiptExpectation};
+use crate::codec::{is_hash32_hex, is_lower_hash32_hex, is_safe_ascii, to_hex};
 use crate::events::AegisEvent;
 use crate::policy::{evaluate_spend, PolicyViolation, Severity, SpendRequest};
 use crate::subaccounts::{AgentRecord, AgentRole, AgentStatus};
 use crate::{AegisCore, AegisCoreExt};
 
-pub const MAX_BIDDERS: u32 = 8;
+pub const MAX_BIDDERS: u32 = 16;
 pub const MAX_LATENCY_SEC: u32 = 86_400;
 pub const MIN_EXECUTION_SEC: u64 = 60;
 const NS: u64 = 1_000_000_000;
@@ -77,6 +81,14 @@ pub struct VerificationSchema {
     pub min_confidence_bps: u32,
     /// Minimum on-chain reputation a bidder needs.
     pub min_reputation_bps: u32,
+    /// Hex sha256 of the system prompt every NEAR AI proof for this task must use. The poster
+    /// pins it, so the worker cannot write its own instructions. `None`: only enclave receipts.
+    #[serde(default)]
+    pub prompt_hash: Option<String>,
+    /// The model's user message must be the exact task spec (`sha256 == spec_hash`). Use it when
+    /// the whole input is known when the task is posted.
+    #[serde(default)]
+    pub input_pinned: bool,
 }
 
 #[near(serializers = [json])]
@@ -307,11 +319,19 @@ impl AegisCore {
         require!((10..=604_800).contains(&rfp.bidding_window_sec), "AEGIS_E_RFP: bidding_window_sec");
         require!((60..=2_592_000).contains(&rfp.execution_window_sec), "AEGIS_E_RFP: execution_window_sec");
         require!((1..=30).contains(&rfp.deadline_epochs), "AEGIS_E_RFP: deadline_epochs must be 1..=30");
-        require!((1..=MAX_BIDDERS).contains(&rfp.max_bidders), "AEGIS_E_RFP: max_bidders must be 1..=8");
+        require!((1..=MAX_BIDDERS).contains(&rfp.max_bidders), "AEGIS_E_RFP: max_bidders must be 1..=16");
         require!(is_safe_ascii(&rfp.verification.schema_id, 64), "AEGIS_E_RFP: schema_id");
         require!(is_hash32_hex(&rfp.verification.schema_hash), "AEGIS_E_RFP: schema_hash");
         require!(rfp.verification.min_confidence_bps <= 10_000, "AEGIS_E_RFP: min_confidence_bps");
         require!(rfp.verification.min_reputation_bps <= 10_000, "AEGIS_E_RFP: min_reputation_bps");
+        require!(
+            rfp.verification.prompt_hash.as_deref().map(is_lower_hash32_hex).unwrap_or(true),
+            "AEGIS_E_RFP: prompt_hash must be 32-byte lower-case hex"
+        );
+        require!(
+            !rfp.verification.input_pinned || rfp.verification.prompt_hash.is_some(),
+            "AEGIS_E_RFP: input_pinned needs prompt_hash"
+        );
         match rfp.auction {
             AuctionKind::SealedBid => {
                 let reveal = rfp.reveal_window_sec.unwrap_or(0);
@@ -343,7 +363,22 @@ impl AegisCore {
             let agent = self.caller_agent("post_task_rfp");
             require!(agent.role == AgentRole::Orchestrator, "AEGIS_E_ONLY_ORCHESTRATOR");
             let req = SpendRequest::reservation(amount, self.available_liquidity());
-            let (violations, _limits) = evaluate_spend(&self.policy, self.paused, &agent, &self.treasury, epoch, &req);
+            let (mut violations, _limits) = evaluate_spend(&self.policy, self.paused, &agent, &self.treasury, epoch, &req);
+            // The DAO decides what releases escrow: approved prompts and minimum floors only.
+            if let Some(prompt_hash) = &rfp.verification.prompt_hash {
+                if !self.policy.task_prompt_hashes.contains(prompt_hash) {
+                    violations.push(PolicyViolation::TaskPromptNotApproved { prompt_hash: prompt_hash.clone() });
+                }
+            }
+            let floors = [
+                ("min_confidence_bps", rfp.verification.min_confidence_bps, self.policy.min_task_confidence_bps),
+                ("min_reputation_bps", rfp.verification.min_reputation_bps, self.policy.min_task_reputation_bps),
+            ];
+            for (field, value, floor) in floors {
+                if value < floor {
+                    violations.push(PolicyViolation::TaskFloorBelowPolicy { field: field.to_string(), value, floor });
+                }
+            }
             if !violations.is_empty() {
                 let (severity, quarantined) = self.apply_circuit_breaker(&agent.agent_id, "post_task_rfp", &violations);
                 return TaskPostOutcome { approved: false, task: None, severity, violations, quarantined };
@@ -385,6 +420,8 @@ impl AegisCore {
                 schema_hash: rfp.verification.schema_hash.to_lowercase(),
                 min_confidence_bps: rfp.verification.min_confidence_bps,
                 min_reputation_bps: rfp.verification.min_reputation_bps,
+                prompt_hash: rfp.verification.prompt_hash,
+                input_pinned: rfp.verification.input_pinned,
             },
             status: TaskStatus::Bidding,
             bid_count: 0,
@@ -536,8 +573,11 @@ impl AegisCore {
                 continue;
             }
             // Reputation is re-read: a bidder that failed or was quarantined since revealing is out.
-            let eligible =
-                self.agents.get(&bid.agent_id).map(|a| a.status == AgentStatus::Active && a.reputation_bps >= min_rep).unwrap_or(false);
+            let eligible = self
+                .agents
+                .get(&bid.agent_id)
+                .map(|a| a.status == AgentStatus::Active && a.reputation_bps >= min_rep)
+                .unwrap_or(false);
             if !eligible {
                 continue;
             }
@@ -594,6 +634,8 @@ impl AegisCore {
             input_hash: Some(&task.spec_hash),
             verdict: "completed",
             min_confidence_bps: task.verification.min_confidence_bps,
+            prompt_hash: task.verification.prompt_hash.as_deref(),
+            user_message: task.verification.input_pinned.then_some((task.spec_hash.as_str(), AttestationError::PromptMismatch)),
         };
         match self.verify_proof(&proof, &exp) {
             Ok((hash, receipt)) => {
@@ -753,7 +795,14 @@ impl AegisCore {
     }
 
     /// Parity helper: the commitment a sealed bid must carry.
-    pub fn compute_bid_commitment(&self, task_id: U64, agent_id: AccountId, price: U128, est_latency_sec: u32, salt: String) -> String {
+    pub fn compute_bid_commitment(
+        &self,
+        task_id: U64,
+        agent_id: AccountId,
+        price: U128,
+        est_latency_sec: u32,
+        salt: String,
+    ) -> String {
         bid_commitment(task_id.0, agent_id.as_str(), price.0, est_latency_sec, &salt)
     }
 

@@ -1,5 +1,5 @@
 /**
- * `pnpm mcp` — the AegisSwarm MCP server over stdio (see mcp.ts).
+ * `pnpm mcp` — the PhalanxSwarm MCP server over stdio (see mcp.ts).
  *
  *   pnpm --silent mcp               # the recorded testnet deployment (artifacts/testnet-swarm.json), over NEAR RPC
  *   AEGIS_CONTRACT_ID=… pnpm --silent mcp
@@ -7,7 +7,7 @@
  *   pnpm --silent mcp --sim         # an in-process AegisSim running artifacts/aegis_core.wasm with the judge's agents (offline)
  *
  * MCP client configuration (Claude Desktop, Kiro, Cursor; `--silent` keeps pnpm's banner off stdout):
- *   { "mcpServers": { "aegis-swarm": { "command": "pnpm", "args": ["--silent", "--dir", "/path/to/repo", "mcp"] } } }
+ *   { "mcpServers": { "phalanx-swarm": { "command": "pnpm", "args": ["--silent", "--dir", "/path/to/repo", "mcp"] } } }
  *
  * stdout carries only MCP messages, one JSON-RPC message per line. Logs go to stderr.
  */

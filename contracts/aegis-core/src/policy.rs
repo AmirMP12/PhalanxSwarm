@@ -7,9 +7,23 @@
 //!   the recipient must be in `allowed_recipients` (`<chain>:<address>`). Registered agents are
 //!   the only implicit recipients, and only for agent-to-agent payments. This is the control that
 //!   stops a fooled or compromised agent from paying an attacker an amount inside its limits.
+//! * Shared blocklist (`recipients.rs`): the DAO or a Sentinel reports a recipient with evidence;
+//!   paying it is critical for every agent, even if the address is also allow-listed.
+//! * Unknown recipients follow `unknown_recipient`: `quarantine` (default) treats them as an
+//!   attack; `hold` parks a settlement for DAO approval and rejects other payments without a strike,
+//!   so an honest agent that meets a new vendor keeps its key.
 //! * Price floors: a cross-chain swap's `min_amount_out` must clear a DAO-set floor for its
 //!   asset pair. The contract never trusts the agent-supplied quote for value protection.
 //! * EVM limits: per-chain caps for transfers the contract signs through Chain Signatures.
+//! * Pinned audit prompt: `audit_prompt_hash` is the only system prompt a NEAR AI audit proof
+//!   may use, so an agent cannot obtain a signed approval with instructions it wrote itself. The
+//!   audit's user message must be the contract's own facts (`facts.rs`), so it cannot write the
+//!   evidence either.
+//! * Task prompt registry: `task_prompt_hashes` lists the prompts the DAO approved for task proofs,
+//!   and `min_task_confidence_bps` / `min_task_reputation_bps` are floors an agent-posted RFP must
+//!   meet, so an orchestrator agent cannot set the rule that releases escrow.
+//! * Versioned updates: every change bumps `policy_version`; a DAO proposal can carry the version it
+//!   was written against, so an older proposal cannot silently undo a newer one.
 //! * Anomaly circuit breaker: critical violations (unauthorized destination, velocity burst,
 //!   forged signatures or attestations, gross overspend) freeze the agent immediately
 //!   (`AgentStatus::Quarantined`); warnings count as strikes and freeze it after
@@ -29,6 +43,7 @@ pub const MAX_RECIPIENTS: usize = 64;
 pub const MAX_PRICE_FLOORS: usize = 32;
 pub const MAX_EVM_CHAINS: usize = 8;
 pub const MAX_EVM_TOKENS: usize = 8;
+pub const MAX_TASK_PROMPTS: usize = 16;
 
 /// Minimum output per `unit_in` of the origin asset, e.g. at least 1 USDC (1_000_000) per
 /// 1 wNEAR (10^24). Swaps on a pair without a floor are rejected.
@@ -68,6 +83,28 @@ pub struct EvmChainPolicy {
     pub tokens: Vec<EvmTokenPolicy>,
 }
 
+/// What a payment to a recipient that is neither allow-listed nor blocked triggers.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UnknownRecipientRule {
+    /// Critical: the agent is quarantined (and a contract-account key deleted) in the same transaction.
+    #[default]
+    Quarantine,
+    /// Not an attack by itself: a settlement waits for owner / DAO approval (`approve_intent`), and
+    /// other payments are rejected without a strike until the DAO allow-lists the recipient.
+    Hold,
+}
+
+impl UnknownRecipientRule {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UnknownRecipientRule::Quarantine => "quarantine",
+            UnknownRecipientRule::Hold => "hold",
+        }
+    }
+}
+
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GlobalPolicy {
@@ -95,6 +132,23 @@ pub struct GlobalPolicy {
     pub allowed_recipients: Vec<String>,
     pub price_floors: Vec<PriceFloor>,
     pub evm_chains: Vec<EvmChainPolicy>,
+    /// Hex sha256 of the Sentinel's audit prompt. A NEAR AI audit proof for a settlement or an EVM
+    /// transfer must use exactly this system prompt. `None`: only enclave receipts are accepted.
+    #[serde(default)]
+    pub audit_prompt_hash: Option<String>,
+    /// What an unknown recipient triggers. Blocked recipients are always critical.
+    #[serde(default)]
+    pub unknown_recipient: UnknownRecipientRule,
+    /// Hex sha256 of every system prompt the DAO approved for NEAR AI task proofs. An RFP posted by
+    /// an agent may pin only one of these. Empty: agent-posted tasks accept only enclave receipts.
+    #[serde(default)]
+    pub task_prompt_hashes: Vec<String>,
+    /// Lowest `min_confidence_bps` an agent-posted RFP may demand.
+    #[serde(default)]
+    pub min_task_confidence_bps: u32,
+    /// Lowest `min_reputation_bps` an agent-posted RFP may demand, so unvetted agents stay out.
+    #[serde(default)]
+    pub min_task_reputation_bps: u32,
 }
 
 impl GlobalPolicy {
@@ -141,6 +195,13 @@ impl GlobalPolicy {
                 floor("nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"),
             ],
             evm_chains: vec![],
+            // Nothing is pinned until the DAO approves an audit prompt.
+            audit_prompt_hash: None,
+            unknown_recipient: UnknownRecipientRule::Quarantine,
+            // No task prompt is approved until the DAO names one.
+            task_prompt_hashes: vec![],
+            min_task_confidence_bps: 5_000,
+            min_task_reputation_bps: 0,
         }
     }
 
@@ -188,6 +249,19 @@ impl GlobalPolicy {
         chains.sort_unstable();
         chains.dedup();
         require!(chains.len() == self.evm_chains.len(), "AEGIS_E_POLICY: duplicate EVM chain");
+        require!(
+            self.audit_prompt_hash.as_deref().map(crate::codec::is_lower_hash32_hex).unwrap_or(true),
+            "AEGIS_E_POLICY: audit_prompt_hash must be 32-byte lower-case hex"
+        );
+        require!(self.task_prompt_hashes.len() <= MAX_TASK_PROMPTS, "AEGIS_E_POLICY: too many task prompts");
+        require!(
+            self.task_prompt_hashes.iter().all(|h| crate::codec::is_lower_hash32_hex(h)),
+            "AEGIS_E_POLICY: task_prompt_hashes must be 32-byte lower-case hex"
+        );
+        require!(
+            self.min_task_confidence_bps <= 10_000 && self.min_task_reputation_bps <= 10_000,
+            "AEGIS_E_POLICY: task floors must be <= 10000"
+        );
     }
 
     pub fn evm_chain(&self, chain: &str) -> Option<&EvmChainPolicy> {
@@ -274,31 +348,120 @@ impl Severity {
 #[serde(tag = "code", rename_all = "snake_case")]
 pub enum PolicyViolation {
     ProtocolPaused,
-    AgentNotActive { status: String },
-    AmountExceedsTxLimit { amount: U128, limit: U128 },
-    AgentEpochCapExceeded { spent: U128, amount: U128, cap: U128 },
-    GlobalEpochCapExceeded { spent: U128, amount: U128, cap: U128 },
-    ChainNotAllowed { chain: String },
-    ContractNotAllowed { contract_id: String },
-    AssetNotAllowed { asset: String },
-    SlippageTooHigh { slippage_bps: u32, max_bps: u32 },
-    VelocityExceeded { requests: u32, limit: u32, window_sec: u32 },
+    AgentNotActive {
+        status: String,
+    },
+    AmountExceedsTxLimit {
+        amount: U128,
+        limit: U128,
+    },
+    AgentEpochCapExceeded {
+        spent: U128,
+        amount: U128,
+        cap: U128,
+    },
+    GlobalEpochCapExceeded {
+        spent: U128,
+        amount: U128,
+        cap: U128,
+    },
+    ChainNotAllowed {
+        chain: String,
+    },
+    ContractNotAllowed {
+        contract_id: String,
+    },
+    AssetNotAllowed {
+        asset: String,
+    },
+    SlippageTooHigh {
+        slippage_bps: u32,
+        max_bps: u32,
+    },
+    VelocityExceeded {
+        requests: u32,
+        limit: u32,
+        window_sec: u32,
+    },
     MissingTeeAttestation,
-    InvalidTeeAttestation { reason: String },
+    InvalidTeeAttestation {
+        reason: String,
+    },
     InvalidIntentSignature,
     NonceReused,
-    DeadlineInvalid { reason: String },
-    QuoteInvalid { reason: String },
-    InsufficientTreasuryLiquidity { available: U128, amount: U128 },
-    RecipientNotAllowed { chain: String, recipient: String },
-    PriceBelowFloor { min_amount_out: U128, floor: U128 },
-    NoPriceFloor { origin_asset: String, destination_asset: String },
-    EvmChainNotAllowed { chain: String },
-    EvmAssetNotAllowed { asset: String },
-    EvmAmountExceedsLimit { amount: U128, limit: U128 },
-    EvmEpochCapExceeded { spent: U128, amount: U128, cap: U128 },
-    EvmFeeTooHigh { fee: U128, cap: U128 },
-    InsufficientAgentBalance { balance: U128, amount: U128 },
+    DeadlineInvalid {
+        reason: String,
+    },
+    QuoteInvalid {
+        reason: String,
+    },
+    InsufficientTreasuryLiquidity {
+        available: U128,
+        amount: U128,
+    },
+    RecipientNotAllowed {
+        chain: String,
+        recipient: String,
+    },
+    PriceBelowFloor {
+        min_amount_out: U128,
+        floor: U128,
+    },
+    NoPriceFloor {
+        origin_asset: String,
+        destination_asset: String,
+    },
+    EvmChainNotAllowed {
+        chain: String,
+    },
+    EvmAssetNotAllowed {
+        asset: String,
+    },
+    EvmAmountExceedsLimit {
+        amount: U128,
+        limit: U128,
+    },
+    EvmEpochCapExceeded {
+        spent: U128,
+        amount: U128,
+        cap: U128,
+    },
+    EvmFeeTooHigh {
+        fee: U128,
+        cap: U128,
+    },
+    InsufficientAgentBalance {
+        balance: U128,
+        amount: U128,
+    },
+    RecipientBlocked {
+        chain: String,
+        recipient: String,
+        reason: String,
+    },
+    RecipientNeedsApproval {
+        chain: String,
+        recipient: String,
+    },
+    /// An agent-posted RFP pins a task prompt the DAO did not approve.
+    TaskPromptNotApproved {
+        prompt_hash: String,
+    },
+    /// An agent-posted RFP demands less than the DAO's floor (`min_confidence_bps` or `min_reputation_bps`).
+    TaskFloorBelowPolicy {
+        field: String,
+        value: u32,
+        floor: u32,
+    },
+    /// The EVM nonce is not the next one the contract tracks for this chain.
+    EvmNonceMismatch {
+        expected: U64,
+        got: U64,
+    },
+    /// A transfer on this chain is signed and not yet confirmed or cancelled.
+    EvmTransferOutstanding {
+        tx_id: U64,
+    },
 }
 
 impl PolicyViolation {
@@ -330,6 +493,12 @@ impl PolicyViolation {
             Self::EvmEpochCapExceeded { .. } => "evm_epoch_cap_exceeded",
             Self::EvmFeeTooHigh { .. } => "evm_fee_too_high",
             Self::InsufficientAgentBalance { .. } => "insufficient_agent_balance",
+            Self::RecipientBlocked { .. } => "recipient_blocked",
+            Self::RecipientNeedsApproval { .. } => "recipient_needs_approval",
+            Self::TaskPromptNotApproved { .. } => "task_prompt_not_approved",
+            Self::TaskFloorBelowPolicy { .. } => "task_floor_below_policy",
+            Self::EvmNonceMismatch { .. } => "evm_nonce_mismatch",
+            Self::EvmTransferOutstanding { .. } => "evm_transfer_outstanding",
         }
     }
 
@@ -338,7 +507,11 @@ impl PolicyViolation {
             Self::ProtocolPaused
             | Self::AgentNotActive { .. }
             | Self::InsufficientTreasuryLiquidity { .. }
-            | Self::InsufficientAgentBalance { .. } => Severity::Notice,
+            | Self::InsufficientAgentBalance { .. }
+            | Self::RecipientNeedsApproval { .. }
+            // Nonce discipline protects by rejecting: a stale nonce can be an honest race.
+            | Self::EvmNonceMismatch { .. }
+            | Self::EvmTransferOutstanding { .. } => Severity::Notice,
             // Attempting to move 4x the allowed amount in one shot is treated as an attack.
             Self::AmountExceedsTxLimit { amount, limit } | Self::EvmAmountExceedsLimit { amount, limit } => {
                 if amount.0 >= limit.0.saturating_mul(4) {
@@ -355,6 +528,7 @@ impl PolicyViolation {
             | Self::InvalidIntentSignature
             | Self::NonceReused
             | Self::RecipientNotAllowed { .. }
+            | Self::RecipientBlocked { .. }
             | Self::PriceBelowFloor { .. }
             | Self::EvmChainNotAllowed { .. }
             | Self::EvmAssetNotAllowed { .. } => Severity::Critical,
@@ -366,7 +540,9 @@ impl PolicyViolation {
             | Self::QuoteInvalid { .. }
             | Self::NoPriceFloor { .. }
             | Self::EvmEpochCapExceeded { .. }
-            | Self::EvmFeeTooHigh { .. } => Severity::Warning,
+            | Self::EvmFeeTooHigh { .. }
+            | Self::TaskPromptNotApproved { .. }
+            | Self::TaskFloorBelowPolicy { .. } => Severity::Warning,
         }
     }
 }
@@ -397,6 +573,10 @@ pub struct PolicyDecision {
     pub severity: Severity,
     pub violations: Vec<PolicyViolation>,
     pub requires_dao_approval: bool,
+    /// Why an approved request waits for the DAO: `amount_at_or_above_dao_threshold`,
+    /// `recipient_needs_approval` (an unknown recipient under the `hold` rule).
+    #[serde(default)]
+    pub approval_reasons: Vec<String>,
     pub limits: EffectiveLimits,
 }
 
@@ -434,6 +614,8 @@ pub struct SpendRequest<'a> {
     pub recipient: Option<(&'a str, &'a str)>,
     /// Registered, active agents are implicit recipients (agent-to-agent payments only).
     pub recipient_is_agent: bool,
+    /// Blocklist reason when the recipient is on the shared blocklist.
+    pub recipient_blocked: Option<&'a str>,
     pub price: Option<PriceCheck<'a>>,
 }
 
@@ -449,9 +631,37 @@ impl<'a> SpendRequest<'a> {
             available_liquidity,
             recipient: None,
             recipient_is_agent: false,
+            recipient_blocked: None,
             price: None,
         }
     }
+}
+
+/// The recipient rule every payment path shares: a blocked recipient is critical even when it is
+/// allow-listed; allow-listed recipients and registered agents (agent-to-agent payments) pass; an
+/// unknown recipient follows `GlobalPolicy::unknown_recipient`.
+pub fn recipient_violation(
+    global: &GlobalPolicy,
+    chain: &str,
+    recipient: &str,
+    recipient_is_agent: bool,
+    blocked: Option<&str>,
+) -> Option<PolicyViolation> {
+    if let Some(reason) = blocked {
+        return Some(PolicyViolation::RecipientBlocked {
+            chain: chain.to_string(),
+            recipient: recipient.to_string(),
+            reason: reason.to_string(),
+        });
+    }
+    if recipient_is_agent || global.allows_recipient(chain, recipient) {
+        return None;
+    }
+    let (chain, recipient) = (chain.to_string(), recipient.to_string());
+    Some(match global.unknown_recipient {
+        UnknownRecipientRule::Quarantine => PolicyViolation::RecipientNotAllowed { chain, recipient },
+        UnknownRecipientRule::Hold => PolicyViolation::RecipientNeedsApproval { chain, recipient },
+    })
 }
 
 fn intersect<T: Clone + PartialEq>(global: &[T], agent: &[T]) -> Vec<T> {
@@ -464,7 +674,8 @@ fn intersect<T: Clone + PartialEq>(global: &[T], agent: &[T]) -> Vec<T> {
 
 /// `min_amount_out` must be at least `amount * min_out_per_unit / unit_in` for the pair.
 pub fn check_price_floor(global: &GlobalPolicy, p: &PriceCheck) -> Option<PolicyViolation> {
-    let Some(floor) = global.price_floors.iter().find(|f| f.origin_asset == p.origin_asset && f.destination_asset == p.destination_asset)
+    let Some(floor) =
+        global.price_floors.iter().find(|f| f.origin_asset == p.origin_asset && f.destination_asset == p.destination_asset)
     else {
         return Some(PolicyViolation::NoPriceFloor {
             origin_asset: p.origin_asset.to_string(),
@@ -551,8 +762,8 @@ pub fn evaluate_spend(
     }
 
     if let Some((chain, recipient)) = req.recipient {
-        if !req.recipient_is_agent && !global.allows_recipient(chain, recipient) {
-            violations.push(PolicyViolation::RecipientNotAllowed { chain: chain.to_string(), recipient: recipient.to_string() });
+        if let Some(v) = recipient_violation(global, chain, recipient, req.recipient_is_agent, req.recipient_blocked) {
+            violations.push(v);
         }
     }
 
@@ -711,15 +922,73 @@ impl AegisCore {
 
 // Governance and kill-switch methods
 
+impl AegisCore {
+    /// Rejects a change written against an older policy, then bumps the version.
+    fn next_policy_version(&mut self, expected_version: Option<U64>) {
+        if let Some(expected) = expected_version {
+            require!(
+                expected.0 == self.policy_version,
+                "AEGIS_E_STALE_POLICY: the policy changed since this proposal was written"
+            );
+        }
+        self.policy_version += 1;
+    }
+}
+
 #[near]
 impl AegisCore {
-    /// Owner (human / DAO) replaces the global policy.
-    pub fn update_global_policy(&mut self, policy: GlobalPolicy) {
+    /// Owner (human / DAO) replaces the global policy. With `expected_version`, the call fails if
+    /// the policy changed since the proposal was written, so an older proposal cannot undo a newer one.
+    pub fn update_global_policy(&mut self, policy: GlobalPolicy, expected_version: Option<U64>) {
         self.assert_owner();
         policy.validate();
+        self.next_policy_version(expected_version);
         self.policy = policy;
         AegisEvent::PolicyUpdated { scope: "global".to_string() }.emit();
         self.record_security_event("policy_updated", None, Severity::None, vec![], "global policy updated".to_string());
+    }
+
+    /// Owner adds one `<chain>:<address>` destination without restating the rest of the policy.
+    /// Returns `false` when it was already allow-listed.
+    pub fn add_allowed_recipient(&mut self, recipient: String, expected_version: Option<U64>) -> bool {
+        self.assert_owner();
+        require!(
+            is_valid_recipient_entry(&recipient),
+            "AEGIS_E_POLICY: recipients are `<chain>:<address>`, EVM addresses lower-case"
+        );
+        if self.policy.allowed_recipients.contains(&recipient) {
+            return false;
+        }
+        require!(self.policy.allowed_recipients.len() < MAX_RECIPIENTS, "AEGIS_E_POLICY: too many recipients");
+        self.next_policy_version(expected_version);
+        self.policy.allowed_recipients.push(recipient.clone());
+        AegisEvent::PolicyUpdated { scope: format!("recipient_added:{recipient}") }.emit();
+        self.record_security_event("policy_updated", None, Severity::None, vec![], format!("{recipient} allow-listed"));
+        true
+    }
+
+    /// Owner removes one destination from the allow-list. Returns `false` when it was not listed.
+    pub fn remove_allowed_recipient(&mut self, recipient: String, expected_version: Option<U64>) -> bool {
+        self.assert_owner();
+        let Some(pos) = self.policy.allowed_recipients.iter().position(|r| r == &recipient) else {
+            return false;
+        };
+        self.next_policy_version(expected_version);
+        self.policy.allowed_recipients.remove(pos);
+        AegisEvent::PolicyUpdated { scope: format!("recipient_removed:{recipient}") }.emit();
+        self.record_security_event(
+            "policy_updated",
+            None,
+            Severity::None,
+            vec![],
+            format!("{recipient} removed from the allow-list"),
+        );
+        true
+    }
+
+    /// Bumped by every change to the global policy.
+    pub fn get_policy_version(&self) -> U64 {
+        U64(self.policy_version)
     }
 
     /// Owner tightens or loosens the limits of one agent.

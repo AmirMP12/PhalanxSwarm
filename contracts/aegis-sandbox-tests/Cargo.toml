@@ -1,0 +1,18 @@
+[package]
+name = "aegis-sandbox-tests"
+version = "0.1.0"
+description = "near-workspaces integration suite: deploys the compiled aegis_core.wasm to a local NEAR sandbox node"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+bs58 = "0.5"
+ed25519-dalek = "2"
+near-workspaces = "0.24.0"
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

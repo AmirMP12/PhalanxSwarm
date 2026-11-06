@@ -1,0 +1,12 @@
+{
+  "image": "rust@sha256:09027f873d45b8ecd1dc86f1fa13b7a62b875c961f017a0e331267b350430137",
+  "platform": "linux/amd64",
+  "rustc": "1.99.1",
+  "source_path": "/src",
+  "target_path": "/tmp/target",
+  "rustflags": "-C link-arg=-s --cfg near",
+  "cargo_locked": true,
+  "wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
+  "size_bytes": 921021,
+  "two_clean_builds_byte_identical": true
+}

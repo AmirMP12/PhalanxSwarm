@@ -10,9 +10,14 @@
 //!    treasury; the message is not itself submitted to `intents.near`.
 //! 2. It verifies the agent's ed25519 signature over `sha256(2^31+413 || borsh(payload))`
 //!    against the agent's registered key (`env::ed25519_verify`), then the nonce, deadline,
-//!    recipient allow-list, price floor, TEE proof and every policy limit.
-//! 3. Rejections commit strikes / quarantine and return `rejected` (no panic).
-//! 4. Approvals:
+//!    recipient allow-list, price floor, TEE proof and every policy limit. The NEP-413 key is the
+//!    agent's FunctionCall key, the same key that signs the transaction, so the signature adds no
+//!    authentication of its own. It gives the request a stable, wallet-verifiable hash that the
+//!    audit proof is bound to, and its nonce makes each request single-use.
+//! 3. A NEAR AI audit must use the DAO-pinned prompt and, as its user message, the audit facts the
+//!    contract builds for the request (`facts.rs`, `get_intent_audit_facts`).
+//! 4. Rejections commit strikes / quarantine and return `rejected` (no panic).
+//! 5. Approvals:
 //!    * a vendor payment on `near` is paid out immediately: a real NEAR transfer from the
 //!      treasury to the allow-listed recipient, settled (or refunded) in the callback;
 //!    * a cross-chain swap is a dry-run rehearsal (Rule Q-007: 1Click quotes are `dry: true`).
@@ -27,12 +32,13 @@ use near_sdk::json_types::{U128, U64};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near, require, serde_json, AccountId, Gas, NearToken, Promise};
 
-use crate::attestation::{ExecutionProof, ExecutionReceipt, ReceiptExpectation};
+use crate::attestation::{AttestationError, ExecutionProof, ExecutionReceipt, ReceiptExpectation};
 use crate::codec::{
     decode_ed25519_signature, decode_nonce_b64, ed25519_key_bytes, format_iso8601_millis, from_hex, is_hash32_hex, is_safe_ascii,
     is_valid_asset_id, is_valid_chain_id, parse_hash32, to_hex,
 };
 use crate::events::AegisEvent;
+use crate::facts::{intent_facts, AuditFacts, IntentFactsInput, RecipientStatus};
 use crate::policy::{evaluate_spend, max_severity, PolicyDecision, PolicyViolation, PriceCheck, SpendRequest};
 use crate::subaccounts::{AgentRecord, AgentRole, AgentStatus};
 use crate::{AegisCore, AegisCoreExt};
@@ -223,6 +229,8 @@ pub struct IntentAssessment {
     pub attestation_hash: Option<String>,
     pub velocity_requests: u32,
     pub decision: PolicyDecision,
+    /// sha256 of the audit facts a NEAR AI audit of this request must carry as its user message.
+    pub audit_facts_hash: String,
 }
 
 #[derive(Serialize)]
@@ -415,10 +423,15 @@ fn validate_request_shape(req: &CrossChainIntentRequest) {
 }
 
 impl AegisCore {
-    /// Read-only evaluation shared by `request_intent_settlement` and `evaluate_intent`.
-    /// Returns the assessment, the velocity window the agent would move to, and the verified
-    /// TEE receipt summary (recorded only if the request is approved).
-    fn assess_intent(&self, agent: &AgentRecord, req: &CrossChainIntentRequest) -> (IntentAssessment, u64, u32, Option<ExecutionReceipt>) {
+    /// Read-only evaluation shared by `request_intent_settlement`, `evaluate_intent` and
+    /// `get_intent_audit_facts`. Returns the assessment, the velocity window the agent would move
+    /// to, the verified TEE receipt summary (recorded only if the request is approved), and the
+    /// audit facts the contract built for the request.
+    fn assess_intent(
+        &self,
+        agent: &AgentRecord,
+        req: &CrossChainIntentRequest,
+    ) -> (IntentAssessment, u64, u32, Option<ExecutionReceipt>, AuditFacts) {
         validate_request_shape(req);
         let now = env::block_timestamp();
         let epoch = env::epoch_height();
@@ -451,7 +464,8 @@ impl AegisCore {
         match &req.quote {
             Some(q) => {
                 if !q.dry {
-                    violations.push(PolicyViolation::QuoteInvalid { reason: "live_quote_not_executable_by_treasury".to_string() });
+                    violations
+                        .push(PolicyViolation::QuoteInvalid { reason: "live_quote_not_executable_by_treasury".to_string() });
                 }
                 if q.amount_in != req.amount {
                     violations.push(PolicyViolation::QuoteInvalid { reason: "amount_in_mismatch".to_string() });
@@ -480,6 +494,7 @@ impl AegisCore {
         } else {
             vec![req.origin_asset.as_str(), req.destination_asset.as_str()]
         };
+        let blocked = self.blocked_reason(&req.destination_chain, &req.recipient);
         let spend = SpendRequest {
             amount: req.amount.0,
             destination_chain: Some(&req.destination_chain),
@@ -489,6 +504,7 @@ impl AegisCore {
             available_liquidity: self.available_liquidity(),
             recipient: Some((&req.destination_chain, &req.recipient)),
             recipient_is_agent: false,
+            recipient_blocked: blocked.as_deref(),
             price: (req.destination_chain != "near").then_some(PriceCheck {
                 origin_asset: &req.origin_asset,
                 destination_asset: &req.destination_asset,
@@ -498,6 +514,28 @@ impl AegisCore {
         };
         let (spend_violations, limits) = evaluate_spend(&self.policy, self.paused, agent, &self.treasury, epoch, &spend);
         violations.extend(spend_violations);
+
+        // The auditor judges facts the contract computed, never facts the agent wrote.
+        let facts = intent_facts(
+            &IntentFactsInput {
+                agent: agent.agent_id.as_str(),
+                kind: req.kind.as_str(),
+                chain: &req.destination_chain,
+                recipient: &req.recipient,
+                amount: req.amount.0,
+                min_amount_out: req.min_amount_out.0,
+                origin_asset: &req.origin_asset,
+                destination_asset: &req.destination_asset,
+                execution_contract: req.execution_contract.as_str(),
+                memo: req.memo.as_deref().unwrap_or(""),
+                quote_dry_run: req.quote.as_ref().map(|q| q.dry),
+            },
+            &RecipientStatus {
+                allow_listed: self.policy.allows_recipient(&req.destination_chain, &req.recipient),
+                blocked_reason: blocked.as_deref(),
+            },
+            &violations,
+        );
 
         let mut attestation_hash = None;
         let mut attested_receipt = None;
@@ -511,6 +549,8 @@ impl AegisCore {
                     input_hash: Some(&hash_hex),
                     verdict: "approve",
                     min_confidence_bps: 0,
+                    prompt_hash: self.policy.audit_prompt_hash.as_deref(),
+                    user_message: Some((facts.facts_hash.as_str(), AttestationError::FactsMismatch)),
                 };
                 match self.verify_proof(proof, &exp) {
                     Ok((h, receipt)) => {
@@ -538,11 +578,26 @@ impl AegisCore {
             });
         }
 
+        // Under the `hold` rule an unknown recipient is the DAO's call, not a violation: when it is
+        // the only finding, the request is approved into `PendingApproval` instead of rejected.
+        let held =
+            !violations.is_empty() && violations.iter().all(|v| matches!(v, PolicyViolation::RecipientNeedsApproval { .. }));
+        if held {
+            violations.clear();
+        }
         let approved = violations.is_empty();
+        let mut approval_reasons = Vec::new();
+        if approved && req.amount.0 >= self.policy.dao_approval_threshold.0 {
+            approval_reasons.push("amount_at_or_above_dao_threshold".to_string());
+        }
+        if held {
+            approval_reasons.push("recipient_needs_approval".to_string());
+        }
         let decision = PolicyDecision {
             approved,
             severity: max_severity(&violations),
-            requires_dao_approval: approved && req.amount.0 >= self.policy.dao_approval_threshold.0,
+            requires_dao_approval: !approval_reasons.is_empty(),
+            approval_reasons,
             violations,
             limits,
         };
@@ -553,8 +608,9 @@ impl AegisCore {
             attestation_hash,
             velocity_requests: requests,
             decision,
+            audit_facts_hash: facts.facts_hash.clone(),
         };
-        (assessment, window_start, requests, attested_receipt)
+        (assessment, window_start, requests, attested_receipt, facts)
     }
 
     fn release_intent_funds(&mut self, record: &IntentRecord) {
@@ -636,7 +692,7 @@ impl AegisCore {
         // Frozen agents cannot even write audit records (prevents storage spam from leaked keys).
         require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
 
-        let (assessment, window_start, requests, attested_receipt) = self.assess_intent(&agent, &request);
+        let (assessment, window_start, requests, attested_receipt, _facts) = self.assess_intent(&agent, &request);
         let now = env::block_timestamp();
         let epoch = env::epoch_height();
 
@@ -801,11 +857,14 @@ impl AegisCore {
         record
     }
 
-    /// Owner / DAO approves a settlement above `dao_approval_threshold`.
+    /// Owner / DAO approves a held settlement: above `dao_approval_threshold`, or to an unknown
+    /// recipient under the `hold` rule.
     pub fn approve_intent(&mut self, intent_id: U64) -> IntentRecord {
         self.assert_owner();
         let mut record = self.intent_or_panic(intent_id.0);
         require!(record.status == IntentStatus::PendingApproval, "AEGIS_E_INTENT_NOT_PENDING");
+        // A recipient blocked while the request waited is never paid, even with the DAO's approval.
+        require!(self.blocked_reason(&record.destination_chain, &record.recipient).is_none(), "AEGIS_E_RECIPIENT_BLOCKED");
         record.status = IntentStatus::Committed;
         self.execute_committed(&mut record);
         self.intents.insert(intent_id.0, record.clone());
@@ -831,6 +890,13 @@ impl AegisCore {
     pub fn evaluate_intent(&self, agent_id: AccountId, request: CrossChainIntentRequest) -> IntentAssessment {
         let agent = self.agent_or_panic(&agent_id);
         self.assess_intent(&agent, &request).0
+    }
+
+    /// The facts document a NEAR AI audit of this settlement request must carry as its user
+    /// message. The contract builds it from its own evaluation, so the paying agent cannot.
+    pub fn get_intent_audit_facts(&self, agent_id: AccountId, request: CrossChainIntentRequest) -> AuditFacts {
+        let agent = self.agent_or_panic(&agent_id);
+        self.assess_intent(&agent, &request).4
     }
 
     /// Recipient allow-list check, for agents and UIs before they sign anything.

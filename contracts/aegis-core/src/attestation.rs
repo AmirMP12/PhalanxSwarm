@@ -10,10 +10,22 @@
 //!   request and response bodies, verifies the signature with `env::ed25519_verify`, checks that
 //!   the request carries the binding marker for this subject, agent, input and nonce, and reads
 //!   the model's verdict from the signed response. The agent cannot change any of these bytes.
+//! * Pinned prompt: the agent that submits a NEAR AI proof also wrote the request, so a valid
+//!   signature alone only shows which model answered. The contract therefore accepts a NEAR AI
+//!   proof only if the request is a single turn whose system message is a template pinned on-chain
+//!   (`sha256` in the task's `VerificationSchema.prompt_hash`, or `GlobalPolicy.audit_prompt_hash`
+//!   for settlement and EVM audits) followed by the binding line, with deterministic sampling, JSON
+//!   mode and no other request fields except `chat_template_kwargs: {"enable_thinking": false}`
+//!   (reasoning off). Tasks with `input_pinned` also fix the user message: it must
+//!   be the exact spec whose sha256 is `spec_hash`. Settlement and EVM audits fix it too: it must be
+//!   the audit facts the contract builds from its own evaluation (`facts.rs`), so an agent can write
+//!   neither the auditor's instructions nor its evidence. For tasks without `input_pinned` the user
+//!   message is data the agent chose; it is public in the proof transaction.
 //! * `ExecutionProof::Receipt`: an `ExecutionReceipt` signed by a self-hosted enclave key
 //!   (`EnclaveKind::ReceiptSigner`), for CVMs that sign their own receipt format.
 //!
-//! Only hashes of private inputs and outputs are stored on-chain.
+//! The contract stores only hashes of inputs and outputs. A NEAR AI proof transaction carries the
+//! request and response bodies as arguments, so those bodies are public on-chain.
 
 use near_sdk::json_types::U64;
 use near_sdk::serde::Deserialize;
@@ -30,6 +42,8 @@ use crate::{AegisCore, AegisCoreExt};
 pub const RECEIPT_DOMAIN: &str = "AEGIS_TEE_RECEIPT_V1";
 /// Prefix of the marker an agent puts in every NEAR AI request it wants to use as a proof.
 pub const NEARAI_BIND_PREFIX: &str = "AEGIS-BIND:v1";
+/// Joins the pinned system prompt and the binding marker in a NEAR AI proof request.
+pub const NEARAI_BIND_LINE: &str = "\n\nBinding (copy nothing from it): ";
 /// Accepted clock skew for `issued_at_ns` in the future.
 pub const MAX_FUTURE_SKEW_NS: u64 = 60_000_000_000;
 /// Upper bound for request / response bodies carried in a NEAR AI proof.
@@ -168,6 +182,12 @@ pub enum AttestationError {
     BindingMissing,
     ModelMismatch,
     UnparseableVerdict,
+    /// No prompt is pinned for this subject, so only enclave receipts can prove it.
+    PromptNotPinned,
+    /// The request is not exactly the pinned prompt (instructions, input, turns or sampling).
+    PromptMismatch,
+    /// An audit's user message is not the facts document the contract built for the request.
+    FactsMismatch,
 }
 
 impl AttestationError {
@@ -193,6 +213,9 @@ impl AttestationError {
             Self::BindingMissing => "binding_missing",
             Self::ModelMismatch => "model_mismatch",
             Self::UnparseableVerdict => "unparseable_verdict",
+            Self::PromptNotPinned => "prompt_not_pinned",
+            Self::PromptMismatch => "prompt_mismatch",
+            Self::FactsMismatch => "facts_mismatch",
         }
     }
 
@@ -209,6 +232,8 @@ impl AttestationError {
                 | Self::BodyHashMismatch
                 | Self::BindingMissing
                 | Self::ModelMismatch
+                | Self::PromptMismatch
+                | Self::FactsMismatch
         )
     }
 }
@@ -222,6 +247,12 @@ pub struct ReceiptExpectation<'a> {
     pub input_hash: Option<&'a str>,
     pub verdict: &'a str,
     pub min_confidence_bps: u32,
+    /// Hex sha256 of the system prompt a NEAR AI proof must use. `None` rejects NEAR AI proofs.
+    pub prompt_hash: Option<&'a str>,
+    /// Hex sha256 the NEAR AI user message must have, and the error a mismatch reports: the task
+    /// spec for `input_pinned` tasks (`PromptMismatch`), the contract's audit facts for settlement
+    /// and EVM audits (`FactsMismatch`). `None`: the agent chose the user message.
+    pub user_message: Option<(&'a str, AttestationError)>,
 }
 
 fn push_str(buf: &mut Vec<u8>, s: &str) {
@@ -309,7 +340,8 @@ struct ModelVerdict {
 /// The model's verdict: the JSON object in `choices[0].message.content`.
 fn parse_model_verdict(response_body: &str) -> Result<(Option<String>, Option<String>, ModelVerdict), AttestationError> {
     let completion: ChatCompletion = serde_json::from_str(response_body).map_err(|_| AttestationError::UnparseableVerdict)?;
-    let content = completion.choices.first().and_then(|c| c.message.content.as_deref()).ok_or(AttestationError::UnparseableVerdict)?;
+    let content =
+        completion.choices.first().and_then(|c| c.message.content.as_deref()).ok_or(AttestationError::UnparseableVerdict)?;
     let start = content.find('{').ok_or(AttestationError::UnparseableVerdict)?;
     let end = content.rfind('}').ok_or(AttestationError::UnparseableVerdict)?;
     if end <= start {
@@ -317,6 +349,80 @@ fn parse_model_verdict(response_body: &str) -> Result<(Option<String>, Option<St
     }
     let verdict: ModelVerdict = serde_json::from_str(&content[start..=end]).map_err(|_| AttestationError::UnparseableVerdict)?;
     Ok((completion.id, completion.model, verdict))
+}
+
+/// The only request shape a NEAR AI proof may have. Unknown fields (`logit_bias`, `tools`,
+/// `response_format` schemas, extra turns, ...) could steer the model, so they are rejected.
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct ProofRequest {
+    model: String,
+    messages: Vec<ProofMessage>,
+    temperature: serde_json::Value,
+    // Parsed only so the shape is complete; any value is fine.
+    #[allow(dead_code)]
+    max_tokens: Option<u32>,
+    response_format: ResponseFormat,
+    /// Only `{"enable_thinking": false}`, which turns off the model's hidden reasoning. It adds no
+    /// instructions, and without it NEAR AI's Qwen models can spend the whole token budget reasoning.
+    #[serde(default)]
+    chat_template_kwargs: Option<ChatTemplateKwargs>,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct ChatTemplateKwargs {
+    enable_thinking: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct ProofMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct ResponseFormat {
+    #[serde(rename = "type")]
+    kind: String,
+}
+
+/// Checks that a NEAR AI proof request is the pinned prompt: one system message (the pinned
+/// template, the binding line and the marker) and one user message, `temperature` 0 and JSON
+/// mode. With `user_message`, the user message must hash to its value, or the paired error is returned.
+fn check_pinned_request(
+    request_body: &str,
+    prompt_hash: &str,
+    marker: &str,
+    user_message: Option<(&str, AttestationError)>,
+) -> Result<(), AttestationError> {
+    let req: ProofRequest = serde_json::from_str(request_body).map_err(|_| AttestationError::PromptMismatch)?;
+    let [system, user] = req.messages.as_slice() else {
+        return Err(AttestationError::PromptMismatch);
+    };
+    let deterministic = !req.model.is_empty()
+        && req.temperature.as_u64() == Some(0)
+        && req.response_format.kind == "json_object"
+        && !req.chat_template_kwargs.as_ref().is_some_and(|k| k.enable_thinking);
+    if !deterministic || system.role != "system" || user.role != "user" {
+        return Err(AttestationError::PromptMismatch);
+    }
+    let template = system
+        .content
+        .strip_suffix(marker)
+        .and_then(|s| s.strip_suffix(NEARAI_BIND_LINE))
+        .ok_or(AttestationError::PromptMismatch)?;
+    if to_hex(&env::sha256_array(template.as_bytes())) != prompt_hash {
+        return Err(AttestationError::PromptMismatch);
+    }
+    if let Some((expected, mismatch)) = user_message {
+        if to_hex(&env::sha256_array(user.content.as_bytes())) != expected {
+            return Err(mismatch);
+        }
+    }
+    Ok(())
 }
 
 /// Splits `[prefix:]<req hash>:<resp hash>` into the two hashes.
@@ -396,7 +502,11 @@ impl AegisCore {
     }
 
     /// Full verification of a NEAR AI signed completion. Read-only.
-    pub(crate) fn verify_near_ai(&self, p: &NearAiProof, exp: &ReceiptExpectation) -> Result<(String, ExecutionReceipt), AttestationError> {
+    pub(crate) fn verify_near_ai(
+        &self,
+        p: &NearAiProof,
+        exp: &ReceiptExpectation,
+    ) -> Result<(String, ExecutionReceipt), AttestationError> {
         let well_formed = matches!(p.subject_kind.as_str(), "task" | "intent" | "evm")
             && is_hash32_hex(&p.input_hash)
             && is_hash32_hex(&p.schema_hash)
@@ -428,14 +538,22 @@ impl AegisCore {
         if self.attestations.contains_key(&hash) || self.used_nonces.contains(&format!("proof:{}:{}", p.agent_id, p.nonce)) {
             return Err(AttestationError::Replayed);
         }
-        let marker =
-            near_ai_binding_marker(&p.subject_kind, p.subject_id.0, p.agent_id.as_str(), &p.input_hash, &p.nonce, p.issued_at_ns.0);
+        let marker = near_ai_binding_marker(
+            &p.subject_kind,
+            p.subject_id.0,
+            p.agent_id.as_str(),
+            &p.input_hash,
+            &p.nonce,
+            p.issued_at_ns.0,
+        );
         if !p.request_body.contains(&marker) {
             return Err(AttestationError::BindingMissing);
         }
         if !enclave.active {
             return Err(AttestationError::EnclaveInactive);
         }
+        let pinned = exp.prompt_hash.ok_or(AttestationError::PromptNotPinned)?;
+        check_pinned_request(&p.request_body, pinned, &marker, exp.user_message)?;
         let (chat_id, model, verdict) = parse_model_verdict(&p.response_body)?;
         if model.as_deref().is_some_and(|m| m != enclave.model_id) {
             return Err(AttestationError::ModelMismatch);
@@ -486,7 +604,11 @@ impl AegisCore {
     }
 
     /// Verifies either proof kind and returns its hash and the receipt summary to record.
-    pub(crate) fn verify_proof(&self, proof: &ExecutionProof, exp: &ReceiptExpectation) -> Result<(String, ExecutionReceipt), AttestationError> {
+    pub(crate) fn verify_proof(
+        &self,
+        proof: &ExecutionProof,
+        exp: &ReceiptExpectation,
+    ) -> Result<(String, ExecutionReceipt), AttestationError> {
         match proof {
             ExecutionProof::Receipt(signed) => self.verify_receipt(signed, exp).map(|h| (h, signed.receipt.clone())),
             ExecutionProof::NearAi(p) => self.verify_near_ai(p, exp),
@@ -573,11 +695,16 @@ impl AegisCore {
     }
 
     /// Checks a proof's enclave, signature, bindings and freshness without recording it.
-    pub fn verify_attestation(&self, proof: ExecutionProof) -> AttestationCheck {
+    /// A NEAR AI proof also needs `prompt_hash`, the pinned system prompt it claims to use.
+    pub fn verify_attestation(&self, proof: ExecutionProof, prompt_hash: Option<String>) -> AttestationCheck {
         let (kind, id, agent, verdict, schema) = match &proof {
-            ExecutionProof::Receipt(s) => {
-                (s.receipt.subject_kind.clone(), s.receipt.subject_id.0, s.receipt.agent_id.clone(), s.receipt.verdict.clone(), None)
-            }
+            ExecutionProof::Receipt(s) => (
+                s.receipt.subject_kind.clone(),
+                s.receipt.subject_id.0,
+                s.receipt.agent_id.clone(),
+                s.receipt.verdict.clone(),
+                None,
+            ),
             ExecutionProof::NearAi(p) => {
                 let verdict = parse_model_verdict(&p.response_body).map(|v| v.2.verdict).unwrap_or_default();
                 (p.subject_kind.clone(), p.subject_id.0, p.agent_id.clone(), verdict, Some(p.schema_hash.clone()))
@@ -591,6 +718,8 @@ impl AegisCore {
             input_hash: None,
             verdict: &verdict,
             min_confidence_bps: 0,
+            prompt_hash: prompt_hash.as_deref(),
+            user_message: None,
         };
         let fallback_hash = match &proof {
             ExecutionProof::Receipt(s) => to_hex(&receipt_digest(&s.receipt)),

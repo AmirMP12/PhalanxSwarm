@@ -6,8 +6,8 @@
 //!
 //! * `pay_from_balance`: pay another registered agent (an internal transfer, e.g. a worker
 //!   subcontracting route data) or an allow-listed NEAR vendor (a real NEAR transfer). The
-//!   recipient allow-list and per-transaction limit apply, and a payment to an unknown account
-//!   trips the circuit breaker exactly like a treasury settlement would.
+//!   recipient rule (allow-list, shared blocklist, `unknown_recipient`) and the per-transaction
+//!   limit apply exactly as they do to a treasury settlement.
 //! * `withdraw_earnings`: send earnings to the owner-set `payout_account` (the operator, or the
 //!   agent's own sub-account to top up its gas).
 
@@ -16,7 +16,7 @@ use near_sdk::{env, near, require, AccountId, Gas, NearToken, Promise};
 
 use crate::codec::is_safe_ascii;
 use crate::events::AegisEvent;
-use crate::policy::{PolicyViolation, Severity};
+use crate::policy::{recipient_violation, PolicyViolation, Severity};
 use crate::subaccounts::AgentStatus;
 use crate::{AegisCore, AegisCoreExt};
 
@@ -52,15 +52,24 @@ impl AegisCore {
         if amount.0 > max_tx {
             violations.push(PolicyViolation::AmountExceedsTxLimit { amount, limit: U128(max_tx) });
         }
-        if !recipient_agent && !self.policy.allows_recipient("near", recipient.as_str()) {
-            violations.push(PolicyViolation::RecipientNotAllowed { chain: "near".to_string(), recipient: recipient.to_string() });
+        let blocked = self.blocked_reason("near", recipient.as_str());
+        if let Some(v) = recipient_violation(&self.policy, "near", recipient.as_str(), recipient_agent, blocked.as_deref()) {
+            violations.push(v);
         }
         if amount.0 > agent.balance.0 {
             violations.push(PolicyViolation::InsufficientAgentBalance { balance: agent.balance, amount });
         }
         if !violations.is_empty() {
             let (severity, quarantined) = self.apply_circuit_breaker(&agent.agent_id, "pay_from_balance", &violations);
-            return PaymentOutcome { paid: false, internal: recipient_agent, amount, recipient, severity, violations, quarantined };
+            return PaymentOutcome {
+                paid: false,
+                internal: recipient_agent,
+                amount,
+                recipient,
+                severity,
+                violations,
+                quarantined,
+            };
         }
 
         let mut payer = agent.clone();
@@ -79,7 +88,8 @@ impl AegisCore {
                 )
                 .detach();
         }
-        AegisEvent::AgentPaid { from: agent.agent_id.clone(), to: recipient.clone(), amount, internal: recipient_agent, memo }.emit();
+        AegisEvent::AgentPaid { from: agent.agent_id.clone(), to: recipient.clone(), amount, internal: recipient_agent, memo }
+            .emit();
         PaymentOutcome {
             paid: true,
             internal: recipient_agent,

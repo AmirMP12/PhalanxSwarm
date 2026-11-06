@@ -1,0 +1,47 @@
+{
+  "network": "testnet",
+  "contract_id": "aegisswarm-d49c65bf.testnet",
+  "mpc_contract_id": "v1.signer-prod.testnet",
+  "wasm_sha256": "8e160aacc1a83f46f1052e0b3be8b0b89a2ba85aa6d5461f8601b37668452bb0",
+  "timestamp": "2026-10-29T11:31:14.965Z",
+  "transactions": {
+    "deploy": {
+      "hash": "3G14MxTg2XGbZehmX8q7eMpCw47aGfjGpTQ3PATqqiYu",
+      "explorer": "https://testnet.nearblocks.io/txns/3G14MxTg2XGbZehmX8q7eMpCw47aGfjGpTQ3PATqqiYu"
+    },
+    "init": {
+      "hash": "EC476Q64yPiZz17p6aWyvWwvKvQLn7bfnqgfEbm2JW3u",
+      "explorer": "https://testnet.nearblocks.io/txns/EC476Q64yPiZz17p6aWyvWwvKvQLn7bfnqgfEbm2JW3u"
+    },
+    "fund": {
+      "hash": "DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz",
+      "explorer": "https://testnet.nearblocks.io/txns/DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz"
+    },
+    "policy": {
+      "hash": "6kkMydkCQX51ppPLw9aZjfQjdsH57UDd4dM7sJsUSw7b",
+      "explorer": "https://testnet.nearblocks.io/txns/6kkMydkCQX51ppPLw9aZjfQjdsH57UDd4dM7sJsUSw7b"
+    },
+    "spawn": {
+      "hash": "BvY4FDnxebX3KKALvuA2QWGkoCTqhiQGLi7AKh2miQ4C",
+      "explorer": "https://testnet.nearblocks.io/txns/BvY4FDnxebX3KKALvuA2QWGkoCTqhiQGLi7AKh2miQ4C"
+    },
+    "intent": {
+      "hash": "3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS",
+      "explorer": "https://testnet.nearblocks.io/txns/3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS"
+    },
+    "confirm": {
+      "hash": "FGtNNeWTGVuvpDehT3PfnYx2kQ2aVjGCrGs9YmktvuFT",
+      "explorer": "https://testnet.nearblocks.io/txns/FGtNNeWTGVuvpDehT3PfnYx2kQ2aVjGCrGs9YmktvuFT"
+    }
+  },
+  "mpc_derived_public_key": "secp256k1:4iQ94D8xQcFSbsM3UjLRHonU5KkkHgMTNbvg6i2RHuLk4BTAh33yUHBKSt5cqF5wu19K5UMJHCWZa59nb8JxRCPw",
+  "mpc_evm_address": "0x8de75fFE4e73cb5A4afa2FEA390fE08f61fbA9F6",
+  "oneclick_correlation_id": "1304e478-ec0a-40ea-bbb4-ab6074c80499",
+  "oneclick_dry": true,
+  "intent_id": "0",
+  "intent_status": "signed",
+  "nep413_hash": "cd353a44d0e7c505bc19e037eb9f7edeb3be6e09a0c88c3211324bf372847db5",
+  "mpc_payload": "5615772853f4c2d2de01e31ffb18181b28850ad8c4843247f998734ec6ae59d7",
+  "mpc_recovered_address": "0x8de75fFE4e73cb5A4afa2FEA390fE08f61fbA9F6",
+  "final_status": "settled"
+}
