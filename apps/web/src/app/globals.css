@@ -121,6 +121,21 @@ body {
 }
 
 @layer components {
+  /* Mobile-first responsive utilities */
+  .mobile-compact {
+    @media (max-width: 640px) {
+      padding: 1rem;
+    }
+  }
+
+  .mobile-text-wrap {
+    @media (max-width: 640px) {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }
+  }
+
   /* Layered card surface: hairline border, top highlight, soft drop shadow. No backdrop blur (cheap to paint). */
   .surface {
     background: linear-gradient(180deg, rgb(255 255 255 / 0.034), rgb(255 255 255 / 0.014));
