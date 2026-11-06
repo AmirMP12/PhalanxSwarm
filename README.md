@@ -8,7 +8,7 @@
 [![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet-00C08B)](https://testnet.near.org/)
 [![Contract Version](https://img.shields.io/badge/version-2.3.0-blue)](https://github.com/phalanxswarm/swarm)
 
-[Live Demo](https://phalanx-swarm.vercel.app) • [Deploy to Vercel](./VERCEL_DEPLOYMENT.md) • [Documentation](./DEPLOYMENT.md) • [Testnet Contract](https://testnet.nearblocks.io/address/aegis-69b4.phalanxswarm.testnet)
+[Live Demo](https://phalanxswarm.vercel.app) • [Deploy to Vercel](./VERCEL_DEPLOYMENT.md) • [Documentation](./DEPLOYMENT.md) • [Testnet Contract](https://testnet.nearblocks.io/address/aegis-69b4.phalanxswarm.testnet)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/AmirMP12/PhalanxSwarm)
 
@@ -147,7 +147,7 @@ Requirements: Rust 1.99.1 with `wasm32-unknown-unknown` (pinned by `rust-toolcha
 | 7 | `pnpm market` | 20 scripted bidders, 12 sealed-bid rounds on the compiled contract, ending `paid for undelivered work: 0 NEAR` ([Measurements](#measurements)). |
 | 8 | `pnpm verify:reproducible` | Two clean Docker builds with the same sha256 `4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76` (v2.3). The v2.2 testnet deployment runs the earlier build `4cfd7f7c…`. |
 | 9 | `pnpm test:sandbox` | `9 passed` against a real nearcore 2.14.0 node, including the key deletion, a held payment that moves only after the owner approves it, and an audit that counts only over the contract's own facts. |
-| 10 | `pnpm dev`, open https://phalanx-swarm.vercel.app or http://localhost:3000 locally | The guided demo runs on the same WASM in your browser: (1) a fooled agent loses its key, (2) an approval over invented facts is rejected, (3) a new vendor waits for the DAO and is paid after its vote. "Run all 3 steps" plays them in order; each result links the same step on testnet where one exists. "Explore" opens the DAO's limits, free-form invoices and the self-written-prompt forgery. With a NEAR AI key on the server, the agents run on NEAR AI; a failed call falls back to the labeled stand-in with a notice. The "On-chain" section reads the testnet deployment over public RPC, and its pre-flight shows the recipient's history signals. |
+| 10 | `pnpm dev`, open https://phalanxswarm.vercel.app or http://localhost:3000 locally | The guided demo runs on the same WASM in your browser: (1) a fooled agent loses its key, (2) an approval over invented facts is rejected, (3) a new vendor waits for the DAO and is paid after its vote. "Run all 3 steps" plays them in order; each result links the same step on testnet where one exists. "Explore" opens the DAO's limits, free-form invoices and the self-written-prompt forgery. With a NEAR AI key on the server, the agents run on NEAR AI; a failed call falls back to the labeled stand-in with a notice. The "On-chain" section reads the testnet deployment over public RPC, and its pre-flight shows the recipient's history signals. |
 | 11 | `pnpm verify:live` | Needs no key. It re-reads the testnet deployment and its transactions, DCAP-verifies a fresh NEAR AI attestation and the model key that signed the escrow-releasing proof, and requests a dry 1Click quote. On the v2.2 artifacts it passed `29/29 checks, 1 skipped`. Until v2.3 is deployed, expect one failure: the deployed bytecode (v2.2) differs from this repository's build (v2.3). The v2.3 checks run once a v2.3 deployment is recorded. |
 | 12 | `bash scripts/verify-all.sh` | Runs clippy, the unit tests, the WASM build, typecheck, lint, format checks, the SDK tests, the judge scenario, the web build and the sandbox suite. Ends `VERIFICATION PASSED`. |
 | 13 | GitHub Actions CI (`.github/workflows/ci.yml`) | Automated CI workflow running on pushes and PRs: TypeScript typecheck, ESLint, ShellCheck, Prettier format, source integrity, Rust clippy & unit tests, contract compile, copy script, SDK & web builds, simulation suites, and NEAR sandbox tests. |
@@ -481,7 +481,7 @@ pnpm judge:offline
 # 4. Start web demonstration
 pnpm dev
 # Visit http://localhost:3000 locally
-# Or visit https://phalanx-swarm.vercel.app for live deployment
+# Or visit https://phalanxswarm.vercel.app for live deployment
 ```
 
 ### What Makes This Project Unique
