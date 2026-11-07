@@ -652,7 +652,8 @@ export function TryIt() {
             <StepDetails ran={Boolean(attack)}>
               <p className="leading-relaxed text-slate-400">
                 Mallory, a third-party accounts-payable agent, reads an invoice with a forwarded &ldquo;our bank details changed&rdquo; message. The payment it
-                asks for is small and uses an allowed chain and route. Only the recipient check stops it.
+                asks for is small and uses an allowed chain and route. It also lacks a Sentinel audit, which on its own is a warning. The unapproved recipient
+                is the critical violation: it quarantines Mallory and deletes its key.
               </p>
               {attack && (
                 <div className="space-y-2">
