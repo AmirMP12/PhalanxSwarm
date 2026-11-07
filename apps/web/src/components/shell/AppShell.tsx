@@ -86,7 +86,6 @@ const countTone: Record<Tone, string> = {
 };
 
 function Sidebar({ active }: { active: NavSection["id"] }) {
-  const { status, wasm, dashboard, mode, inference } = useAegis();
   const counts = useNavCounts();
   const mod = useModKey();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -205,46 +204,6 @@ function Sidebar({ active }: { active: NavSection["id"] }) {
             </div>
           ))}
         </nav>
-
-        <div className="mt-4 mb-2 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-          <div className="flex items-center gap-2">
-            <StatusDot tone={status === "ready" ? "emerald" : status === "error" ? "red" : "amber"} pulse={status !== "error"} />
-            <span className="text-[12.5px] font-medium text-slate-200">AegisSim runtime</span>
-          </div>
-          <p className="mt-1 text-[11.5px] leading-snug text-slate-500">
-            {status === "ready" ? "Compiled WASM" : status === "error" ? "Runtime failed to boot." : "Loading aegis_core.wasm…"}
-          </p>
-          <dl className="num mt-2.5 space-y-1 text-[11px]">
-            <div className="flex justify-between gap-2">
-              <dt className="text-slate-500">wasm</dt>
-              <dd className="text-slate-300">{wasm ? `${Math.round(wasm.size / 1024)} KB` : "—"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-slate-500">sha256</dt>
-              <dd className="text-slate-300">{wasm ? short(wasm.sha256, 6, 4) : "—"}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-slate-500">block</dt>
-              <dd className="text-slate-300">{dashboard ? `#${dashboard.block_height}` : "—"}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-slate-500">1Click</dt>
-              <dd className="text-slate-300">{mode} · dry</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-slate-500">agents</dt>
-              <dd className={inference === "nearai" ? "text-emerald-300" : inference === "generic_llm" ? "text-sky-300" : "text-amber-200"}>
-                {inference === "nearai"
-                  ? "NEAR AI Cloud"
-                  : inference === "generic_llm"
-                    ? "live LLM (no TEE)"
-                    : inference === "standin"
-                      ? "stand-in (no TEE)"
-                      : "—"}
-              </dd>
-            </div>
-          </dl>
-        </div>
       </div>
     </aside>
   );
@@ -314,18 +273,19 @@ function Topbar({ active, onOpenMobileMenu, mobileOpen }: { active: NavSection["
             <Command className="size-3.5" aria-hidden />
           </button>
 
+          {/* Only while something happens: the idle state lives in the demo's "Local contract" menu. */}
           <div aria-live="polite" className="hidden min-w-0 items-center md:flex">
             {busy ? (
               <Badge tone="sky" className="gap-2">
                 <Spinner className="size-3" />
                 <span className="max-w-56 truncate">{busy}…</span>
               </Badge>
-            ) : (
-              <Badge tone={status === "ready" ? "emerald" : status === "error" ? "red" : "amber"} className="gap-2">
-                <StatusDot tone={status === "ready" ? "emerald" : status === "error" ? "red" : "amber"} pulse={status === "ready"} />
-                {status === "ready" ? "AegisSim · WASM running" : status === "error" ? "Runtime error" : "Loading WASM…"}
+            ) : status !== "ready" ? (
+              <Badge tone={status === "error" ? "red" : "amber"} className="gap-2">
+                <StatusDot tone={status === "error" ? "red" : "amber"} pulse={status === "loading"} />
+                {status === "error" ? "Runtime error" : "Starting local contract…"}
               </Badge>
-            )}
+            ) : null}
           </div>
           <span className="hidden 2xl:inline-flex">
             <Badge tone="violet">{NETWORK}</Badge>
@@ -400,7 +360,6 @@ function MobileNav({ active }: { active: NavSection["id"] }) {
 }
 
 function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () => void; active: NavSection["id"] }) {
-  const { status, wasm, dashboard, mode, inference } = useAegis();
   const counts = useNavCounts();
   const mod = useModKey();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -542,19 +501,6 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
                   </div>
                 ))}
               </nav>
-
-              <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <StatusDot tone={status === "ready" ? "emerald" : status === "error" ? "red" : "amber"} pulse={status !== "error"} />
-                  <span className="font-medium text-slate-200">AegisSim runtime ({status})</span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-400">
-                  <span>wasm: {wasm ? `${Math.round(wasm.size / 1024)} KB` : "—"}</span>
-                  <span>block: {dashboard ? `#${dashboard.block_height}` : "—"}</span>
-                  <span>1Click: {mode}</span>
-                  <span>agents: {inference === "nearai" ? "NEAR AI" : inference}</span>
-                </div>
-              </div>
             </div>
           </motion.div>
         </motion.div>

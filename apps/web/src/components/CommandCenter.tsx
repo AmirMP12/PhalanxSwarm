@@ -1,7 +1,7 @@
 "use client";
 
 import { MotionConfig } from "framer-motion";
-import { ArrowRightLeft, Compass, FlaskConical, Landmark, Network, RadioTower, ScrollText, ShieldCheck } from "lucide-react";
+import { ArrowRightLeft, Compass, Cpu, Landmark, Network, RadioTower, ScrollText, ShieldCheck } from "lucide-react";
 
 import { AegisProvider, useAegis } from "@/lib/aegis-context";
 import { useLiveDeployment } from "@/lib/live-deployment";
@@ -19,7 +19,7 @@ import { AppShell } from "./shell/AppShell";
 import { CommandPalette } from "./shell/CommandPalette";
 import { SwarmTopology } from "./SwarmTopology";
 import { DaoExport, TreasuryVault } from "./TreasuryVault";
-import { Badge, Label, Section, Toaster } from "./ui";
+import { Badge, Label, Section, Toaster, Tooltip } from "./ui";
 
 function SwarmMeta() {
   const { dashboard } = useAegis();
@@ -34,17 +34,16 @@ function SwarmMeta() {
   );
 }
 
-/** Marks a section whose data comes from the in-tab sandbox, with a way to the real deployment. */
+/** Marks a section whose data comes from the contract running in this tab, not the testnet deployment. */
 function SandboxTag() {
   return (
-    <span className="flex items-center gap-2 text-[11.5px]">
-      <Badge tone="slate" icon={FlaskConical}>
-        AegisSim sandbox
-      </Badge>
-      <a href="#onchain" className="text-sky-300 hover:text-sky-200">
-        testnet state →
-      </a>
-    </span>
+    <Tooltip content="Data from the compiled contract running in this tab. Live testnet data is in On-chain.">
+      <span tabIndex={0} className="rounded-full">
+        <Badge tone="slate" icon={Cpu}>
+          Local contract
+        </Badge>
+      </span>
+    </Tooltip>
   );
 }
 
@@ -65,18 +64,12 @@ function LiveMeta() {
 /** Where the guided demo ends and the full command center begins. */
 function ExploreDivider() {
   return (
-    <div aria-labelledby="explore-title" role="note" className="min-w-0 space-y-2">
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/15" aria-hidden />
-        <span id="explore-title" className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-          <Compass className="size-3.5" aria-hidden /> Explore
-        </span>
-        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/15" aria-hidden />
-      </div>
-      <p className="text-center text-[12.5px] text-slate-500">
-        Everything behind the demo: the live testnet deployment, the swarm market, treasury accounting, the policy engine, cross-chain settlement and every
-        transaction this tab sent.
-      </p>
+    <div role="separator" aria-label="Explore" className="flex min-w-0 items-center gap-3">
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/15" aria-hidden />
+      <span className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em] text-slate-400" aria-hidden>
+        <Compass className="size-3.5" /> Explore
+      </span>
+      <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/15" aria-hidden />
     </div>
   );
 }
@@ -93,13 +86,8 @@ function Page() {
 
       <ExploreDivider />
 
-      <section id="sandbox-state" aria-label="Sandbox state" className="min-w-0 space-y-3 scroll-mt-24 lg:scroll-mt-28">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Label>Sandbox state in this tab (AegisSim)</Label>
-          <a href="#onchain" className="text-[12px] text-sky-300 hover:text-sky-200">
-            Live testnet state →
-          </a>
-        </div>
+      <section id="sandbox-state" aria-label="Local contract state" className="min-w-0 space-y-3 scroll-mt-24 lg:scroll-mt-28">
+        <Label>Local contract state</Label>
         <OverviewStats />
       </section>
 

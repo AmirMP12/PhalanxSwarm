@@ -358,6 +358,7 @@ function Header({ s, loading, swarm }: { s: LiveSnapshot; loading: boolean; swar
             <span className="truncate">{s.contractId}</span>
           </Ext>
         }
+        descriptionVisible
         description={
           <>
             AegisCore v{d.info.version} · owner <Acct id={d.owner_id} head={28} />

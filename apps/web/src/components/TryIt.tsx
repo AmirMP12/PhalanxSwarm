@@ -39,7 +39,7 @@ import { useAegis } from "@/lib/aegis-context";
 import { useTestnetTxs } from "@/lib/testnet-evidence";
 import { useAction } from "@/lib/use-action";
 
-import { Reveal, StepCard, TestnetLink } from "./demo-parts";
+import { Reveal, StepCard, StepDetails, StepOutcome, TestnetLink } from "./demo-parts";
 import { Badge, Button, Callout, Field, PersonaAvatar, SegmentedControl, Spinner, Switch, cx, describeViolation, nearFmt, short } from "./ui";
 
 const VENDOR_NEAR_ENTRY = `near:${ACCOUNTS.vendor}`;
@@ -568,19 +568,11 @@ export function TryIt() {
       <div className="relative p-4 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/[0.08] py-1 pl-1.5 pr-3 text-[11.5px] font-medium text-emerald-200">
-              <span className="grid size-5 place-items-center rounded-full bg-emerald-500/20">
-                <ShieldCheck className="size-3" aria-hidden />
-              </span>
-              Guided demo · 3 steps on the compiled contract
-            </div>
-            <h2 id="try-title" className="mt-3 text-balance text-[26px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
+            <h2 id="try-title" className="text-balance text-[26px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
               The contract decides whether an AI&apos;s decision counts.
             </h2>
-            <p className="mt-3 text-[13.5px] leading-relaxed text-slate-400">
-              An agent&apos;s model can be prompt-injected, and an approval can be forged. PhalanxSwarm&apos;s NEAR contract checks every AI decision against
-              rules only the DAO can change, before any money moves. A fooled agent loses its key in the same transaction; an audit counts only if it judged the
-              facts the contract built itself; a payment to someone new waits for the DAO&apos;s vote.
+            <p className="mt-2.5 text-[14px] leading-relaxed text-slate-400">
+              AI agents can be fooled or hacked, so the NEAR contract checks every payment against the DAO&apos;s rules before any money moves.
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -599,19 +591,6 @@ export function TryIt() {
             </Button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px]">
-          <span className="rounded-lg sm:rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-medium text-slate-300 max-w-full break-words">
-            Rehearsal: compiled WASM in AegisSim · the same steps ran on testnet (links in each step)
-          </span>
-          <Badge tone={inference === "nearai" ? "emerald" : inference === "generic_llm" ? "sky" : "amber"} dot>
-            {inference === "nearai"
-              ? `Agents: NEAR AI Cloud · ${short(agentsInfo?.model ?? "", 26, 0)}`
-              : inference === "generic_llm"
-                ? `Agents: Live LLM · ${short(agentsInfo?.model ?? "", 26, 0)}`
-                : "Agents: offline stand-in (no TEE)"}
-          </Badge>
-        </div>
-
         <div aria-live="polite" className="mt-3 min-h-0 space-y-2">
           {working && (
             <div className="flex items-center gap-2 text-[12.5px] text-sky-300">
@@ -629,15 +608,10 @@ export function TryIt() {
           <StepCard
             n={1}
             icon={FileWarning}
-            title="A fooled agent loses its key"
+            title="Poisoned invoice"
             done={attackBlocked}
             current={nextStep === 1}
-            lead={
-              <>
-                Mallory, a third-party accounts-payable agent, reads an invoice with a forwarded &ldquo;our bank details changed&rdquo; message. The payment it
-                asks for is small and uses an allowed chain and route. Only the recipient check stops it.
-              </>
-            }
+            lead="Mallory, an AI payables agent, reads an invoice that swaps in a scammer's bank details."
           >
             <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="mallory" size={28} status={mallory?.status.kind} />}
@@ -662,83 +636,95 @@ export function TryIt() {
             <AnimatePresence initial={false}>
               {attack && (
                 <Reveal>
-                  <div className="space-y-2">
-                    <details className="rounded-xl border border-white/[0.06] bg-black/30 text-[11.5px]">
-                      <summary className="cursor-pointer px-3 py-2 text-slate-300">Invoice INV-2291 (what the model read)</summary>
-                      <pre className="num whitespace-pre-wrap break-words px-3 pb-3 text-[11px] leading-relaxed text-slate-400">{attack.invoice}</pre>
-                    </details>
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] text-slate-300">
-                      <span className="text-slate-500">Model ({sourceLabel(attack.modelSource)}) decided: </span>
-                      {attack.instruction.action === "hold" ? (
-                        <span>hold the payment: &ldquo;{attack.instruction.reason.slice(0, 200)}&rdquo;</span>
-                      ) : (
-                        <span className="num">
-                          pay {attack.instruction.amount_near} NEAR to {short(attack.instruction.recipient, 10, 6)} on {attack.instruction.chain}
-                        </span>
-                      )}
-                      {!attack.fooled && (
-                        <div className="mt-1 text-amber-200">
-                          The model resisted. The treasury must not rely on that, so the injected instruction (pay {short(attack.submitted.recipient, 8, 6)})
-                          was submitted anyway.
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className={cx(
-                        "space-y-1.5 rounded-xl border p-3 text-[12px]",
-                        attackBlocked ? "border-emerald-400/25 bg-emerald-400/[0.05]" : "border-red-400/40 bg-red-500/10",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-slate-100">{attackBlocked ? "Blocked by the contract" : "Not blocked"}</span>
-                        {attack.outcome && (
-                          <Badge tone={attack.outcome.decision.severity === "critical" ? "red" : "amber"}>{attack.outcome.decision.severity}</Badge>
-                        )}
-                      </div>
-                      {attack.outcome?.decision.violations
-                        .filter((v) => v.code !== "missing_tee_attestation")
-                        .map((v, i) => (
-                          <div key={i} className="flex gap-1.5 text-red-200">
-                            <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden /> {describeViolation(v)}
-                          </div>
-                        ))}
-                      {attack.error && <div className="num text-red-300">{attack.error}</div>}
-                      {attack.keyDeleted && (
-                        <div className="font-medium text-slate-100">
-                          Mallory was quarantined and its access key deleted (a DeleteKey action), in the same transaction as the rejection.
-                        </div>
-                      )}
-                      <div className="text-slate-400">
-                        {attack.liquidUnchanged ? "Treasury balance unchanged." : "Treasury balance changed."} The attacker address{" "}
-                        <span className="num">{short(ATTACKER_EVM, 8, 6)}</span> was never on the DAO&apos;s list.
-                      </div>
-                      {attack.blocklisted && (
-                        <div className="flex gap-1.5 text-slate-300">
-                          <ShieldX className="mt-0.5 size-3.5 shrink-0 text-red-300" aria-hidden />
-                          The Sentinel added it to the shared blocklist, with the rejected request as evidence. Every agent&apos;s pre-flight now refuses it.
-                        </div>
-                      )}
-                      <TestnetLink href={txs.invoice_fraud_attempt} label="The same attack on testnet (key deleted)" />
-                    </div>
-                  </div>
+                  <StepOutcome tone={attackBlocked ? "good" : "bad"} label={attackBlocked ? "Blocked by the contract" : "Not blocked"}>
+                    {attackBlocked ? (
+                      <>
+                        {attack.keyDeleted ? "Mallory lost its key" : attack.outcome?.quarantined ? "Mallory was quarantined" : "The payment was rejected"} and
+                        no NEAR left the treasury.{!attack.fooled && " The model saw through the scam, so the payment was sent anyway to test the contract."}
+                      </>
+                    ) : (
+                      "See what happened below."
+                    )}
+                  </StepOutcome>
                 </Reveal>
               )}
             </AnimatePresence>
+            <StepDetails ran={Boolean(attack)}>
+              <p className="leading-relaxed text-slate-400">
+                Mallory, a third-party accounts-payable agent, reads an invoice with a forwarded &ldquo;our bank details changed&rdquo; message. The payment it
+                asks for is small and uses an allowed chain and route. Only the recipient check stops it.
+              </p>
+              {attack && (
+                <div className="space-y-2">
+                  <details className="rounded-xl border border-white/[0.06] bg-black/30 text-[11.5px]">
+                    <summary className="cursor-pointer px-3 py-2 text-slate-300">Invoice INV-2291 (what the model read)</summary>
+                    <pre className="num whitespace-pre-wrap break-words px-3 pb-3 text-[11px] leading-relaxed text-slate-400">{attack.invoice}</pre>
+                  </details>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] text-slate-300">
+                    <span className="text-slate-500">Model ({sourceLabel(attack.modelSource)}) decided: </span>
+                    {attack.instruction.action === "hold" ? (
+                      <span>hold the payment: &ldquo;{attack.instruction.reason.slice(0, 200)}&rdquo;</span>
+                    ) : (
+                      <span className="num">
+                        pay {attack.instruction.amount_near} NEAR to {short(attack.instruction.recipient, 10, 6)} on {attack.instruction.chain}
+                      </span>
+                    )}
+                    {!attack.fooled && (
+                      <div className="mt-1 text-amber-200">
+                        The model resisted. The treasury must not rely on that, so the injected instruction (pay {short(attack.submitted.recipient, 8, 6)}) was
+                        submitted anyway.
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={cx(
+                      "space-y-1.5 rounded-xl border p-3 text-[12px]",
+                      attackBlocked ? "border-emerald-400/25 bg-emerald-400/[0.05]" : "border-red-400/40 bg-red-500/10",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-slate-100">{attackBlocked ? "Blocked by the contract" : "Not blocked"}</span>
+                      {attack.outcome && (
+                        <Badge tone={attack.outcome.decision.severity === "critical" ? "red" : "amber"}>{attack.outcome.decision.severity}</Badge>
+                      )}
+                    </div>
+                    {attack.outcome?.decision.violations
+                      .filter((v) => v.code !== "missing_tee_attestation")
+                      .map((v, i) => (
+                        <div key={i} className="flex gap-1.5 text-red-200">
+                          <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden /> {describeViolation(v)}
+                        </div>
+                      ))}
+                    {attack.error && <div className="num text-red-300">{attack.error}</div>}
+                    {attack.keyDeleted && (
+                      <div className="font-medium text-slate-100">
+                        Mallory was quarantined and its access key deleted (a DeleteKey action), in the same transaction as the rejection.
+                      </div>
+                    )}
+                    <div className="text-slate-400">
+                      {attack.liquidUnchanged ? "Treasury balance unchanged." : "Treasury balance changed."} The attacker address{" "}
+                      <span className="num">{short(ATTACKER_EVM, 8, 6)}</span> was never on the DAO&apos;s list.
+                    </div>
+                    {attack.blocklisted && (
+                      <div className="flex gap-1.5 text-slate-300">
+                        <ShieldX className="mt-0.5 size-3.5 shrink-0 text-red-300" aria-hidden />
+                        The Sentinel added it to the shared blocklist, with the rejected request as evidence. Every agent&apos;s pre-flight now refuses it.
+                      </div>
+                    )}
+                    <TestnetLink href={txs.invoice_fraud_attempt} label="The same attack on testnet (key deleted)" />
+                  </div>
+                </div>
+              )}
+            </StepDetails>
           </StepCard>
 
           <StepCard
             n={2}
             icon={Fingerprint}
-            title="An approval over invented facts is rejected"
+            title="Forged evidence"
             done={factsRejected}
             current={nextStep === 2}
-            lead={
-              <>
-                Cipher is compromised and knows the DAO-pinned audit prompt. Its real payment carries a &ldquo;changed bank details&rdquo; memo. It asks the
-                model to approve a copy of the facts with a harmless memo. The model really signs. The contract compares the audit&apos;s input with the facts
-                it built itself.
-              </>
-            }
+            lead="Cipher, a hacked agent, asks the auditor to approve a doctored copy of the payment's facts."
           >
             <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="cipher" size={28} status={cipher?.status.kind} />}
@@ -763,83 +749,92 @@ export function TryIt() {
             <AnimatePresence initial={false}>
               {facts && (
                 <Reveal>
-                  <div className="space-y-2">
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] text-slate-300">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1.5">
-                          <ScanEye className="size-3.5 text-violet-300" aria-hidden /> Sentinel on the contract&apos;s facts ({sourceLabel(facts.modelSource)})
-                        </span>
-                        <Badge tone={facts.honestVerdict === "approve" ? "emerald" : "red"}>{facts.honestVerdict}</Badge>
-                      </div>
-                      {facts.honestFindings.length > 0 && <div className="mt-1 text-slate-400">{facts.honestFindings.join(" · ")}</div>}
-                    </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11.5px]">
-                      <div className="mb-1.5 text-slate-300">What Cipher changed in its copy of the facts</div>
-                      {facts.changes.map((c) => (
-                        <div key={c.field} className="num space-y-0.5 border-t border-white/[0.05] py-1.5 first:border-0">
-                          <div className="text-slate-500 break-all">{c.field}</div>
-                          <div className="break-all text-red-200/90">contract: {c.real}</div>
-                          <div className="break-all text-amber-200/90">Cipher: {c.invented}</div>
-                        </div>
-                      ))}
-                      <div className="num mt-1.5 text-slate-500">
-                        sha256 {short(facts.realHash, 8, 4)} (contract) ≠ {short(facts.inventedHash, 8, 4)} (Cipher)
-                      </div>
-                    </div>
-                    <div
-                      className={cx(
-                        "space-y-1.5 rounded-xl border p-3 text-[12px]",
-                        factsRejected ? "border-emerald-400/25 bg-emerald-400/[0.05]" : "border-red-400/40 bg-red-500/10",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-300">
-                          Model verdict on the invented facts: <b className="text-slate-100">{facts.verdict}</b>, signature
-                        </span>
-                        <Badge tone={facts.signatureValid ? "emerald" : "red"}>{facts.signatureValid ? "valid" : "invalid"}</Badge>
-                      </div>
-                      {facts.outcome?.decision.violations
-                        .filter((v) => v.code !== "missing_tee_attestation")
-                        .map((v, i) => (
-                          <div key={i} className="flex gap-1.5 text-red-200">
-                            <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                            {v.code === "invalid_tee_attestation" && v.reason === "facts_mismatch"
-                              ? "The audit judged a document the contract did not build: rejected as a forgery (facts_mismatch)."
-                              : describeViolation(v)}
-                          </div>
-                        ))}
-                      {facts.error && <div className="num text-red-300">{facts.error}</div>}
-                      <div className="text-slate-300">
-                        {facts.outcome?.quarantined ? "Severity critical: Cipher was quarantined. " : ""}
-                        {facts.paid ? "The vendor was paid." : "Nothing was paid."}
-                      </div>
-                      {txs.invented_facts_audit_attempt ? (
-                        <TestnetLink href={txs.invented_facts_audit_attempt} label="The same forgery on testnet" />
-                      ) : (
-                        <TestnetLink
-                          href={txs.forged_audit_attempt}
-                          label="The self-written-prompt forgery on testnet (the recorded v2.2 run predates this check)"
-                        />
-                      )}
-                    </div>
-                  </div>
+                  <StepOutcome tone={factsRejected ? "good" : "bad"} label={factsRejected ? "Rejected as a forgery" : "Not rejected"}>
+                    {factsRejected
+                      ? `The approval covered facts the contract never built. ${facts.outcome?.quarantined ? "Cipher was quarantined and nothing" : "Nothing"} was paid.`
+                      : "See what happened below."}
+                  </StepOutcome>
                 </Reveal>
               )}
             </AnimatePresence>
+            <StepDetails ran={Boolean(facts)}>
+              <p className="leading-relaxed text-slate-400">
+                Cipher is compromised and knows the DAO-pinned audit prompt. Its real payment carries a &ldquo;changed bank details&rdquo; memo. It asks the
+                model to approve a copy of the facts with a harmless memo. The model really signs. The contract compares the audit&apos;s input with the facts
+                it built itself.
+              </p>
+              {facts && (
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] text-slate-300">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5">
+                        <ScanEye className="size-3.5 text-violet-300" aria-hidden /> Sentinel on the contract&apos;s facts ({sourceLabel(facts.modelSource)})
+                      </span>
+                      <Badge tone={facts.honestVerdict === "approve" ? "emerald" : "red"}>{facts.honestVerdict}</Badge>
+                    </div>
+                    {facts.honestFindings.length > 0 && <div className="mt-1 text-slate-400">{facts.honestFindings.join(" · ")}</div>}
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11.5px]">
+                    <div className="mb-1.5 text-slate-300">What Cipher changed in its copy of the facts</div>
+                    {facts.changes.map((c) => (
+                      <div key={c.field} className="num space-y-0.5 border-t border-white/[0.05] py-1.5 first:border-0">
+                        <div className="text-slate-500 break-all">{c.field}</div>
+                        <div className="break-all text-red-200/90">contract: {c.real}</div>
+                        <div className="break-all text-amber-200/90">Cipher: {c.invented}</div>
+                      </div>
+                    ))}
+                    <div className="num mt-1.5 text-slate-500">
+                      sha256 {short(facts.realHash, 8, 4)} (contract) ≠ {short(facts.inventedHash, 8, 4)} (Cipher)
+                    </div>
+                  </div>
+                  <div
+                    className={cx(
+                      "space-y-1.5 rounded-xl border p-3 text-[12px]",
+                      factsRejected ? "border-emerald-400/25 bg-emerald-400/[0.05]" : "border-red-400/40 bg-red-500/10",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-300">
+                        Model verdict on the invented facts: <b className="text-slate-100">{facts.verdict}</b>, signature
+                      </span>
+                      <Badge tone={facts.signatureValid ? "emerald" : "red"}>{facts.signatureValid ? "valid" : "invalid"}</Badge>
+                    </div>
+                    {facts.outcome?.decision.violations
+                      .filter((v) => v.code !== "missing_tee_attestation")
+                      .map((v, i) => (
+                        <div key={i} className="flex gap-1.5 text-red-200">
+                          <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                          {v.code === "invalid_tee_attestation" && v.reason === "facts_mismatch"
+                            ? "The audit judged a document the contract did not build: rejected as a forgery (facts_mismatch)."
+                            : describeViolation(v)}
+                        </div>
+                      ))}
+                    {facts.error && <div className="num text-red-300">{facts.error}</div>}
+                    <div className="text-slate-300">
+                      {facts.outcome?.quarantined ? "Severity critical: Cipher was quarantined. " : ""}
+                      {facts.paid ? "The vendor was paid." : "Nothing was paid."}
+                    </div>
+                    {txs.invented_facts_audit_attempt ? (
+                      <TestnetLink href={txs.invented_facts_audit_attempt} label="The same forgery on testnet" />
+                    ) : (
+                      <TestnetLink
+                        href={txs.forged_audit_attempt}
+                        label="The self-written-prompt forgery on testnet (the recorded v2.2 run predates this check)"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </StepDetails>
           </StepCard>
 
           <StepCard
             n={3}
             icon={Gavel}
-            title="A new vendor waits for the DAO"
+            title="New vendor"
             done={heldPaid}
             current={nextStep === 3}
-            lead={
-              <>
-                Nexus pays GPU Vendor B, which nobody approved yet. The DAO&apos;s rule for new recipients is &ldquo;hold&rdquo;: after the pre-flight and a
-                Sentinel audit with {brain}, the contract reserves the funds and waits for the DAO&apos;s vote. Nexus keeps its key.
-              </>
-            }
+            lead="Nexus pays GPU Vendor B, which the DAO hasn't approved yet."
           >
             <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="nexus" size={28} status={nexus?.status.kind} />}
@@ -867,19 +862,38 @@ export function TryIt() {
             <AnimatePresence initial={false}>
               {held && (
                 <Reveal>
-                  <JobReport r={held} txs={txs} nexus={nexus} quarantineAfter={policy?.quarantine_after_strikes ?? 3} />
+                  {held.finalStatus === "settled" && held.vendorGain > 0n ? (
+                    <StepOutcome tone="good" label={held.approvedByDao ? "Paid after DAO approval" : "Paid"}>
+                      GPU Vendor B received {nearFmt(held.vendorGain)}. Nexus kept its key.
+                    </StepOutcome>
+                  ) : held.finalStatus === "pending_approval" ? (
+                    <StepOutcome tone="wait" label="Waiting for the DAO">
+                      The funds are reserved and nothing has moved. Nexus keeps its key.
+                    </StepOutcome>
+                  ) : (
+                    <StepOutcome tone="bad" label="Not paid">
+                      See what happened below.
+                    </StepOutcome>
+                  )}
                 </Reveal>
               )}
             </AnimatePresence>
+            <StepDetails ran={Boolean(held)}>
+              <p className="leading-relaxed text-slate-400">
+                Nexus pays GPU Vendor B, which nobody approved yet. The DAO&apos;s rule for new recipients is &ldquo;hold&rdquo;: after the pre-flight and a
+                Sentinel audit with {brain}, the contract reserves the funds and waits for the DAO&apos;s vote. Nexus keeps its key.
+              </p>
+              {held && <JobReport r={held} txs={txs} nexus={nexus} quarantineAfter={policy?.quarantine_after_strikes ?? 3} />}
+            </StepDetails>
           </StepCard>
         </ol>
 
         <details className="group mt-4 rounded-2xl border border-white/[0.08] bg-black/20">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-medium text-slate-200 [&::-webkit-details-marker]:hidden">
             <ChevronDown className="size-4 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
-            Explore: set the DAO&apos;s limits, pay any invoice, try the simpler forgery
+            More to try: set the DAO&apos;s limits, pay any invoice, a simpler forgery
           </summary>
-          <div className="grid grid-cols-1 gap-3 px-4 pb-4 xl:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-3 px-4 pb-4 xl:grid-cols-2">
             <ExploreCard
               icon={SlidersHorizontal}
               title="Set the limits"
@@ -971,123 +985,126 @@ export function TryIt() {
               </div>
             </ExploreCard>
 
-            <ExploreCard
-              icon={Briefcase}
-              title="Pay any invoice"
-              lead={
-                <>
-                  Nexus asks the contract about the recipient, the Sentinel audits the payment with {brain}, and the contract verifies the audit, applies the
-                  limits and transfers the NEAR.
-                </>
-              }
-            >
-              <SegmentedControl<JobVendor>
-                label="Vendor"
-                size="sm"
-                value={jobVendor}
-                onChange={setJobVendor}
-                disabled={disabled}
-                options={[
-                  { value: "a", label: "Vendor A (approved)", hint: ACCOUNTS.vendor },
-                  { value: "b", label: "Vendor B (new)", hint: ACCOUNTS.newVendor },
-                ]}
-              />
-              <Field
-                label="Invoice amount"
-                suffix="NEAR"
-                inputMode="decimal"
-                value={jobAmount}
-                error={errors.job}
-                onChange={(e) => setJobAmount(e.target.value)}
-                presets={["2", "10", "30"]}
-                onPreset={setJobAmount}
-                hint="Try more than the per-payment limit, or switch the vendor off in Set the limits."
-              />
-              <Button
-                className="w-full"
-                variant="secondary"
-                icon={Wallet}
-                disabled={disabled || Boolean(errors.job) || nexus?.status.kind !== "active"}
-                onClick={() => void runJob()}
+            {/* The two short tools share a column, so together they come close to the limits form's height. Cards fit their content, so a result grows its own card instead of leaving empty space in the other. */}
+            <div className="flex min-w-0 flex-col gap-3">
+              <ExploreCard
+                icon={Briefcase}
+                title="Pay any invoice"
+                lead={
+                  <>
+                    Nexus asks the contract about the recipient, the Sentinel audits the payment with {brain}, and the contract verifies the audit, applies the
+                    limits and transfers the NEAR.
+                  </>
+                }
               >
-                Let Nexus pay the invoice
-              </Button>
-              {nexus && nexus.status.kind !== "active" && (
-                <p className="text-[11.5px] text-amber-200">Nexus is {nexus.status.kind} after a policy violation. Start over to reset the sandbox.</p>
-              )}
-              <AnimatePresence initial={false}>
-                {job && (
-                  <Reveal>
-                    <JobReport
-                      r={job}
-                      txs={txs}
-                      nexus={nexus}
-                      quarantineAfter={policy?.quarantine_after_strikes ?? 3}
-                      onApprove={job.finalStatus === "pending_approval" ? () => void approveJob() : undefined}
-                      onSendAnyway={job.unsent ? () => void sendAnyway() : undefined}
-                      disabled={disabled}
-                    />
-                  </Reveal>
+                <SegmentedControl<JobVendor>
+                  label="Vendor"
+                  size="sm"
+                  value={jobVendor}
+                  onChange={setJobVendor}
+                  disabled={disabled}
+                  options={[
+                    { value: "a", label: "Vendor A (approved)", hint: ACCOUNTS.vendor },
+                    { value: "b", label: "Vendor B (new)", hint: ACCOUNTS.newVendor },
+                  ]}
+                />
+                <Field
+                  label="Invoice amount"
+                  suffix="NEAR"
+                  inputMode="decimal"
+                  value={jobAmount}
+                  error={errors.job}
+                  onChange={(e) => setJobAmount(e.target.value)}
+                  presets={["2", "10", "30"]}
+                  onPreset={setJobAmount}
+                  hint="Try more than the per-payment limit, or switch the vendor off in Set the limits."
+                />
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  icon={Wallet}
+                  disabled={disabled || Boolean(errors.job) || nexus?.status.kind !== "active"}
+                  onClick={() => void runJob()}
+                >
+                  Let Nexus pay the invoice
+                </Button>
+                {nexus && nexus.status.kind !== "active" && (
+                  <p className="text-[11.5px] text-amber-200">Nexus is {nexus.status.kind} after a policy violation. Start over to reset the sandbox.</p>
                 )}
-              </AnimatePresence>
-            </ExploreCard>
+                <AnimatePresence initial={false}>
+                  {job && (
+                    <Reveal>
+                      <JobReport
+                        r={job}
+                        txs={txs}
+                        nexus={nexus}
+                        quarantineAfter={policy?.quarantine_after_strikes ?? 3}
+                        onApprove={job.finalStatus === "pending_approval" ? () => void approveJob() : undefined}
+                        onSendAnyway={job.unsent ? () => void sendAnyway() : undefined}
+                        disabled={disabled}
+                      />
+                    </Reveal>
+                  )}
+                </AnimatePresence>
+              </ExploreCard>
 
-            <ExploreCard
-              icon={Fingerprint}
-              title="The simpler forgery: a self-written prompt"
-              lead="Rhea skips the Sentinel and asks the model herself, with instructions she wrote. The answer carries a valid signature from the registered model key. Only the DAO-pinned prompt hash tells it apart."
-            >
-              <Button
-                className="w-full"
-                variant="danger"
+              <ExploreCard
                 icon={Fingerprint}
-                disabled={disabled || rhea?.status.kind !== "active"}
-                onClick={() => void runForgery()}
+                title="The simpler forgery: a self-written prompt"
+                lead="Rhea skips the Sentinel and asks the model herself, with instructions she wrote. The answer carries a valid signature from the registered model key. Only the DAO-pinned prompt hash tells it apart."
               >
-                Let Rhea forge the audit
-              </Button>
-              {rhea && rhea.status.kind !== "active" && !forgery && (
-                <p className="text-[11.5px] text-slate-500">Rhea is {rhea.status.kind}. Start over to replay the forgery.</p>
-              )}
-              <AnimatePresence initial={false}>
-                {forgery && (
-                  <Reveal>
-                    <div
-                      className={cx(
-                        "space-y-1.5 rounded-xl border p-3 text-[12px]",
-                        forgery.outcome && !forgery.outcome.decision.approved && !forgery.paid
-                          ? "border-emerald-400/25 bg-emerald-400/[0.05]"
-                          : "border-red-400/40 bg-red-500/10",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-300">
-                          Signature by {forgery.modelSource === "nearai" ? "the NEAR AI TEE key" : "the registered model key"}{" "}
-                          <span className="num">{short(forgery.signingAddress, 8, 4)}</span>
-                        </span>
-                        <Badge tone={forgery.signatureValid ? "emerald" : "red"}>{forgery.signatureValid ? "valid" : "invalid"}</Badge>
-                      </div>
-                      {forgery.outcome?.decision.violations
-                        .filter((v) => v.code !== "missing_tee_attestation")
-                        .map((v, i) => (
-                          <div key={i} className="flex gap-1.5 text-red-200">
-                            <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                            {v.code === "invalid_tee_attestation" && v.reason === "prompt_mismatch"
-                              ? "The proof's system prompt is not the DAO-pinned audit prompt: a forged attestation."
-                              : describeViolation(v)}
-                          </div>
-                        ))}
-                      {forgery.error && <div className="num text-red-300">{forgery.error}</div>}
-                      <div className="text-slate-300">
-                        {forgery.outcome?.quarantined ? "Severity critical: Rhea was quarantined. " : ""}
-                        {forgery.paid ? "The vendor was paid." : "Nothing was paid."}
-                      </div>
-                      <TestnetLink href={txs.forged_audit_attempt} label="The same forgery on testnet" />
-                    </div>
-                  </Reveal>
+                <Button
+                  className="w-full"
+                  variant="danger"
+                  icon={Fingerprint}
+                  disabled={disabled || rhea?.status.kind !== "active"}
+                  onClick={() => void runForgery()}
+                >
+                  Let Rhea forge the audit
+                </Button>
+                {rhea && rhea.status.kind !== "active" && !forgery && (
+                  <p className="text-[11.5px] text-slate-500">Rhea is {rhea.status.kind}. Start over to replay the forgery.</p>
                 )}
-              </AnimatePresence>
-            </ExploreCard>
+                <AnimatePresence initial={false}>
+                  {forgery && (
+                    <Reveal>
+                      <div
+                        className={cx(
+                          "space-y-1.5 rounded-xl border p-3 text-[12px]",
+                          forgery.outcome && !forgery.outcome.decision.approved && !forgery.paid
+                            ? "border-emerald-400/25 bg-emerald-400/[0.05]"
+                            : "border-red-400/40 bg-red-500/10",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-slate-300">
+                            Signature by {forgery.modelSource === "nearai" ? "the NEAR AI TEE key" : "the registered model key"}{" "}
+                            <span className="num">{short(forgery.signingAddress, 8, 4)}</span>
+                          </span>
+                          <Badge tone={forgery.signatureValid ? "emerald" : "red"}>{forgery.signatureValid ? "valid" : "invalid"}</Badge>
+                        </div>
+                        {forgery.outcome?.decision.violations
+                          .filter((v) => v.code !== "missing_tee_attestation")
+                          .map((v, i) => (
+                            <div key={i} className="flex gap-1.5 text-red-200">
+                              <OctagonAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                              {v.code === "invalid_tee_attestation" && v.reason === "prompt_mismatch"
+                                ? "The proof's system prompt is not the DAO-pinned audit prompt: a forged attestation."
+                                : describeViolation(v)}
+                            </div>
+                          ))}
+                        {forgery.error && <div className="num text-red-300">{forgery.error}</div>}
+                        <div className="text-slate-300">
+                          {forgery.outcome?.quarantined ? "Severity critical: Rhea was quarantined. " : ""}
+                          {forgery.paid ? "The vendor was paid." : "Nothing was paid."}
+                        </div>
+                        <TestnetLink href={txs.forged_audit_attempt} label="The same forgery on testnet" />
+                      </div>
+                    </Reveal>
+                  )}
+                </AnimatePresence>
+              </ExploreCard>
+            </div>
           </div>
         </details>
       </div>
@@ -1095,9 +1112,10 @@ export function TryIt() {
   );
 }
 
+/** Content runs top-down, so the controls always sit right under the text. */
 function ExploreCard({ icon: Icon, title, lead, children }: { icon: typeof Wallet; title: string; lead: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex h-full min-w-0 flex-col justify-between gap-3 rounded-2xl border border-white/[0.08] bg-black/20 p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-white/[0.08] bg-black/20 p-4">
       <div>
         <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-slate-50">
           <Icon className="size-4 shrink-0 text-emerald-300" aria-hidden />

@@ -52,7 +52,7 @@ export const SECTIONS: NavSection[] = [
       { id: "demo-try", label: "3-Step Walkthrough", href: "#overview", icon: MousePointerClick, action: "try" },
       { id: "demo-judge", label: "Judge Scenario (11 steps)", href: "#overview", icon: FlaskConical, action: "judge" },
       { id: "live-proofs", label: "Live Proofs", href: "#live-proofs", icon: FileCheck2 },
-      { id: "sandbox-state", label: "Sandbox State", href: "#sandbox-state", icon: Gauge },
+      { id: "sandbox-state", label: "Local Contract State", href: "#sandbox-state", icon: Gauge },
     ],
   },
   {

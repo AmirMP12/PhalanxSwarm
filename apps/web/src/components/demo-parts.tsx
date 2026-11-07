@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CircleCheck, ExternalLink, type LucideIcon } from "lucide-react";
+import { ChevronDown, CircleCheck, ExternalLink, Hourglass, OctagonAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cx } from "./ui";
@@ -67,6 +67,40 @@ export function StepCard({
       <p className="mt-2.5 flex-1 text-[12.5px] leading-relaxed text-slate-400">{lead}</p>
       <div className="mt-4 flex min-w-0 flex-col gap-3">{children}</div>
     </li>
+  );
+}
+
+const outcomeStyles = {
+  good: { box: "border-emerald-400/25 bg-emerald-400/[0.06]", icon: CircleCheck, iconTone: "text-emerald-300" },
+  wait: { box: "border-amber-400/30 bg-amber-400/[0.06]", icon: Hourglass, iconTone: "text-amber-200" },
+  bad: { box: "border-red-400/40 bg-red-500/10", icon: OctagonAlert, iconTone: "text-red-300" },
+} as const;
+
+/** A step's result in one line, before any of the evidence. */
+export function StepOutcome({ tone, label, children }: { tone: keyof typeof outcomeStyles; label: string; children: ReactNode }) {
+  const s = outcomeStyles[tone];
+  const Icon = s.icon;
+  return (
+    <div className={cx("flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[12.5px]", s.box)}>
+      <Icon className={cx("mt-0.5 size-4 shrink-0", s.iconTone)} aria-hidden />
+      <div className="min-w-0">
+        <div className="font-semibold text-slate-50">{label}</div>
+        <div className="text-slate-300">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/** The step's full setup and evidence, folded until asked for. */
+export function StepDetails({ ran, children }: { ran: boolean; children: ReactNode }) {
+  return (
+    <details className="group/details rounded-xl border border-white/[0.06] bg-black/20 text-[12px]">
+      <summary className="touch-target flex cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 py-2 text-slate-300 hover:text-white [&::-webkit-details-marker]:hidden">
+        <ChevronDown className="size-3.5 text-slate-500 transition-transform group-open/details:rotate-180" aria-hidden />
+        {ran ? "What happened" : "How it works"}
+      </summary>
+      <div className="space-y-2 px-3 pb-3">{children}</div>
+    </details>
   );
 }
 

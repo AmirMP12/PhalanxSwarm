@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, LoaderCircle, type LucideIcon } from "lucide-react";
+import { Check, Copy, Info, LoaderCircle, type LucideIcon } from "lucide-react";
 import {
   cloneElement,
   isValidElement,
@@ -218,11 +218,32 @@ export function Card({ className, children, spotlight = true, ...rest }: HTMLAtt
   );
 }
 
+/** The (i) button that shows a header's explanation on request, so it stays out of the main text. */
+function AboutButton({ open, onToggle, controls, subject }: { open: boolean; onToggle: () => void; controls: string; subject: string }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-label={`About ${subject}`}
+      title={open ? "Hide the description" : "What is this?"}
+      onClick={onToggle}
+      className={cx(
+        "inline-grid size-6 shrink-0 place-items-center rounded-full transition",
+        open ? "bg-white/[0.08] text-slate-200" : "text-slate-500 hover:bg-white/[0.06] hover:text-slate-300",
+      )}
+    >
+      <Info className="size-3.5" aria-hidden />
+    </button>
+  );
+}
+
 export function CardHeader({
   icon: Icon,
   eyebrow,
   title,
   description,
+  descriptionVisible = false,
   actions,
   className,
   titleId,
@@ -230,13 +251,19 @@ export function CardHeader({
   icon?: LucideIcon;
   eyebrow?: ReactNode;
   title: ReactNode;
+  /** Explanation behind an (i) button next to the title. */
   description?: ReactNode;
+  /** Always show the description under the title: for live status, not for explanations. */
+  descriptionVisible?: boolean;
   actions?: ReactNode;
   className?: string;
   titleId?: string;
 }) {
+  const [about, setAbout] = useState(false);
+  const aboutId = useId();
+  const folded = Boolean(description) && !descriptionVisible;
   return (
-    <header className={cx("space-y-1.5", className)}>
+    <header className={className}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           {Icon && (
@@ -250,14 +277,23 @@ export function CardHeader({
                 {eyebrow}
               </div>
             )}
-            <h3 id={titleId} className="text-[15px] font-semibold tracking-tight text-slate-50 leading-tight">
-              {title}
-            </h3>
+            <div className="flex min-w-0 items-center gap-1">
+              <h3 id={titleId} className="min-w-0 text-[15px] font-semibold tracking-tight text-slate-50 leading-tight">
+                {title}
+              </h3>
+              {folded && (
+                <AboutButton open={about} onToggle={() => setAbout((v) => !v)} controls={aboutId} subject={typeof title === "string" ? title : "this panel"} />
+              )}
+            </div>
           </div>
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      {description && <p className="text-[12.5px] leading-relaxed text-slate-400">{description}</p>}
+      {description && (
+        <p id={aboutId} hidden={folded && !about} className="mt-1.5 text-[12.5px] leading-relaxed text-slate-400">
+          {description}
+        </p>
+      )}
     </header>
   );
 }
@@ -273,22 +309,29 @@ export function Section({
   id: string;
   icon: LucideIcon;
   title: string;
+  /** Explanation behind an (i) button next to the title. */
   description: string;
   meta?: ReactNode;
   children: ReactNode;
 }) {
+  const [about, setAbout] = useState(false);
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="min-w-0 scroll-mt-20 lg:scroll-mt-24 space-y-4">
-      <div className="flex min-w-0 flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] pb-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/20">
             <Icon className="size-4" aria-hidden />
           </span>
           <div className="min-w-0">
-            <h2 id={`${id}-title`} className="text-[17px] font-semibold tracking-tight text-white">
-              {title}
-            </h2>
-            <p className="text-[12.5px] text-slate-400">{description}</p>
+            <div className="flex min-h-8 items-center gap-1">
+              <h2 id={`${id}-title`} className="text-[17px] font-semibold tracking-tight text-white">
+                {title}
+              </h2>
+              <AboutButton open={about} onToggle={() => setAbout((v) => !v)} controls={`${id}-about`} subject={title} />
+            </div>
+            <p id={`${id}-about`} hidden={!about} className="max-w-3xl text-[12.5px] leading-relaxed text-slate-400">
+              {description}
+            </p>
           </div>
         </div>
         {meta && <div className="flex flex-wrap items-center gap-2">{meta}</div>}
