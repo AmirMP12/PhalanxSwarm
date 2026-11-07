@@ -1,6 +1,6 @@
 {
   "schema": "aegis.market-sim.v1",
-  "checked_at": "2026-11-06T18:47:31.797Z",
+  "checked_at": "2026-11-06T21:18:07.899Z",
   "wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
   "seed": 7,
   "rounds": 12,
@@ -2395,6 +2395,6 @@
       ]
     }
   ],
-  "duration_ms": 1065,
+  "duration_ms": 956,
   "note": "12 sealed-bid rounds among 20 bidders (at most 16 admitted per auction, reputation floor 40%). 9 rounds delivered verified work for 28.151 NEAR; in 3 the winner did not deliver and 4.969 NEAR of escrow went back to the treasury. Failures took market-w15 (undercutter) from round 4 below the floor, so it could no longer bid. No-show bids delayed 12 closes to the reveal deadline but never blocked one. market-w01 won 9 of 9 delivered rounds: reputation is 30% of the score and every verified delivery adds 2.5%, so the incumbent's lead grows."
 }

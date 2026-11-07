@@ -1,18 +1,18 @@
 {
   "passed": true,
-  "checked_at": "2026-11-04T21:32:31.838Z",
+  "checked_at": "2026-11-06T20:48:33.914Z",
   "checks": [
     {
       "section": "build",
       "name": "canonical WASM was built twice byte-identically",
       "passed": true,
-      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
     },
     {
       "section": "build",
       "name": "artifacts/aegis_core.wasm is the canonical build",
       "passed": true,
-      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
     },
     {
       "section": "nearai",
@@ -30,25 +30,25 @@
       "section": "1click",
       "name": "live quote answers with dry: true",
       "passed": true,
-      "detail": "e417aefa-b827-4930-9219-e3d3f1706249"
+      "detail": "735e8484-b619-4581-80a2-dd0630d20725"
     },
     {
       "section": "v2",
       "name": "deployed bytecode equals the canonical WASM",
       "passed": true,
-      "detail": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8"
+      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
     },
     {
       "section": "v2",
       "name": "contract version is 2.x",
       "passed": true,
-      "detail": "2.2.0"
+      "detail": "2.3.0"
     },
     {
       "section": "v2",
       "name": "owner is the SputnikDAO",
       "passed": true,
-      "detail": "aegis-v22.sputnikv2.testnet"
+      "detail": "aegis-69b4.sputnikv2.testnet"
     },
     {
       "section": "v2",
@@ -66,31 +66,31 @@
       "section": "v2",
       "name": "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",
       "passed": true,
-      "detail": "0d575b6946240cfdc3348edfda4905414751f3897adacfd5d02a65be1eccad3a"
+      "detail": "9bcd851c81dd7f1417a2a5ea9430b4ce52bd1320fcdd1f650790a4bd2060ce0e"
     },
     {
       "section": "v2",
       "name": "the procurement task pins Cipher's prompt and its exact spec",
       "passed": true,
-      "detail": "895fff157931542e00f3f38f3850a6637baec59b0b373fda6972baa4dac4380c"
+      "detail": "2e1de08d0260e7bce598f47a1e47ef75d8479f05127fd24b06bbd3a5adc53eaa"
     },
     {
       "section": "v2",
       "name": "the fraudulent agent's access key no longer exists on the contract account",
       "passed": true,
-      "detail": "ed25519:BuZ4Th6SNeNwpHnu3Xmn4K7t5ayWsNRQ1542ocsmsgdZ"
+      "detail": "ed25519:BfY5r69cRBs1mC4HU862vyNmm3Vsk6XJGgpkZabRdCnz"
     },
     {
       "section": "v2",
       "name": "real NEAR vendor payment emitted vendor_paid",
       "passed": true,
-      "detail": "D2xCGfcJkiiv7CRhVYq8M8XbqsNzdzhHhvzmqCRf8Qio"
+      "detail": "5X1ur1yA8dNcVMaXWp13v3LoicR7rRjdysAMfy31GjjH"
     },
     {
       "section": "v2",
       "name": "signed model output released escrow (task_settled)",
       "passed": true,
-      "detail": "mTNkoaLsm4UsWdBq6bQXz29ec5WHhe9LEnirY52hiN4"
+      "detail": "GUmXKNfFV3jWEw5XZxm82tNHQvqRJ8gb1B4X8uGGQvej"
     },
     {
       "section": "v2",
@@ -102,31 +102,61 @@
       "section": "v2",
       "name": "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
       "passed": true,
-      "detail": "5ScLLLZgrVv9h4TWKzzXL5FuNPFvvnVtPCFBuTKoVHYz"
+      "detail": "A8LNdQN4LRNY6wUghJYJK73Wb58grrBPAUPEt2tMhPLv"
     },
     {
       "section": "v2",
       "name": "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
       "passed": true,
-      "detail": "FUk91NDAAGjG5oEViajGEcND4k3vruHrJJWvJorxrYH9"
+      "detail": "AVrtXFiAewSM9qfvhzj2HxrbvZJ8HHfZdKniUpfg6pRg"
     },
     {
       "section": "v2",
       "name": "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
       "passed": true,
-      "detail": "AX85syDrRh7oaFauP4KjU9CAcsy3aXikseaVpN59vHhc"
+      "detail": "HWfC8Gfh55mMz2KE1tQWStQuWpYPN8RF3gB8hQPHsjXB"
     },
     {
       "section": "v2",
       "name": "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
       "passed": true,
-      "detail": "81wovR9xJ6NpDTMkxbcuU8MRR1fjwcuxSrPmEjNhLbah"
+      "detail": "5WEGhAyNioZ22RqdC989aoRyw7Xz1KyaVyyscF2Xw59k"
+    },
+    {
+      "section": "v2",
+      "name": "the DAO's task-prompt registry approves Cipher's procurement prompt and sets a confidence floor",
+      "passed": true,
+      "detail": "2 approved prompt(s); floors 7000 / 3000 bps"
+    },
+    {
+      "section": "v2",
+      "name": "policy changes carry a version number",
+      "passed": true,
+      "detail": "1"
+    },
+    {
+      "section": "v2",
+      "name": "an approval signed under the pinned prompt over facts the agent wrote itself was rejected (facts_mismatch)",
+      "passed": true,
+      "detail": "8dd1Rj49YQB99dVb5ipTer28syZitXNTuyEJMCeYDVSL"
     },
     {
       "section": "v2",
       "name": "MPC-signed basesepolia transaction is sent from the treasury's derived address",
       "passed": true,
-      "detail": "0xA82fB5fFE4E3f1E77CfC9Be5275726FeaDa909fa"
+      "detail": "0xa767Bd611E029c90dAc700ff8f4C069191bfFc53"
+    },
+    {
+      "section": "v2",
+      "name": "the contract tracks the treasury's EVM nonce: a signed transfer holds it until confirmed or cancelled",
+      "passed": true,
+      "detail": "transfer #0 confirmed at nonce 0; next nonce 1, outstanding none"
+    },
+    {
+      "section": "v2",
+      "name": "Base Sepolia receipt shows success",
+      "passed": true,
+      "detail": "0x6cb073510097e2f3e1c084b3dc486aaff6294992749b73d19c0ac029c5da606d"
     },
     {
       "section": "v2",
@@ -177,13 +207,11 @@
       "detail": "status=settled · tx 3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS"
     }
   ],
-  "skipped": [
-    {
-      "section": "v2",
-      "reason": "EVM transfer #0 is signed: not broadcast yet (pnpm evm:relay)"
-    }
+  "skipped": [],
+  "notes": [
+    "the DAO council has 1 member(s) and one vote passes a proposal: a single key controls the owner role"
   ],
-  "canonical_wasm_sha256": "4cfd7f7c76c9ad8a46f9b0b91eda5181c10727b78e49c3215735ecfc622893f8",
+  "canonical_wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
   "nearai": {
     "gateway_status": "UpToDate",
     "gateway_source": "live",
@@ -197,12 +225,12 @@
     ]
   },
   "oneclick": {
-    "correlation_id": "e417aefa-b827-4930-9219-e3d3f1706249",
+    "correlation_id": "735e8484-b619-4581-80a2-dd0630d20725",
     "dry": true
   },
   "v2": {
-    "contract_id": "aegis-v22.aegis-deploy-6dc23c.testnet",
-    "dao_id": "aegis-v22.sputnikv2.testnet"
+    "contract_id": "aegis-69b4.phalanxswarm.testnet",
+    "dao_id": "aegis-69b4.sputnikv2.testnet"
   },
   "v1": {
     "contract_id": "aegisswarm-d49c65bf.testnet"
