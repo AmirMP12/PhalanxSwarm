@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "checked_at": "2026-11-08T02:41:07.387Z",
+  "checked_at": "2026-11-08T03:17:38.899Z",
   "checks": [
     {
       "section": "build",
@@ -30,7 +30,7 @@
       "section": "1click",
       "name": "live quote answers with dry: true",
       "passed": true,
-      "detail": "81c11e94-d2d5-450a-8359-0c9578df15ab"
+      "detail": "e6ce4705-c92f-450c-bf19-d2ca416293e5"
     },
     {
       "section": "v2",
@@ -202,6 +202,12 @@
     },
     {
       "section": "v1",
+      "name": "real MPC signature ecrecovers to the derived treasury address",
+      "passed": true,
+      "detail": "0x864f91617901e0764a5bE0a62c0E3B32f090eb63"
+    },
+    {
+      "section": "v1",
       "name": "v1 deployment runs the bytecode recorded in its evidence",
       "passed": true,
       "detail": "8e160aacc1a83f46f1052e0b3be8b0b89a2ba85aa6d5461f8601b37668452bb0"
@@ -247,7 +253,7 @@
     ]
   },
   "oneclick": {
-    "correlation_id": "81c11e94-d2d5-450a-8359-0c9578df15ab",
+    "correlation_id": "e6ce4705-c92f-450c-bf19-d2ca416293e5",
     "dry": true
   },
   "v2": {
