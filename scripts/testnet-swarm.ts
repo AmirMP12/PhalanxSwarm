@@ -439,7 +439,10 @@ async function ownerCall(name: string, method: string, args: Record<string, unkn
 async function findProposal(description: string, status: "InProgress" | "Approved"): Promise<number> {
   const last = Number(await view<number>(cfg.rpc, daoId, "get_last_proposal_id"));
   const from = Math.max(0, last - 20);
-  const proposals = await view<Array<{ id: number; description: string; status: string }>>(cfg.rpc, daoId, "get_proposals", { from_index: from, limit: last - from });
+  const proposals = await view<Array<{ id: number; description: string; status: string }>>(cfg.rpc, daoId, "get_proposals", {
+    from_index: from,
+    limit: last - from,
+  });
   const found = proposals.reverse().find((p) => p.description === description && p.status === status);
   if (!found) throw new Error(`no ${status} DAO proposal "${description.slice(0, 60)}" to resume`);
   return found.id;
@@ -615,7 +618,10 @@ async function main() {
     ["customer_account", customerId, PRODUCT_PRICE + near(0.1)],
   ] as const) {
     const key = randomKeyPair();
-    must(name, await send(funderAccount, id, [actions.createAccount(), actions.transfer(amount), actions.addFullAccessKey(PublicKey.fromString(key.publicKeyString))]));
+    must(
+      name,
+      await send(funderAccount, id, [actions.createAccount(), actions.transfer(amount), actions.addFullAccessKey(PublicKey.fromString(key.publicKeyString))]),
+    );
     console.log(`  key for ${id} stored in ${saveCredential(cfg, id, key)}`);
     sideAccounts[id] = accountFor(cfg, id, key.secretKeyString);
   }
@@ -724,30 +730,32 @@ async function main() {
       { id: "vendor-c", region: "us", tee: false, usd_per_gpu_hour: 1.6, capacity_hours: 300 },
     ],
   };
-  const plan = await withRetry("orchestrator plan", () => think(
-    backend,
-    "orchestrator",
-    {
-      goal: `${q}: secure 200 GPU-hours of confidential inference.`,
-      treasury_available_near: Number(formatNear(dash0.treasury.available, 3)),
-      max_budget_near: 1,
-      max_total_near: 1,
-      market_notes: "GPU vendors quote 2.10-2.25 USD per TEE GPU-hour.",
-    },
-    null,
-    () => ({
-      rfps: [
-        {
-          category: "procurement",
-          title: `${q} confidential GPU inference procurement`,
-          budget_near: 1,
-          auction: "sealed_bid",
-          rationale: "200 TEE GPU-hours",
-        },
-      ],
-      summary: "Procure TEE GPU capacity by sealed bid.",
-    }),
-  ));
+  const plan = await withRetry("orchestrator plan", () =>
+    think(
+      backend,
+      "orchestrator",
+      {
+        goal: `${q}: secure 200 GPU-hours of confidential inference.`,
+        treasury_available_near: Number(formatNear(dash0.treasury.available, 3)),
+        max_budget_near: 1,
+        max_total_near: 1,
+        market_notes: "GPU vendors quote 2.10-2.25 USD per TEE GPU-hour.",
+      },
+      null,
+      () => ({
+        rfps: [
+          {
+            category: "procurement",
+            title: `${q} confidential GPU inference procurement`,
+            budget_near: 1,
+            auction: "sealed_bid",
+            rationale: "200 TEE GPU-hours",
+          },
+        ],
+        summary: "Procure TEE GPU capacity by sealed bid.",
+      }),
+    ),
+  );
   const responseModel = (JSON.parse(plan.completion.responseBody) as { model?: string }).model ?? backend.model;
 
   const registered = new Set<string>();
@@ -776,28 +784,31 @@ async function main() {
     const models: Array<{ model: string; responseModel: string }> = [];
     for (const lm of liveModels) {
       // The model id the contract compares is the one the model writes into its response.
-      const probe = await withRetry(`probe ${lm.model}`, () => lm.complete([{ role: "user", content: 'Answer with JSON only: {"ok":true}' }], () => ({ ok: true })), 3).catch(
-        (err: unknown) => (console.log(`  ${lm.model} is unavailable (${String(err).slice(0, 100)}); its key is not registered`), null),
-      );
+      const probe = await withRetry(
+        `probe ${lm.model}`,
+        () => lm.complete([{ role: "user", content: 'Answer with JSON only: {"ok":true}' }], () => ({ ok: true })),
+        3,
+      ).catch((err: unknown) => (console.log(`  ${lm.model} is unavailable (${String(err).slice(0, 100)}); its key is not registered`), null));
       if (probe) models.push({ model: lm.model, responseModel: (JSON.parse(probe.responseBody) as { model?: string }).model ?? lm.model });
     }
     if (models.length === 0) throw new Error("no NEAR AI model is available");
-    for (const m of models) for (const att of await verifyNearAiModelKeysNode({ model: m.model, timeoutMs: 25_000 })) {
-      if (!att.verified) {
-        console.log(`  skipping model key ${att.signingAddress.slice(0, 16)}…: DCAP ${att.status}, binding ${att.bindingOk}`);
-        continue;
+    for (const m of models)
+      for (const att of await verifyNearAiModelKeysNode({ model: m.model, timeoutMs: 25_000 })) {
+        if (!att.verified) {
+          console.log(`  skipping model key ${att.signingAddress.slice(0, 16)}…: DCAP ${att.status}, binding ${att.bindingOk}`);
+          continue;
+        }
+        await registerKey({
+          enclave_id: enclaveIdForKey(att.signingAddress),
+          measurement: att.measurement,
+          signer_public_key: att.publicKey,
+          vendor: "NEAR AI Cloud (Intel TDX + NVIDIA CC)",
+          model_id: m.responseModel,
+          tee_type: "intel-tdx+nvidia-cc",
+          kind: "near_ai_model",
+          attestation_ref: `dcap:${att.status}:sha256:${att.reportHash}`.slice(0, 160),
+        });
       }
-      await registerKey({
-        enclave_id: enclaveIdForKey(att.signingAddress),
-        measurement: att.measurement,
-        signer_public_key: att.publicKey,
-        vendor: "NEAR AI Cloud (Intel TDX + NVIDIA CC)",
-        model_id: m.responseModel,
-        tee_type: "intel-tdx+nvidia-cc",
-        kind: "near_ai_model",
-        attestation_ref: `dcap:${att.status}:sha256:${att.reportHash}`.slice(0, 160),
-      });
-    }
   }
   const enclaveFor = (c: SignedCompletion) => {
     const id = c.source === "standin" ? STANDIN_ENCLAVE_ID : enclaveIdForKey(c.signingAddress);
@@ -851,7 +862,13 @@ async function main() {
       const reputation = (await viewC<{ reputation_bps: number }>("get_agent", { agent_id: b.agent.id })).reputation_bps;
       const thought = await withRetry(`bid by ${b.agent.persona}`, () =>
         think(backend, "bidder", bidContext(terms, own, reputation), null, () =>
-          costPlusBid({ costNear: own.near, ceilingNear: Number(formatNear(ceiling, 3)), marginBps: b.marginBps, latencySec: own.latencySec, basis: own.basis }),
+          costPlusBid({
+            costNear: own.near,
+            ceilingNear: Number(formatNear(ceiling, 3)),
+            marginBps: b.marginBps,
+            latencySec: own.latencySec,
+            basis: own.basis,
+          }),
         ),
       );
       const { price, latencySec } = clampBid(thought.output, ceiling, terms.execution_window_sec);
@@ -867,7 +884,11 @@ async function main() {
     }
     for (const p of placed) {
       const reveal = { type: "reveal", price: p.price.toString(), est_latency_sec: p.latencySec, salt: p.salt };
-      must(`${label}_${p.agent.persona}_reveal`, await send(p.agent.account, contractId, [call("submit_bid", { task_id: taskId, action: reveal }, 50n)]), p.agent.id);
+      must(
+        `${label}_${p.agent.persona}_reveal`,
+        await send(p.agent.account, contractId, [call("submit_bid", { task_id: taskId, action: reveal }, 50n)]),
+        p.agent.id,
+      );
     }
     must(`${label}_close`, await send(nexus.account, contractId, [call("close_auction", { task_id: taskId }, 50n)]), nexus.id);
     const view = await viewC<TaskViewT>("get_task", { task_id: taskId });
@@ -961,18 +982,25 @@ async function main() {
   evidence.bid = { price_near: formatNear(price, 3), latency_sec: round1.bid.latencySec, cost_near: round1.cost.near, rationale: round1.bid.rationale };
 
   /** The winner answers the pinned prompt over the exact spec; its signed completion releases escrow. */
-  const deliver = async (label: string, worker: Agent, t: { task_id: string; spec_hash: string; verification: { schema_hash: string } }, work: ProcurementSpec) => {
+  const deliver = async (
+    label: string,
+    worker: Agent,
+    t: { task_id: string; spec_hash: string; verification: { schema_hash: string } },
+    work: ProcurementSpec,
+  ) => {
     const b = proofBinding("task", t.task_id, worker.id, t.spec_hash, t.verification.schema_hash, `exec-${t.task_id}-${worker.persona}`);
-    const done = await withRetry(`proof by ${worker.persona}`, () => think(backend, "procurement", work, bindingMarkerFor(b), () => {
-      const p = planProcurement(work);
-      return {
-        verdict: "completed" as const,
-        confidence_bps: p.covered_hours >= work.gpu_hours ? 9_400 : 6_000,
-        allocations: p.allocations.map((a) => ({ vendor: a.vendor, hours: a.hours })),
-        total_usd: p.total_usd,
-        notes: "cheapest TEE vendors in allowed regions under the price cap",
-      };
-    }));
+    const done = await withRetry(`proof by ${worker.persona}`, () =>
+      think(backend, "procurement", work, bindingMarkerFor(b), () => {
+        const p = planProcurement(work);
+        return {
+          verdict: "completed" as const,
+          confidence_bps: p.covered_hours >= work.gpu_hours ? 9_400 : 6_000,
+          allocations: p.allocations.map((a) => ({ vendor: a.vendor, hours: a.hours })),
+          total_usd: p.total_usd,
+          notes: "cheapest TEE vendors in allowed regions under the price cap",
+        };
+      }),
+    );
     const proof: ExecutionProofT = toNearAiProof(done.completion, b, enclaveFor(done.completion));
     const executed = must<{ settled: boolean; error: string | null }>(
       label,
@@ -1006,15 +1034,32 @@ async function main() {
     order_id: orderId,
   };
   // Round 2, reverse Dutch: Orion accepts first and promises 60 s, then never delivers.
-  const dutchRfp = { ...orderRfp, auction: "reverse_dutch", dutch_start_price: (orderBudget / 2n).toString(), bidding_window_sec: 300, reveal_window_sec: null, execution_window_sec: 60 };
-  const dutchPosted = must<{ approved: boolean; task: TaskRfpT | null }>("rfp2_post", await send(nexus.account, contractId, [call("post_task_rfp", { rfp: dutchRfp }, 100n)]), nexus.id);
+  const dutchRfp = {
+    ...orderRfp,
+    auction: "reverse_dutch",
+    dutch_start_price: (orderBudget / 2n).toString(),
+    bidding_window_sec: 300,
+    reveal_window_sec: null,
+    execution_window_sec: 60,
+  };
+  const dutchPosted = must<{ approved: boolean; task: TaskRfpT | null }>(
+    "rfp2_post",
+    await send(nexus.account, contractId, [call("post_task_rfp", { rfp: dutchRfp }, 100n)]),
+    nexus.id,
+  );
   const dutchId = dutchPosted.value?.task?.task_id;
   if (!dutchPosted.value?.approved || !dutchId) throw new Error(`the order's Dutch RFP was not approved: ${JSON.stringify(dutchPosted.value)}`);
-  must("rfp2_orion_accept", await send(orion.account, contractId, [call("submit_bid", { task_id: dutchId, action: { type: "accept_dutch", est_latency_sec: 60 } }, 50n)]), orion.id);
+  must(
+    "rfp2_orion_accept",
+    await send(orion.account, contractId, [call("submit_bid", { task_id: dutchId, action: { type: "accept_dutch", est_latency_sec: 60 } }, 50n)]),
+    orion.id,
+  );
   const awarded2 = await viewC<TaskViewT>("get_task", { task_id: dutchId });
   recordRfp("rfp2", awarded2);
   const waitMs = Number(BigInt(awarded2.task.execution_deadline_ns) / 1_000_000n) - Date.now() + 10_000;
-  console.log(`  Orion won the Dutch auction at ${formatNear(BigInt(awarded2.task.winning_price ?? "0"), 3)} NEAR; waiting ${Math.ceil(waitMs / 1000)} s for its deadline`);
+  console.log(
+    `  Orion won the Dutch auction at ${formatNear(BigInt(awarded2.task.winning_price ?? "0"), 3)} NEAR; waiting ${Math.ceil(waitMs / 1000)} s for its deadline`,
+  );
   if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
   // Anyone can fail an overdue winner: escrow returns, Orion loses reputation, the order reopens.
   must("rfp2_expired", await send(funderAccount, contractId, [call("expire_task", { task_id: dutchId }, 80n)]));
@@ -1023,7 +1068,11 @@ async function main() {
 
   // Round 3, sealed bid between Cipher and Vega: the winner delivers and the sale becomes revenue.
   const sealedRfp = { ...orderRfp, title: `Order ${orderId}: procurement plan, re-procured`, max_bidders: 2 };
-  const sealedPosted = must<{ approved: boolean; task: TaskRfpT | null }>("rfp3_post", await send(nexus.account, contractId, [call("post_task_rfp", { rfp: sealedRfp }, 100n)]), nexus.id);
+  const sealedPosted = must<{ approved: boolean; task: TaskRfpT | null }>(
+    "rfp3_post",
+    await send(nexus.account, contractId, [call("post_task_rfp", { rfp: sealedRfp }, 100n)]),
+    nexus.id,
+  );
   const sealedTask = sealedPosted.value?.task;
   if (!sealedPosted.value?.approved || !sealedTask) throw new Error(`the order's second RFP was not approved: ${JSON.stringify(sealedPosted.value)}`);
   const round3 = await sealedRound(
@@ -1106,7 +1155,11 @@ async function main() {
     violations: dupeSent.value?.decision.violations.map((v) => v.code) ?? [],
     quarantined: dupeSent.value?.quarantined === true,
   };
-  if (dupeSent.value?.status !== "rejected" || !evidence.duplicate_invoice.violations.includes("invoice_already_paid") || evidence.duplicate_invoice.quarantined)
+  if (
+    dupeSent.value?.status !== "rejected" ||
+    !evidence.duplicate_invoice.violations.includes("invoice_already_paid") ||
+    evidence.duplicate_invoice.quarantined
+  )
     throw new Error(`the duplicate invoice should be refused without a strike: ${JSON.stringify(dupeSent.value)}`);
 
   if (evm && cfg.mpcContract) {
@@ -1250,7 +1303,9 @@ async function main() {
     signature_valid: verifySignedCompletion(ap.completion),
     model_decision: `${ap.output.action} ${ap.output.amount_near} NEAR to ${ap.output.recipient} on ${ap.output.chain}`.slice(0, 200),
   };
-  console.log(`  Mallory's model (${ap.completion.model}) ${fooled ? "followed the injection" : "resisted; the injected payment is submitted anyway"}: ${evidence.attack.model_decision}`);
+  console.log(
+    `  Mallory's model (${ap.completion.model}) ${fooled ? "followed the injection" : "resisted; the injected payment is submitted anyway"}: ${evidence.attack.model_decision}`,
+  );
   if (attack.value?.status !== "rejected" || !evidence.attack.violations.includes("recipient_not_allowed"))
     throw new Error(`fraud was not blocked: ${JSON.stringify(attack.value)}`);
 
@@ -1348,7 +1403,9 @@ async function holdSteps(agents: Record<Persona, Agent>, audit: ReturnType<typeo
       invoice_ref: invoiceRef,
     });
     const approval = await audit(nexus, { kind: "intent", request: signed.request, hash: signed.nep413Hash });
-    return send<{ intent_id: string; status: string; decision: { approval_reasons: string[] } }>(nexus.account, contractId, [call("request_intent_settlement", { request: { ...signed.request, attestation: approval } }, 200n)]);
+    return send<{ intent_id: string; status: string; decision: { approval_reasons: string[] } }>(nexus.account, contractId, [
+      call("request_intent_settlement", { request: { ...signed.request, attestation: approval } }, 200n),
+    ]);
   };
 
   // A 0.2 NEAR first payment to a new vendor: held, then released by the vendor itself after the window.
@@ -1360,7 +1417,9 @@ async function holdSteps(agents: Record<Persona, Agent>, audit: ReturnType<typeo
     let smallIntentId: string | null = null;
     if (evidence.transactions.held_small_payment) {
       const recent = await viewC<IntentRecordT[]>("list_intents", { limit: 20 });
-      const existing = recent.find((r) => r.agent_id === nexus.id && r.recipient.toLowerCase() === newVendorId.toLowerCase() && r.status === "pending_approval");
+      const existing = recent.find(
+        (r) => r.agent_id === nexus.id && r.recipient.toLowerCase() === newVendorId.toLowerCase() && r.status === "pending_approval",
+      );
       if (existing) {
         console.log(`  resuming held payment intent ${existing.intent_id}`);
         smallIntentId = existing.intent_id;
@@ -1368,7 +1427,9 @@ async function holdSteps(agents: Record<Persona, Agent>, audit: ReturnType<typeo
     }
     if (!smallIntentId) {
       // Use a fresh invoice on resume: the first attempt may have been rejected as a duplicate.
-      const invoiceSeq = evidence.transactions.held_small_payment ? String(Number((evidence.transactions.held_small_payment as any).signer ?? "0") + 1).padStart(4, "0") : "0001";
+      const invoiceSeq = evidence.transactions.held_small_payment
+        ? String(Number((evidence.transactions.held_small_payment as any).signer ?? "0") + 1).padStart(4, "0")
+        : "0001";
       const small = must<{ intent_id: string; status: string }>(
         "held_small_payment",
         await newVendorPayment(newVendorId, VENDOR_PAYMENT, `INV-${suffix}-B-${invoiceSeq}`, "GPU capacity trial vendor-b"),
@@ -1382,11 +1443,7 @@ async function holdSteps(agents: Record<Persona, Agent>, audit: ReturnType<typeo
     const windowMs = Number(BigInt(smallHeld.hold_release_at_ns) / 1_000_000n) - Date.now() + 8_000;
     console.log(`  held; the challenge window ends in ${Math.ceil(windowMs / 1000)} s`);
     if (windowMs > 0) await new Promise((r) => setTimeout(r, windowMs));
-    must(
-      "held_small_released",
-      await send(vendorSigner, contractId, [call("release_held_intent", { intent_id: smallIntentId }, 100n)]),
-      newVendorId,
-    );
+    must("held_small_released", await send(vendorSigner, contractId, [call("release_held_intent", { intent_id: smallIntentId }, 100n)]), newVendorId);
     const smallRecord = await waitFor(
       "released payment",
       () => viewC<IntentRecordT>("get_intent", { intent_id: smallIntentId }),

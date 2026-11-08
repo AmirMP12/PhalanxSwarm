@@ -223,8 +223,8 @@ export function JudgeMode() {
             Step 3 kills invoice fraud. Then the swarm runs the business.
           </h2>
           <p className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-slate-400">
-            Reproducible rehearsal of the compiled <span className="num text-emerald-300">phalanx_core.wasm</span> inside PhalanxSim. Attack is intentionally early
-            so the security kill is the hero.
+            Reproducible rehearsal of the compiled <span className="num text-emerald-300">phalanx_core.wasm</span> inside PhalanxSim. Attack is intentionally
+            early so the security kill is the hero.
             {mode === "offline" ? (
               " Quotes come from the deterministic offline engine."
             ) : (

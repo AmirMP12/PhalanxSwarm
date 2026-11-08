@@ -27,7 +27,6 @@ Built at [NEAR HACKATHON](https://nearhackathon.com). Primary track: `security` 
 - [How it works](#how-it-works)
 - [Measurements](#measurements)
 - [Use it in your agent](#use-it-in-your-agent)
-- [What is real and what is simulated](#what-is-real-and-what-is-simulated)
 - [Limits](#limits)
 - [Run your own deployment](#run-your-own-deployment)
 - [Configuration](#configuration)
@@ -386,22 +385,6 @@ printf '%s\n' \
 Offline, the attacker's address is unknown to the simulated treasury, so the answer is `"verdict": "warn"` with `"action": "ask_dao_to_allow_list"`. Without `--sim`, the server reads the testnet deployment, where the Sentinel blocklisted that address, and the answer is `block`.
 
 The server answers both MCP eras: the stateless 2026-07-28 revision (`server/discover`) and the `initialize` handshake of revisions 2024-11-05 through 2025-11-25. `PHALANX_CONTRACT_ID`, `PHALANX_NETWORK` and `PHALANX_RPC_URL` point it at another deployment.
-
-## What is real and what is simulated
-
-| Part | Status |
-| --- | --- |
-| Policy engine, circuit breaker and key deletion, recipient rules and blocklist, held payments with a challenge window and with a vote, duplicate-invoice check, customer orders, DAO ownership and revocation, prompt pins, task-prompt registry, audit facts | Run on NEAR testnet (v3.0.0, [above](#testnet-deployment-v300)) and in the unit tests. The nearcore sandbox suite covers the v2 features on a real node |
-| Work market | On testnet: three auctions with competing bidders (three sealed bids, a reverse-Dutch acceptance, two sealed bids), one winner that missed its deadline and lost reputation, and two verified deliveries. `pnpm market` adds a 20-bidder simulation with scripted strategies in PhalanxSim |
-| Customer order | On testnet: a separate customer account paid 0.5 NEAR; the order reopened after the first winner failed and was delivered by the second auction's winner. The refund path runs in the unit tests |
-| EVM transfers | Real testnet MPC signatures from `v1.signer-prod.testnet`. The v2.3 run broadcast and confirmed its transfer on Base Sepolia; the v3 treasury address is new and held no Base Sepolia ETH, so its signed transfer waits for `pnpm evm:relay` |
-| Agent reasoning | Every swarm decision in the testnet run was a NEAR AI Cloud completion from `Qwen/Qwen3.8-27B`, signed by a TDX-attested key; Mallory used `z-ai/glm-5.3-flash`. Offline commands and keyless runs use the labeled stand-in, and so does the hosted demo unless its server has a model key |
-| Prompt injection | Measured on three NEAR AI models, 72 TEE-signed completions ([Measurements](#prompt-injection-pnpm-evalinjection)). On testnet Mallory's live model read the poisoned invoice and its own decision was submitted; see `attack.model_fooled` in the evidence |
-| Payments | Vendor payments, the released and the voted held payments, escrow withdrawal and revenue distribution are real testnet NEAR transfers |
-| NEAR Intents | 1Click `/v0/quote` with `dry: true` (rule Q-007). The contract's cross-chain settlements are rehearsals: MPC signs a commitment and no funds move |
-| DAO council | Three members, two votes to pass, in the recorded run. In this test deployment one operator holds all three keys; a production DAO gives them to different people |
-| Rhea | An agent persona. The only Rhea Finance (Ref) reference is `v2.ref-finance.near` in the simulated swarm's contract list; no Rhea Finance API is called |
-| PhalanxSim (judge runs, evals, the browser demo, `mcp --sim`) | A TypeScript runtime for the compiled WASM: host functions, access-key permission checks, receipts in causal order, callbacks, per-receipt rollback and storage staking. It does not meter gas or model validators, sharding or finality |
 
 ## Limits
 

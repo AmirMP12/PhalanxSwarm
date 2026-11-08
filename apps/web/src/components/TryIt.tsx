@@ -572,7 +572,8 @@ export function TryIt() {
               A TEE signature proves which model answered, not what it was asked.
             </h2>
             <p className="mt-2.5 text-[14px] leading-relaxed text-slate-400">
-              The NEAR contract checks both: the DAO pins the auditor&apos;s prompt and the contract writes its evidence, so a signed approval over a self-written prompt or invented facts fails. An agent that breaks a critical rule loses its key in the same transaction.
+              The NEAR contract checks both: the DAO pins the auditor&apos;s prompt and the contract writes its evidence, so a signed approval over a
+              self-written prompt or invented facts fails. An agent that breaks a critical rule loses its key in the same transaction.
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

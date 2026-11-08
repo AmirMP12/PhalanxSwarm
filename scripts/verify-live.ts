@@ -553,32 +553,33 @@ async function main() {
 
   const v1 = readJson<V1Smoke>("testnet-smoke.json");
   const wallet = readJson<V1Wallet>("wallet-smoke.json");
-  
+
   // Check current deployment's MPC functionality (v3)
   if (swarm && swarm.evm) {
+    const evm = swarm.evm;
     await section("v1", async () => {
       const currentId = swarm.contract_id;
-      const chain = swarm.evm.chain;
+      const chain = evm.chain;
       const d = await derivedAddress(currentId, `phalanx-treasury/${chain}`);
       check("v1", "SDK key derivation equals the real MPC contract for current deployment", d.sdk === d.derived, d.derived);
-      
+
       // Check current deployment's MPC signature
       try {
-        const evmRecord = await view<EvmTxRecordT>(cfg.rpc, currentId, "get_evm_tx", { tx_id: swarm.evm.tx_id });
+        const evmRecord = await view<EvmTxRecordT>(cfg.rpc, currentId, "get_evm_tx", { tx_id: evm.tx_id });
         if (evmRecord && evmRecord.signature) {
-          const recovered = recoverEvmAddress(fromHex(evmRecord.payload), evmRecord.signature);
+          const recovered = recoverEvmAddress(fromHex(evmRecord.signing_hash), evmRecord.signature);
           check("v1", "real MPC signature ecrecovers to the derived treasury address", recovered.toLowerCase() === d.address.toLowerCase(), recovered);
         }
       } catch (err) {
         // Ignore error if EVM record not found
       }
-      
+
       // Check archival transactions if v1 evidence exists
       if (v1 && v1.contract_id && v1.wasm_sha256) {
         try {
           const code = sha256Hex(await codeHash(cfg.rpc, v1.contract_id));
           check("v1", "v1 deployment runs the bytecode recorded in its evidence", code === v1.wasm_sha256, code);
-          
+
           const intentTx = v1.transactions?.intent?.hash;
           if (intentTx && v1.contract_id) {
             check(
@@ -592,7 +593,7 @@ async function main() {
           // Archival RPC errors are OK (transactions may be too old)
         }
       }
-      
+
       if (wallet && wallet.account_id && wallet.transactions && wallet.transactions.length >= 2) {
         try {
           const pause = await hasEvent(wallet.transactions[0]!.hash, wallet.account_id, "protocol_paused", (data) => data.paused === true);
@@ -620,7 +621,7 @@ async function main() {
       const isSwarm = economicSource === swarm;
       const contractId = isSwarm ? swarm!.contract_id : v1!.contract_id;
       const funderId = isSwarm ? swarm!.funder_id : ((v1 as V1Smoke & { funder_id?: string }).funder_id ?? v1!.contract_id);
-      
+
       if (isSwarm) {
         // For swarm deployment, check the deposit_revenue transaction
         const fundHash = swarm!.transactions.deposit_revenue?.hash;
@@ -638,7 +639,7 @@ async function main() {
             `${fundHash} · events=${fundEvents.map((e) => e.event).join(",") || "none"}`,
           );
         }
-        
+
         // Check EVM transfer status
         if (swarm!.evm) {
           const evmTx = await view<EvmTxRecordT>(cfg.rpc, contractId, "get_evm_tx", { tx_id: swarm!.evm.tx_id });
