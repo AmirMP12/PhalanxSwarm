@@ -1427,9 +1427,7 @@ async function holdSteps(agents: Record<Persona, Agent>, audit: ReturnType<typeo
     }
     if (!smallIntentId) {
       // Use a fresh invoice on resume: the first attempt may have been rejected as a duplicate.
-      const invoiceSeq = evidence.transactions.held_small_payment
-        ? String(Number((evidence.transactions.held_small_payment as any).signer ?? "0") + 1).padStart(4, "0")
-        : "0001";
+      const invoiceSeq = evidence.transactions.held_small_payment ? "0002" : "0001";
       const small = must<{ intent_id: string; status: string }>(
         "held_small_payment",
         await newVendorPayment(newVendorId, VENDOR_PAYMENT, `INV-${suffix}-B-${invoiceSeq}`, "GPU capacity trial vendor-b"),
