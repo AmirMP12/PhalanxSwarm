@@ -1,10 +1,10 @@
 "use client";
 
-import { ACCOUNTS, quarterLabel } from "@aegis/agent-swarm-sdk";
+import { ACCOUNTS, quarterLabel } from "@phalanx/agent-swarm-sdk";
 import { BadgeCheck, Banknote, Coins, FileJson, Landmark, Plus, SquareTerminal, Vote } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useAction } from "@/lib/use-action";
 
 import {
@@ -82,7 +82,7 @@ function Line({ label, value, tone, strong }: { label: string; value: string; to
 }
 
 export function TreasuryVault() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
 
   const minDist = dashboard ? BigInt(dashboard.config.min_distribution) : 0n;
@@ -275,7 +275,7 @@ export function TreasuryVault() {
 }
 
 export function DaoExport() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const [kind, setKind] = useState<ProposalKind>("revoke");
   const [view, setView] = useState<"json" | "cli">("json");

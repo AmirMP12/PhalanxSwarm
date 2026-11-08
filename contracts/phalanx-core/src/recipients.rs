@@ -13,10 +13,10 @@ use near_sdk::json_types::U64;
 use near_sdk::{env, near, require, AccountId};
 
 use crate::codec::{is_hash32_hex, is_safe_ascii, is_valid_chain_id, is_valid_recipient_entry, recipient_key};
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
 use crate::policy::{Severity, UnknownRecipientRule};
 use crate::subaccounts::{AgentRole, AgentStatus};
-use crate::{AegisCore, AegisCoreExt, MAX_PAGE};
+use crate::{PhalanxCore, PhalanxCoreExt, MAX_PAGE};
 
 /// Upper bound for blocklist entries, so a Sentinel key cannot grow storage without limit.
 pub const MAX_BLOCKED_RECIPIENTS: u32 = 128;
@@ -57,7 +57,7 @@ pub struct RecipientCheck {
     pub unknown_recipient: UnknownRecipientRule,
 }
 
-impl AegisCore {
+impl PhalanxCore {
     /// Blocklist reason for `chain:recipient`, if it is blocked.
     pub(crate) fn blocked_reason(&self, chain: &str, recipient: &str) -> Option<String> {
         self.blocked_recipients.get(&recipient_key(chain, recipient)).map(|b| b.reason.clone())
@@ -65,7 +65,7 @@ impl AegisCore {
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// The owner (DAO) or an active Sentinel adds a recipient to the shared blocklist.
     pub fn block_recipient(
         &mut self,
@@ -78,18 +78,18 @@ impl AegisCore {
             self.owner_id.clone()
         } else {
             let agent = self.caller_agent("block_recipient");
-            require!(agent.role == AgentRole::Sentinel, "AEGIS_E_UNAUTHORIZED");
-            require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
+            require!(agent.role == AgentRole::Sentinel, "PHALANX_E_UNAUTHORIZED");
+            require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
             agent.agent_id
         };
-        require!(is_valid_chain_id(&chain), "AEGIS_E_BLOCKLIST: invalid chain");
+        require!(is_valid_chain_id(&chain), "PHALANX_E_BLOCKLIST: invalid chain");
         let key = recipient_key(&chain, &recipient);
-        require!(is_valid_recipient_entry(&key), "AEGIS_E_BLOCKLIST: recipients are `<chain>:<address>`");
-        require!(!reason.is_empty() && is_safe_ascii(&reason, 160), "AEGIS_E_INVALID_REASON");
-        require!(is_hash32_hex(&evidence_hash), "AEGIS_E_INVALID_EVIDENCE_HASH");
+        require!(is_valid_recipient_entry(&key), "PHALANX_E_BLOCKLIST: recipients are `<chain>:<address>`");
+        require!(!reason.is_empty() && is_safe_ascii(&reason, 160), "PHALANX_E_INVALID_REASON");
+        require!(is_hash32_hex(&evidence_hash), "PHALANX_E_INVALID_EVIDENCE_HASH");
         require!(
             self.blocked_recipients.contains_key(&key) || self.blocked_recipients.len() < MAX_BLOCKED_RECIPIENTS,
-            "AEGIS_E_BLOCKLIST_FULL"
+            "PHALANX_E_BLOCKLIST_FULL"
         );
         let entry = BlockedRecipient {
             recipient: key.clone(),
@@ -99,7 +99,7 @@ impl AegisCore {
             at_ns: U64(env::block_timestamp()),
         };
         self.blocked_recipients.insert(key.clone(), entry.clone());
-        AegisEvent::RecipientBlocked {
+        PhalanxEvent::RecipientBlocked {
             recipient: key.clone(),
             reason: reason.clone(),
             evidence_hash: entry.evidence_hash.clone(),
@@ -122,7 +122,7 @@ impl AegisCore {
         let key = recipient_key(&chain, &recipient);
         let removed = self.blocked_recipients.remove(&key).is_some();
         if removed {
-            AegisEvent::RecipientUnblocked { recipient: key.clone(), by: self.owner_id.clone() }.emit();
+            PhalanxEvent::RecipientUnblocked { recipient: key.clone(), by: self.owner_id.clone() }.emit();
             self.record_security_event("recipient_unblocked", None, Severity::None, vec![], format!("{key} unblocked by owner"));
         }
         removed

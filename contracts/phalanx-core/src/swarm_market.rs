@@ -26,10 +26,10 @@ use near_sdk::{env, near, require, AccountId};
 
 use crate::attestation::{AttestationError, ExecutionProof, ReceiptExpectation};
 use crate::codec::{is_hash32_hex, is_lower_hash32_hex, is_safe_ascii, to_hex};
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
 use crate::policy::{evaluate_spend, PolicyViolation, Severity, SpendRequest};
 use crate::subaccounts::{AgentRecord, AgentRole, AgentStatus};
-use crate::{AegisCore, AegisCoreExt};
+use crate::{PhalanxCore, PhalanxCoreExt};
 
 pub const MAX_BIDDERS: u32 = 16;
 pub const MAX_LATENCY_SEC: u32 = 86_400;
@@ -107,6 +107,9 @@ pub struct TaskRfpInput {
     pub deadline_epochs: u64,
     pub max_bidders: u32,
     pub verification: VerificationSchema,
+    /// The customer order this task delivers (`orders.rs`).
+    #[serde(default)]
+    pub order_id: Option<U64>,
 }
 
 #[near(serializers = [json, borsh])]
@@ -139,6 +142,8 @@ pub struct TaskRfp {
     pub winning_score_bps: Option<u32>,
     pub winning_latency_sec: Option<u32>,
     pub receipt_hash: Option<String>,
+    /// The customer order this task delivers, if any.
+    pub order_id: Option<U64>,
 }
 
 #[near(serializers = [json, borsh])]
@@ -250,16 +255,16 @@ pub fn score_bid(ceiling: u128, price: u128, est_latency_sec: u32, reputation_bp
     (total / 100) as u32
 }
 
-impl AegisCore {
+impl PhalanxCore {
     pub(crate) fn task_or_panic(&self, task_id: u64) -> TaskRfp {
-        self.tasks.get(&task_id).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_TASK"))
+        self.tasks.get(&task_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_TASK"))
     }
 
     fn award_task(&mut self, task: &mut TaskRfp, winner: &AgentRecord, price: u128, score: Option<u32>, latency_sec: u32) {
         let ceiling = task.budget_ceiling.0;
         let now = env::block_timestamp();
         self.treasury.reserved_for_tasks =
-            self.treasury.reserved_for_tasks.checked_sub(ceiling).unwrap_or_else(|| env::panic_str("AEGIS_E_LEDGER"));
+            self.treasury.reserved_for_tasks.checked_sub(ceiling).unwrap_or_else(|| env::panic_str("PHALANX_E_LEDGER"));
         self.treasury.escrow_locked += price;
         self.treasury.liquid += ceiling - price;
         let execution_sec = u64::from(latency_sec).clamp(MIN_EXECUTION_SEC, task.execution_window_sec.max(MIN_EXECUTION_SEC));
@@ -278,14 +283,14 @@ impl AegisCore {
             closed_at_ns: None,
         };
         self.escrows.insert(task.task_id.0, escrow);
-        AegisEvent::AuctionClosed {
+        PhalanxEvent::AuctionClosed {
             task_id: task.task_id,
             winner: Some(winner.agent_id.clone()),
             winning_price: Some(U128(price)),
             score_bps: score,
         }
         .emit();
-        AegisEvent::EscrowLocked { task_id: task.task_id, payee: winner.agent_id.clone(), amount: U128(price) }.emit();
+        PhalanxEvent::EscrowLocked { task_id: task.task_id, payee: winner.agent_id.clone(), amount: U128(price) }.emit();
     }
 
     fn refund_escrow(&mut self, task_id: u64) -> u128 {
@@ -312,41 +317,41 @@ impl AegisCore {
     }
 
     fn validate_rfp(rfp: &TaskRfpInput) {
-        require!(!rfp.title.is_empty() && is_safe_ascii(&rfp.title, 96), "AEGIS_E_RFP: title");
-        require!(!rfp.category.is_empty() && is_safe_ascii(&rfp.category, 32), "AEGIS_E_RFP: category");
-        require!(is_hash32_hex(&rfp.spec_hash), "AEGIS_E_RFP: spec_hash must be 32-byte hex");
-        require!(rfp.budget_ceiling.0 > 0, "AEGIS_E_RFP: budget_ceiling must be > 0");
-        require!((10..=604_800).contains(&rfp.bidding_window_sec), "AEGIS_E_RFP: bidding_window_sec");
-        require!((60..=2_592_000).contains(&rfp.execution_window_sec), "AEGIS_E_RFP: execution_window_sec");
-        require!((1..=30).contains(&rfp.deadline_epochs), "AEGIS_E_RFP: deadline_epochs must be 1..=30");
-        require!((1..=MAX_BIDDERS).contains(&rfp.max_bidders), "AEGIS_E_RFP: max_bidders must be 1..=16");
-        require!(is_safe_ascii(&rfp.verification.schema_id, 64), "AEGIS_E_RFP: schema_id");
-        require!(is_hash32_hex(&rfp.verification.schema_hash), "AEGIS_E_RFP: schema_hash");
-        require!(rfp.verification.min_confidence_bps <= 10_000, "AEGIS_E_RFP: min_confidence_bps");
-        require!(rfp.verification.min_reputation_bps <= 10_000, "AEGIS_E_RFP: min_reputation_bps");
+        require!(!rfp.title.is_empty() && is_safe_ascii(&rfp.title, 96), "PHALANX_E_RFP: title");
+        require!(!rfp.category.is_empty() && is_safe_ascii(&rfp.category, 32), "PHALANX_E_RFP: category");
+        require!(is_hash32_hex(&rfp.spec_hash), "PHALANX_E_RFP: spec_hash must be 32-byte hex");
+        require!(rfp.budget_ceiling.0 > 0, "PHALANX_E_RFP: budget_ceiling must be > 0");
+        require!((10..=604_800).contains(&rfp.bidding_window_sec), "PHALANX_E_RFP: bidding_window_sec");
+        require!((60..=2_592_000).contains(&rfp.execution_window_sec), "PHALANX_E_RFP: execution_window_sec");
+        require!((1..=30).contains(&rfp.deadline_epochs), "PHALANX_E_RFP: deadline_epochs must be 1..=30");
+        require!((1..=MAX_BIDDERS).contains(&rfp.max_bidders), "PHALANX_E_RFP: max_bidders must be 1..=16");
+        require!(is_safe_ascii(&rfp.verification.schema_id, 64), "PHALANX_E_RFP: schema_id");
+        require!(is_hash32_hex(&rfp.verification.schema_hash), "PHALANX_E_RFP: schema_hash");
+        require!(rfp.verification.min_confidence_bps <= 10_000, "PHALANX_E_RFP: min_confidence_bps");
+        require!(rfp.verification.min_reputation_bps <= 10_000, "PHALANX_E_RFP: min_reputation_bps");
         require!(
             rfp.verification.prompt_hash.as_deref().map(is_lower_hash32_hex).unwrap_or(true),
-            "AEGIS_E_RFP: prompt_hash must be 32-byte lower-case hex"
+            "PHALANX_E_RFP: prompt_hash must be 32-byte lower-case hex"
         );
         require!(
             !rfp.verification.input_pinned || rfp.verification.prompt_hash.is_some(),
-            "AEGIS_E_RFP: input_pinned needs prompt_hash"
+            "PHALANX_E_RFP: input_pinned needs prompt_hash"
         );
         match rfp.auction {
             AuctionKind::SealedBid => {
                 let reveal = rfp.reveal_window_sec.unwrap_or(0);
-                require!((10..=604_800).contains(&reveal), "AEGIS_E_RFP: sealed bids need reveal_window_sec");
+                require!((10..=604_800).contains(&reveal), "PHALANX_E_RFP: sealed bids need reveal_window_sec");
             }
             AuctionKind::ReverseDutch => {
                 let start = rfp.dutch_start_price.map(|p| p.0).unwrap_or(0);
-                require!(start > 0 && start < rfp.budget_ceiling.0, "AEGIS_E_RFP: dutch_start_price must be in (0, ceiling)");
+                require!(start > 0 && start < rfp.budget_ceiling.0, "PHALANX_E_RFP: dutch_start_price must be in (0, ceiling)");
             }
         }
     }
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Orchestrator agents (or the owner) decompose goals into budgeted tasks.
     /// The budget is checked by the policy engine and reserved from treasury liquidity.
     pub fn post_task_rfp(&mut self, rfp: TaskRfpInput) -> TaskPostOutcome {
@@ -356,12 +361,12 @@ impl AegisCore {
         let amount = rfp.budget_ceiling.0;
 
         let poster = if self.is_owner_call() {
-            require!(!self.paused, "AEGIS_E_PAUSED");
-            require!(amount <= self.available_liquidity(), "AEGIS_E_INSUFFICIENT_LIQUIDITY");
+            require!(!self.paused, "PHALANX_E_PAUSED");
+            require!(amount <= self.available_liquidity(), "PHALANX_E_INSUFFICIENT_LIQUIDITY");
             self.owner_id.clone()
         } else {
             let agent = self.caller_agent("post_task_rfp");
-            require!(agent.role == AgentRole::Orchestrator, "AEGIS_E_ONLY_ORCHESTRATOR");
+            require!(agent.role == AgentRole::Orchestrator, "PHALANX_E_ONLY_ORCHESTRATOR");
             let req = SpendRequest::reservation(amount, self.available_liquidity());
             let (mut violations, _limits) = evaluate_spend(&self.policy, self.paused, &agent, &self.treasury, epoch, &req);
             // The DAO decides what releases escrow: approved prompts and minimum floors only.
@@ -394,6 +399,7 @@ impl AegisCore {
 
         let task_id = self.next_task_id;
         self.next_task_id += 1;
+        self.link_order(&rfp, task_id);
         let bidding_deadline = now + rfp.bidding_window_sec * NS;
         let reveal_deadline = match rfp.auction {
             AuctionKind::SealedBid => bidding_deadline + rfp.reveal_window_sec.unwrap_or(0) * NS,
@@ -431,10 +437,11 @@ impl AegisCore {
             winning_score_bps: None,
             winning_latency_sec: None,
             receipt_hash: None,
+            order_id: rfp.order_id,
         };
         self.tasks.insert(task_id, task.clone());
         self.bids.insert(task_id, Vec::new());
-        AegisEvent::TaskPosted { task_id: U64(task_id), poster, budget_ceiling: task.budget_ceiling, auction: task.auction }
+        PhalanxEvent::TaskPosted { task_id: U64(task_id), poster, budget_ceiling: task.budget_ceiling, auction: task.auction }
             .emit();
         TaskPostOutcome { approved: true, task: Some(task), severity: Severity::None, violations: vec![], quarantined: false }
     }
@@ -442,22 +449,25 @@ impl AegisCore {
     /// Worker agents commit, reveal, or accept a reverse-Dutch price.
     pub fn submit_bid(&mut self, task_id: U64, action: BidAction) -> AgentBid {
         let agent = self.caller_agent("submit_bid");
-        require!(!self.paused, "AEGIS_E_PAUSED");
-        require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
-        require!(agent.role.can_bid(), "AEGIS_E_ROLE_CANNOT_BID");
+        require!(!self.paused, "PHALANX_E_PAUSED");
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+        require!(agent.role.can_bid(), "PHALANX_E_ROLE_CANNOT_BID");
         let mut task = self.task_or_panic(task_id.0);
-        require!(task.poster != agent.agent_id, "AEGIS_E_POSTER_CANNOT_BID");
+        require!(task.poster != agent.agent_id, "PHALANX_E_POSTER_CANNOT_BID");
         let now = env::block_timestamp();
         let mut bids = self.bids.get(&task_id.0).cloned().unwrap_or_default();
 
         let bid = match action {
             BidAction::Commit { commitment } => {
-                require!(task.auction == AuctionKind::SealedBid, "AEGIS_E_NOT_SEALED_AUCTION");
-                require!(task.status == TaskStatus::Bidding && now <= task.bidding_deadline_ns.0, "AEGIS_E_COMMIT_PHASE_CLOSED");
-                require!(task.bid_count < task.max_bidders, "AEGIS_E_AUCTION_FULL");
-                require!(agent.reputation_bps >= task.verification.min_reputation_bps, "AEGIS_E_REPUTATION_BELOW_SCHEMA");
-                require!(is_hash32_hex(&commitment), "AEGIS_E_INVALID_COMMITMENT");
-                require!(!bids.iter().any(|b| b.agent_id == agent.agent_id), "AEGIS_E_ALREADY_BID");
+                require!(task.auction == AuctionKind::SealedBid, "PHALANX_E_NOT_SEALED_AUCTION");
+                require!(
+                    task.status == TaskStatus::Bidding && now <= task.bidding_deadline_ns.0,
+                    "PHALANX_E_COMMIT_PHASE_CLOSED"
+                );
+                require!(task.bid_count < task.max_bidders, "PHALANX_E_AUCTION_FULL");
+                require!(agent.reputation_bps >= task.verification.min_reputation_bps, "PHALANX_E_REPUTATION_BELOW_SCHEMA");
+                require!(is_hash32_hex(&commitment), "PHALANX_E_INVALID_COMMITMENT");
+                require!(!bids.iter().any(|b| b.agent_id == agent.agent_id), "PHALANX_E_ALREADY_BID");
                 let bid = AgentBid {
                     task_id,
                     agent_id: agent.agent_id.clone(),
@@ -475,24 +485,24 @@ impl AegisCore {
                 if task.bid_count == task.max_bidders {
                     task.status = TaskStatus::Revealing;
                 }
-                AegisEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "commit".to_string() }.emit();
+                PhalanxEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "commit".to_string() }.emit();
                 bid
             }
             BidAction::Reveal { price, est_latency_sec, salt } => {
-                require!(task.auction == AuctionKind::SealedBid, "AEGIS_E_NOT_SEALED_AUCTION");
+                require!(task.auction == AuctionKind::SealedBid, "PHALANX_E_NOT_SEALED_AUCTION");
                 let in_reveal = task.status == TaskStatus::Revealing
                     || (task.status == TaskStatus::Bidding && now > task.bidding_deadline_ns.0);
-                require!(in_reveal && now <= task.reveal_deadline_ns.0, "AEGIS_E_REVEAL_PHASE_CLOSED");
-                require!(is_safe_ascii(&salt, 64) && salt.len() >= 8, "AEGIS_E_INVALID_SALT");
-                require!(price.0 > 0 && price.0 <= task.budget_ceiling.0, "AEGIS_E_PRICE_OUT_OF_RANGE");
-                require!(est_latency_sec <= MAX_LATENCY_SEC, "AEGIS_E_INVALID_LATENCY");
+                require!(in_reveal && now <= task.reveal_deadline_ns.0, "PHALANX_E_REVEAL_PHASE_CLOSED");
+                require!(is_safe_ascii(&salt, 64) && salt.len() >= 8, "PHALANX_E_INVALID_SALT");
+                require!(price.0 > 0 && price.0 <= task.budget_ceiling.0, "PHALANX_E_PRICE_OUT_OF_RANGE");
+                require!(est_latency_sec <= MAX_LATENCY_SEC, "PHALANX_E_INVALID_LATENCY");
                 let expected = bid_commitment(task_id.0, agent.agent_id.as_str(), price.0, est_latency_sec, &salt);
                 let pos = bids
                     .iter()
                     .position(|b| b.agent_id == agent.agent_id)
-                    .unwrap_or_else(|| env::panic_str("AEGIS_E_NO_COMMITMENT"));
-                require!(!bids[pos].revealed, "AEGIS_E_ALREADY_REVEALED");
-                require!(bids[pos].commitment.as_deref() == Some(expected.as_str()), "AEGIS_E_COMMITMENT_MISMATCH");
+                    .unwrap_or_else(|| env::panic_str("PHALANX_E_NO_COMMITMENT"));
+                require!(!bids[pos].revealed, "PHALANX_E_ALREADY_REVEALED");
+                require!(bids[pos].commitment.as_deref() == Some(expected.as_str()), "PHALANX_E_COMMITMENT_MISMATCH");
                 let score = score_bid(task.budget_ceiling.0, price.0, est_latency_sec, agent.reputation_bps);
                 let bid = &mut bids[pos];
                 bid.revealed = true;
@@ -504,14 +514,14 @@ impl AegisCore {
                 let bid = bid.clone();
                 task.revealed_count += 1;
                 task.status = TaskStatus::Revealing;
-                AegisEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "reveal".to_string() }.emit();
+                PhalanxEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "reveal".to_string() }.emit();
                 bid
             }
             BidAction::AcceptDutch { est_latency_sec } => {
-                require!(task.auction == AuctionKind::ReverseDutch, "AEGIS_E_NOT_DUTCH_AUCTION");
-                require!(task.status == TaskStatus::Bidding && now <= task.bidding_deadline_ns.0, "AEGIS_E_AUCTION_CLOSED");
-                require!(agent.reputation_bps >= task.verification.min_reputation_bps, "AEGIS_E_REPUTATION_BELOW_SCHEMA");
-                require!(est_latency_sec <= MAX_LATENCY_SEC, "AEGIS_E_INVALID_LATENCY");
+                require!(task.auction == AuctionKind::ReverseDutch, "PHALANX_E_NOT_DUTCH_AUCTION");
+                require!(task.status == TaskStatus::Bidding && now <= task.bidding_deadline_ns.0, "PHALANX_E_AUCTION_CLOSED");
+                require!(agent.reputation_bps >= task.verification.min_reputation_bps, "PHALANX_E_REPUTATION_BELOW_SCHEMA");
+                require!(est_latency_sec <= MAX_LATENCY_SEC, "PHALANX_E_INVALID_LATENCY");
                 let price = dutch_price(
                     task.dutch_start_price.0,
                     task.budget_ceiling.0,
@@ -535,7 +545,8 @@ impl AegisCore {
                 bids.push(bid.clone());
                 task.bid_count += 1;
                 task.revealed_count += 1;
-                AegisEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "accept_dutch".to_string() }.emit();
+                PhalanxEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "accept_dutch".to_string() }
+                    .emit();
                 self.award_task(&mut task, &agent, price, Some(score), est_latency_sec);
                 bid
             }
@@ -549,17 +560,17 @@ impl AegisCore {
     /// Callable by the poster or owner once all bids are revealed, by anyone after the reveal deadline.
     pub fn close_auction(&mut self, task_id: U64) -> TaskRfp {
         let mut task = self.task_or_panic(task_id.0);
-        require!(task.auction == AuctionKind::SealedBid, "AEGIS_E_NOT_SEALED_AUCTION");
-        require!(matches!(task.status, TaskStatus::Bidding | TaskStatus::Revealing), "AEGIS_E_AUCTION_NOT_OPEN");
+        require!(task.auction == AuctionKind::SealedBid, "PHALANX_E_NOT_SEALED_AUCTION");
+        require!(matches!(task.status, TaskStatus::Bidding | TaskStatus::Revealing), "PHALANX_E_AUCTION_NOT_OPEN");
         let now = env::block_timestamp();
         let reveal_reached = task.status == TaskStatus::Revealing || now > task.bidding_deadline_ns.0;
-        require!(reveal_reached, "AEGIS_E_COMMIT_PHASE_ACTIVE");
+        require!(reveal_reached, "PHALANX_E_COMMIT_PHASE_ACTIVE");
         let reveal_over = now > task.reveal_deadline_ns.0;
-        require!(reveal_over || task.revealed_count == task.bid_count, "AEGIS_E_REVEALS_PENDING");
+        require!(reveal_over || task.revealed_count == task.bid_count, "PHALANX_E_REVEALS_PENDING");
         let authorized = reveal_over
             || self.is_owner_call()
             || self.resolve_agent_caller().map(|a| a.agent_id == task.poster && a.status == AgentStatus::Active).unwrap_or(false);
-        require!(authorized, "AEGIS_E_UNAUTHORIZED");
+        require!(authorized, "PHALANX_E_UNAUTHORIZED");
 
         let bids = self.bids.get(&task_id.0).cloned().unwrap_or_default();
         let ceiling = task.budget_ceiling.0;
@@ -603,8 +614,9 @@ impl AegisCore {
             None => {
                 let refunded = self.release_budget(&task);
                 task.status = TaskStatus::Expired;
-                AegisEvent::AuctionClosed { task_id, winner: None, winning_price: None, score_bps: None }.emit();
-                AegisEvent::TaskClosedWithoutSettlement { task_id, status: "expired".to_string(), refunded: U128(refunded) }
+                self.reopen_order(&task);
+                PhalanxEvent::AuctionClosed { task_id, winner: None, winning_price: None, score_bps: None }.emit();
+                PhalanxEvent::TaskClosedWithoutSettlement { task_id, status: "expired".to_string(), refunded: U128(refunded) }
                     .emit();
             }
         }
@@ -615,15 +627,15 @@ impl AegisCore {
     /// The winner proves execution with a TEE proof; escrow is released to its balance atomically.
     pub fn execute_verified_task(&mut self, task_id: U64, proof: ExecutionProof) -> TaskExecutionOutcome {
         let agent = self.caller_agent("execute_verified_task");
-        require!(!self.paused, "AEGIS_E_PAUSED");
-        require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
+        require!(!self.paused, "PHALANX_E_PAUSED");
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
         let mut task = self.task_or_panic(task_id.0);
-        require!(task.status == TaskStatus::Awarded, "AEGIS_E_TASK_NOT_AWARDED");
-        require!(task.winner.as_ref() == Some(&agent.agent_id), "AEGIS_E_NOT_TASK_WINNER");
+        require!(task.status == TaskStatus::Awarded, "PHALANX_E_TASK_NOT_AWARDED");
+        require!(task.winner.as_ref() == Some(&agent.agent_id), "PHALANX_E_NOT_TASK_WINNER");
         let now = env::block_timestamp();
         require!(
             now <= task.execution_deadline_ns.0 && env::epoch_height() <= task.deadline_epoch.0,
-            "AEGIS_E_EXECUTION_DEADLINE_PASSED"
+            "PHALANX_E_EXECUTION_DEADLINE_PASSED"
         );
 
         let exp = ReceiptExpectation {
@@ -640,7 +652,7 @@ impl AegisCore {
         match self.verify_proof(&proof, &exp) {
             Ok((hash, receipt)) => {
                 self.record_attestation(&hash, &proof, &receipt);
-                let mut escrow = self.escrows.get(&task_id.0).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_NO_ESCROW"));
+                let mut escrow = self.escrows.get(&task_id.0).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_NO_ESCROW"));
                 let amount = escrow.amount.0;
                 escrow.status = EscrowStatus::Released;
                 escrow.closed_at_ns = Some(U64(now));
@@ -657,8 +669,9 @@ impl AegisCore {
 
                 task.status = TaskStatus::Completed;
                 task.receipt_hash = Some(hash.clone());
+                self.deliver_order(&task, &receipt.output_hash, &hash);
                 self.tasks.insert(task_id.0, task);
-                AegisEvent::TaskSettled {
+                PhalanxEvent::TaskSettled {
                     task_id,
                     payee: agent.agent_id.clone(),
                     amount: U128(amount),
@@ -676,7 +689,7 @@ impl AegisCore {
             }
             Err(err) => {
                 let reason = err.reason().to_string();
-                AegisEvent::AttestationRejected {
+                PhalanxEvent::AttestationRejected {
                     agent_id: agent.agent_id.clone(),
                     subject: format!("task:{}", task_id.0),
                     reason: reason.clone(),
@@ -699,8 +712,9 @@ impl AegisCore {
                     // Scam detection: forged or replayed proofs fail the task and trip the breaker.
                     let refunded = self.refund_escrow(task_id.0);
                     task.status = TaskStatus::Failed;
+                    self.reopen_order(&task);
                     self.tasks.insert(task_id.0, task);
-                    AegisEvent::TaskClosedWithoutSettlement { task_id, status: "failed".to_string(), refunded: U128(refunded) }
+                    PhalanxEvent::TaskClosedWithoutSettlement { task_id, status: "failed".to_string(), refunded: U128(refunded) }
                         .emit();
                     let violation = PolicyViolation::InvalidTeeAttestation { reason: reason.clone() };
                     quarantined = self.apply_circuit_breaker(&agent.agent_id, "execute_verified_task", &[violation]).1;
@@ -726,7 +740,7 @@ impl AegisCore {
             TaskStatus::Awarded => {
                 require!(
                     now > task.execution_deadline_ns.0 || env::epoch_height() > task.deadline_epoch.0,
-                    "AEGIS_E_NOT_OVERDUE"
+                    "PHALANX_E_NOT_OVERDUE"
                 );
                 let refunded = self.refund_escrow(task_id.0);
                 task.status = TaskStatus::Failed;
@@ -736,18 +750,19 @@ impl AegisCore {
                         w.reputation_bps = w.reputation_bps.saturating_sub(500);
                     }
                 }
-                AegisEvent::TaskClosedWithoutSettlement { task_id, status: "failed".to_string(), refunded: U128(refunded) }
+                PhalanxEvent::TaskClosedWithoutSettlement { task_id, status: "failed".to_string(), refunded: U128(refunded) }
                     .emit();
             }
             TaskStatus::Bidding if task.auction == AuctionKind::ReverseDutch => {
-                require!(now > task.bidding_deadline_ns.0, "AEGIS_E_NOT_OVERDUE");
+                require!(now > task.bidding_deadline_ns.0, "PHALANX_E_NOT_OVERDUE");
                 let refunded = self.release_budget(&task);
                 task.status = TaskStatus::Expired;
-                AegisEvent::TaskClosedWithoutSettlement { task_id, status: "expired".to_string(), refunded: U128(refunded) }
+                PhalanxEvent::TaskClosedWithoutSettlement { task_id, status: "expired".to_string(), refunded: U128(refunded) }
                     .emit();
             }
-            _ => env::panic_str("AEGIS_E_NOT_EXPIRABLE: sealed auctions settle via close_auction"),
+            _ => env::panic_str("PHALANX_E_NOT_EXPIRABLE: sealed auctions settle via close_auction"),
         }
+        self.reopen_order(&task);
         self.tasks.insert(task_id.0, task.clone());
         task
     }
@@ -756,12 +771,13 @@ impl AegisCore {
     pub fn cancel_task(&mut self, task_id: U64) -> TaskRfp {
         let mut task = self.task_or_panic(task_id.0);
         let is_poster = self.resolve_agent_caller().map(|a| a.agent_id == task.poster).unwrap_or(false);
-        require!(self.is_owner_call() || is_poster, "AEGIS_E_UNAUTHORIZED");
-        require!(task.status == TaskStatus::Bidding && task.bid_count == 0, "AEGIS_E_TASK_HAS_BIDS");
+        require!(self.is_owner_call() || is_poster, "PHALANX_E_UNAUTHORIZED");
+        require!(task.status == TaskStatus::Bidding && task.bid_count == 0, "PHALANX_E_TASK_HAS_BIDS");
         let refunded = self.release_budget(&task);
         task.status = TaskStatus::Cancelled;
+        self.reopen_order(&task);
         self.tasks.insert(task_id.0, task.clone());
-        AegisEvent::TaskClosedWithoutSettlement { task_id, status: "cancelled".to_string(), refunded: U128(refunded) }.emit();
+        PhalanxEvent::TaskClosedWithoutSettlement { task_id, status: "cancelled".to_string(), refunded: U128(refunded) }.emit();
         task
     }
 
@@ -809,7 +825,7 @@ impl AegisCore {
     /// Parity helper: the score a revealed bid would get right now.
     pub fn preview_bid_score(&self, task_id: U64, agent_id: AccountId, price: U128, est_latency_sec: u32) -> u32 {
         let task = self.task_or_panic(task_id.0);
-        require!(price.0 > 0 && price.0 <= task.budget_ceiling.0, "AEGIS_E_PRICE_OUT_OF_RANGE");
+        require!(price.0 > 0 && price.0 <= task.budget_ceiling.0, "PHALANX_E_PRICE_OUT_OF_RANGE");
         let reputation = self.agents.get(&agent_id).map(|a| a.reputation_bps).unwrap_or(0);
         score_bid(task.budget_ceiling.0, price.0, est_latency_sec, reputation)
     }

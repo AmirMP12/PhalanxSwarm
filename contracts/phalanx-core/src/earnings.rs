@@ -15,10 +15,10 @@ use near_sdk::json_types::U128;
 use near_sdk::{env, near, require, AccountId, Gas, NearToken, Promise};
 
 use crate::codec::is_safe_ascii;
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
 use crate::policy::{recipient_violation, PolicyViolation, Severity};
 use crate::subaccounts::AgentStatus;
-use crate::{AegisCore, AegisCoreExt};
+use crate::{PhalanxCore, PhalanxCoreExt};
 
 #[near(serializers = [json])]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,14 +34,14 @@ pub struct PaymentOutcome {
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// An agent pays another agent or an allow-listed NEAR vendor from its own earnings.
     pub fn pay_from_balance(&mut self, recipient: AccountId, amount: U128, memo: Option<String>) -> PaymentOutcome {
         let agent = self.caller_agent("pay_from_balance");
-        require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
-        require!(amount.0 > 0, "AEGIS_E_ZERO_AMOUNT");
-        require!(recipient != agent.agent_id, "AEGIS_E_SELF_PAYMENT");
-        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "AEGIS_E_INVALID_MEMO");
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+        require!(amount.0 > 0, "PHALANX_E_ZERO_AMOUNT");
+        require!(recipient != agent.agent_id, "PHALANX_E_SELF_PAYMENT");
+        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "PHALANX_E_INVALID_MEMO");
 
         let recipient_agent = self.agents.get(&recipient).map(|a| a.status == AgentStatus::Active).unwrap_or(false);
         let mut violations = Vec::new();
@@ -88,7 +88,7 @@ impl AegisCore {
                 )
                 .detach();
         }
-        AegisEvent::AgentPaid { from: agent.agent_id.clone(), to: recipient.clone(), amount, internal: recipient_agent, memo }
+        PhalanxEvent::AgentPaid { from: agent.agent_id.clone(), to: recipient.clone(), amount, internal: recipient_agent, memo }
             .emit();
         PaymentOutcome {
             paid: true,
@@ -104,9 +104,9 @@ impl AegisCore {
     /// Sends earnings to the agent's owner-set payout account.
     pub fn withdraw_earnings(&mut self, amount: U128) -> U128 {
         let agent = self.caller_agent("withdraw_earnings");
-        require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
-        require!(!self.paused, "AEGIS_E_PAUSED");
-        require!(amount.0 > 0 && amount.0 <= agent.balance.0, "AEGIS_E_INSUFFICIENT_AGENT_BALANCE");
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+        require!(!self.paused, "PHALANX_E_PAUSED");
+        require!(amount.0 > 0 && amount.0 <= agent.balance.0, "PHALANX_E_INSUFFICIENT_AGENT_BALANCE");
         let mut a = agent.clone();
         a.balance = U128(a.balance.0 - amount.0);
         self.agents.insert(a.agent_id.clone(), a);
@@ -119,14 +119,14 @@ impl AegisCore {
                     .on_agent_transfer(agent.agent_id.clone(), agent.payout_account.clone(), amount),
             )
             .detach();
-        AegisEvent::EarningsWithdrawn { agent_id: agent.agent_id, payout_account: agent.payout_account, amount }.emit();
+        PhalanxEvent::EarningsWithdrawn { agent_id: agent.agent_id, payout_account: agent.payout_account, amount }.emit();
         amount
     }
 
     /// Callback of an earnings transfer; a bounced transfer is credited back to the agent.
     #[private]
     pub fn on_agent_transfer(&mut self, agent_id: AccountId, to: AccountId, amount: U128) -> bool {
-        require!(env::promise_results_count() == 1, "AEGIS_E_CALLBACK_ONLY");
+        require!(env::promise_results_count() == 1, "PHALANX_E_CALLBACK_ONLY");
         let ok = env::promise_result_checked(0, 64).is_ok();
         if !ok {
             if let Some(mut agent) = self.agents.get(&agent_id).cloned() {
@@ -134,7 +134,7 @@ impl AegisCore {
                 self.agents.insert(agent_id.clone(), agent);
                 self.treasury.agent_balances += amount.0;
             }
-            AegisEvent::PaymentFailed { agent_id, to, amount }.emit();
+            PhalanxEvent::PaymentFailed { agent_id, to, amount }.emit();
         }
         ok
     }

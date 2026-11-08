@@ -18,7 +18,7 @@ describe("NEAR AI Cloud attestation", () => {
   });
 
   // Gated: hits the live NEAR AI Cloud endpoint and verifies the Intel TDX quote via dcap-qvl.
-  it.runIf(process.env.AEGIS_LIVE_TEE === "1" && Boolean(process.env.NEARAI_API_KEY))(
+  it.runIf(process.env.PHALANX_LIVE_TEE === "1" && Boolean(process.env.NEARAI_API_KEY))(
     "fetches and DCAP-verifies a real NEAR AI Cloud Intel TDX attestation",
     async () => {
       const r = await verifyNearAiAttestationNode({ timeoutMs: 25_000 });

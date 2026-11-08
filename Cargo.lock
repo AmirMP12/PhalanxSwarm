@@ -19,28 +19,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "aegis-core"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "near-sdk",
-]
-
-[[package]]
-name = "aegis-sandbox-tests"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "bs58 0.5.1",
- "ed25519-dalek",
- "near-workspaces",
- "serde_json",
- "sha2 0.10.9",
- "tokio",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2555,6 +2533,28 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "phalanx-core"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "near-sdk",
+]
+
+[[package]]
+name = "phalanx-sandbox-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "bs58 0.5.1",
+ "ed25519-dalek",
+ "near-workspaces",
+ "serde_json",
+ "sha2 0.10.9",
+ "tokio",
+]
 
 [[package]]
 name = "pin-project-lite"

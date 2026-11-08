@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Browser runtime: loads /aegis_core.wasm, boots the AegisSim VM with the swarm, and exposes the
+ * Browser runtime: loads /phalanx_core.wasm, boots the PhalanxSim VM with the swarm, and exposes the
  * contract dashboard plus actions to every panel. The judge scenario replaces the runtime with a
  * fresh one and replays every judge step.
  *
@@ -26,7 +26,7 @@ import {
   type Signer,
   type StepReport,
   type TxRecord,
-} from "@aegis/agent-swarm-sdk";
+} from "@phalanx/agent-swarm-sdk";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export interface ActivityItem extends TxRecord {
@@ -58,7 +58,7 @@ export interface AgentsInfo {
   provider?: "nearai" | "generic_llm" | null;
 }
 
-interface AegisContextValue {
+interface PhalanxContextValue {
   status: "loading" | "ready" | "error";
   error: string | null;
   runtime: SwarmRuntime | null;
@@ -85,11 +85,11 @@ interface AegisContextValue {
   log: (records: TxRecord[]) => void;
 }
 
-const AegisContext = createContext<AegisContextValue | null>(null);
+const PhalanxContext = createContext<PhalanxContextValue | null>(null);
 const QUOTE_ENDPOINT = "/api/intents/quote";
 const TEE_ENDPOINT = "/api/tee/attest";
 const AGENTS_ENDPOINT = "/api/agents/complete";
-/** Longer than the proxy's upstream timeout (AEGIS_INTENTS_TIMEOUT_MS, 6 s) so the proxy's error arrives first. */
+/** Longer than the proxy's upstream timeout (PHALANX_INTENTS_TIMEOUT_MS, 6 s) so the proxy's error arrives first. */
 const CLIENT_QUOTE_TIMEOUT_MS = 9_000;
 const NO_AGENTS: AgentsInfo = { enabled: false, model: DEFAULT_NEARAI_MODEL, provider: null };
 
@@ -117,13 +117,13 @@ async function verifyModelKey(signingAddress: string, model: string): Promise<Mo
   return body;
 }
 
-export function AegisProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AegisContextValue["status"]>("loading");
+export function PhalanxProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<PhalanxContextValue["status"]>("loading");
   const [error, setError] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<SwarmRuntime | null>(null);
   const [dashboard, setDashboard] = useState<DashboardT | null>(null);
   const [attestation, setAttestation] = useState<AttestationResultT | null>(null);
-  const [wasm, setWasm] = useState<AegisContextValue["wasm"]>(null);
+  const [wasm, setWasm] = useState<PhalanxContextValue["wasm"]>(null);
   const [mode, setModeState] = useState<IntentsMode>("auto");
   const [brains, setBrains] = useState<AgentBrains>("standin");
   const [agentsInfo, setAgentsInfo] = useState<AgentsInfo | null>(null);
@@ -197,8 +197,8 @@ export function AegisProvider({ children }: { children: ReactNode }) {
 
   const loadWasm = useCallback(async (): Promise<Uint8Array> => {
     if (!wasmBytes.current) {
-      const res = await fetch("/aegis_core.wasm");
-      if (!res.ok) throw new Error(`GET /aegis_core.wasm → HTTP ${res.status}. Run pnpm build:contract.`);
+      const res = await fetch("/phalanx_core.wasm");
+      if (!res.ok) throw new Error(`GET /phalanx_core.wasm → HTTP ${res.status}. Run pnpm build:contract.`);
       wasmBytes.current = new Uint8Array(await res.arrayBuffer());
       setWasm({ size: wasmBytes.current.length, sha256: sha256Hex(wasmBytes.current) });
     }
@@ -324,7 +324,7 @@ export function AegisProvider({ children }: { children: ReactNode }) {
   );
 
   const inference = runtime?.inferenceSource ?? null;
-  const value = useMemo<AegisContextValue>(
+  const value = useMemo<PhalanxContextValue>(
     () => ({
       status,
       error,
@@ -370,11 +370,11 @@ export function AegisProvider({ children }: { children: ReactNode }) {
       log,
     ],
   );
-  return <AegisContext.Provider value={value}>{children}</AegisContext.Provider>;
+  return <PhalanxContext.Provider value={value}>{children}</PhalanxContext.Provider>;
 }
 
-export function useAegis(): AegisContextValue {
-  const ctx = useContext(AegisContext);
-  if (!ctx) throw new Error("useAegis must be used inside <AegisProvider>");
+export function usePhalanx(): PhalanxContextValue {
+  const ctx = useContext(PhalanxContext);
+  if (!ctx) throw new Error("usePhalanx must be used inside <PhalanxProvider>");
   return ctx;
 }

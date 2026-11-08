@@ -38,8 +38,8 @@ export interface NetworkConfig {
   daoFactory: string | null;
 }
 
-export function networkConfig(network: Network = (process.env.AEGIS_NETWORK as Network | undefined) ?? "testnet"): NetworkConfig {
-  const override = process.env.AEGIS_NEAR_RPC ? [process.env.AEGIS_NEAR_RPC] : null;
+export function networkConfig(network: Network = (process.env.PHALANX_NETWORK as Network | undefined) ?? "testnet"): NetworkConfig {
+  const override = process.env.PHALANX_NEAR_RPC ? [process.env.PHALANX_NEAR_RPC] : null;
   switch (network) {
     case "testnet":
       return {
@@ -72,7 +72,7 @@ export function networkConfig(network: Network = (process.env.AEGIS_NETWORK as N
         daoFactory: null,
       };
     default:
-      throw new Error(`unknown AEGIS_NETWORK ${String(network)}`);
+      throw new Error(`unknown PHALANX_NETWORK ${String(network)}`);
   }
 }
 
@@ -90,7 +90,7 @@ export interface Credential {
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /** Loads a near-cli style credential from outside the repository. */
-export function loadCredential(path: string | undefined, cfg: NetworkConfig, variable = "AEGIS_TESTNET_CREDENTIAL"): Credential {
+export function loadCredential(path: string | undefined, cfg: NetworkConfig, variable = "PHALANX_TESTNET_CREDENTIAL"): Credential {
   if (!path) throw new Error(`set ${variable} to a ${cfg.network} credential JSON outside this repository`);
   const abs = resolve(path);
   const rel = relative(REPO_ROOT, abs);
@@ -138,7 +138,7 @@ export async function rpcCall<T>(urls: string[], method: string, params: unknown
         const res = await fetch(url, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: "aegis", method, params }),
+          body: JSON.stringify({ jsonrpc: "2.0", id: "phalanx", method, params }),
           signal: AbortSignal.timeout(30_000),
         });
         if (!res.ok) throw new Error(`${url} ${method}: HTTP ${res.status}`);

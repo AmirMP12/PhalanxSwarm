@@ -1,5 +1,5 @@
 /**
- * `pnpm judge` — runs the full judge scenario against artifacts/aegis_core.wasm and prints a
+ * `pnpm judge` — runs the full judge scenario against artifacts/phalanx_core.wasm and prints a
  * step-by-step report. Exit code 0 only when every assertion passes.
  *
  *   pnpm judge                          # live 1Click dry quotes, fresh NEAR AI gateway attestation (no key needed);
@@ -20,7 +20,7 @@ import { JUDGE_STEPS, runJudgeScenario, type StepReport } from "./judge-scenario
 
 loadRootEnv();
 const args = new Set(process.argv.slice(2));
-const envMode = process.env.AEGIS_INTENTS_MODE as IntentsMode | undefined;
+const envMode = process.env.PHALANX_INTENTS_MODE as IntentsMode | undefined;
 const mode: IntentsMode = args.has("--offline") ? "offline" : args.has("--live") ? "live" : (envMode ?? "auto");
 const focus = args.has("--attack") ? ("attack" as const) : ("full" as const);
 const { nearAiApiKey: apiKey, nearAiModel: model, llmApiKey: genericKey, llmBaseUrl: genericBaseUrl, llmModel: genericModel } = liveModelFromEnv();
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     console.log(bold(focus === "attack" ? "PhalanxSwarm judge · security hero (invoice fraud)" : "PhalanxSwarm judge scenario"));
     console.log(
       dim(
-        `wasm: artifacts/aegis_core.wasm (${wasm.length} bytes, ${testnetMatch(wasm)}) · runtime: AegisSim local rehearsal · 1Click mode: ${mode} (dry: true)${focus === "attack" ? " · focus: attack" : ""}`,
+        `wasm: artifacts/phalanx_core.wasm (${wasm.length} bytes, ${testnetMatch(wasm)}) · runtime: PhalanxSim local rehearsal · 1Click mode: ${mode} (dry: true)${focus === "attack" ? " · focus: attack" : ""}`,
       ),
     );
     console.log(
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     llmModel: mode === "offline" ? undefined : genericModel,
     modelAttestationVerifier: (signingAddress, m) => verifyNearAiModelNode({ model: m, signingAddress, timeoutMs: 30_000 }),
     oneClickJwt: process.env.ONECLICK_JWT || undefined,
-    intentsTimeoutMs: Number(process.env.AEGIS_INTENTS_TIMEOUT_MS ?? 6000),
+    intentsTimeoutMs: Number(process.env.PHALANX_INTENTS_TIMEOUT_MS ?? 6000),
     quoteEndpoint: process.env.ONECLICK_API_BASE ? `${process.env.ONECLICK_API_BASE}/v0/quote` : undefined,
     fetchImpl: gatewayFetch,
     teeFallback,

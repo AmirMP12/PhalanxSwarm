@@ -20,8 +20,8 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/** Absolute path of `artifacts/aegis_core.wasm` at the repository root. */
-export const WASM_PATH = resolve(here, "../../../artifacts/aegis_core.wasm");
+/** Absolute path of `artifacts/phalanx_core.wasm` at the repository root. */
+export const WASM_PATH = resolve(here, "../../../artifacts/phalanx_core.wasm");
 /** Repository-root `.env` (optional; see `.env.example`). */
 export const ROOT_ENV_PATH = resolve(here, "../../../.env");
 
@@ -53,7 +53,7 @@ export function liveModelFromEnv(env: NodeJS.ProcessEnv = process.env): LiveMode
   };
 }
 
-export function loadContractWasm(path = process.env.AEGIS_WASM_PATH ?? WASM_PATH): Uint8Array {
+export function loadContractWasm(path = process.env.PHALANX_WASM_PATH ?? WASM_PATH): Uint8Array {
   if (!existsSync(path)) {
     throw new Error(`${path} not found. Build it with \`pnpm build:contract\` (bash scripts/build-contract.sh).`);
   }
@@ -64,9 +64,9 @@ export function loadContractWasm(path = process.env.AEGIS_WASM_PATH ?? WASM_PATH
  * Where DCAP collateral (TCB info, QE identity, CRLs) is fetched from, in order. Collateral is
  * signed by Intel and dcap-qvl verifies it up to Intel's root CA, so a caching PCCS can only
  * withhold it, not forge it. Phala's public PCCS cache answers in 2-5 s; Intel's PCS is the
- * fallback. Override with AEGIS_PCCS_URLS (comma-separated).
+ * fallback. Override with PHALANX_PCCS_URLS (comma-separated).
  */
-export const PCCS_URLS = (process.env.AEGIS_PCCS_URLS ?? `${PHALA_PCCS_URL},${DEFAULT_PCCS_URL}`)
+export const PCCS_URLS = (process.env.PHALANX_PCCS_URLS ?? `${PHALA_PCCS_URL},${DEFAULT_PCCS_URL}`)
   .split(",")
   .map((u) => u.trim())
   .filter(Boolean);

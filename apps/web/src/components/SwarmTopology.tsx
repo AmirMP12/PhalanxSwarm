@@ -1,11 +1,11 @@
 "use client";
 
-import { ACCOUNTS, type AgentRecordT, type PersonaId } from "@aegis/agent-swarm-sdk";
+import { ACCOUNTS, type AgentRecordT, type PersonaId } from "@phalanx/agent-swarm-sdk";
 import { useReducedMotion } from "framer-motion";
 import { ArrowRightLeft, Fingerprint, KeyRound, Landmark, Network, Signature, TriangleAlert, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import {
   Badge,
@@ -59,7 +59,7 @@ function curve(a: { x: number; y: number }, b: { x: number; y: number }, bend = 
 const at = (p: { x: number; y: number }) => ({ left: `${(p.x / W) * 100}%`, top: `${(p.y / H) * 100}%` });
 
 export function SwarmTopology() {
-  const { runtime, dashboard, attestation, activity } = useAegis();
+  const { runtime, dashboard, attestation, activity } = usePhalanx();
   const reduce = useReducedMotion();
   const [selected, setSelected] = useState<PersonaId>("nexus");
   const last = activity[0];
@@ -98,7 +98,7 @@ export function SwarmTopology() {
           <CardHeader
             icon={Network}
             eyebrow="Swarm topology · sub-accounts & scoped keys"
-            title="Agent swarm around the AegisCore treasury"
+            title="Agent swarm around the PhalanxCore treasury"
             actions={
               <div className="flex items-center gap-3 text-[11.5px] text-slate-500">
                 <span className="flex items-center gap-1.5">
@@ -177,7 +177,7 @@ export function SwarmTopology() {
                     style={at(HUB)}
                   >
                     <div>
-                      <div className="text-[13px] font-semibold text-emerald-300">AegisCore</div>
+                      <div className="text-[13px] font-semibold text-emerald-300">PhalanxCore</div>
                       <div className="num text-[10px] text-slate-500">{ACCOUNTS.contract}</div>
                       <div className="num mt-1 text-[13px] text-slate-100">{nearFmt(dashboard.treasury.liquid, 1)}</div>
                     </div>

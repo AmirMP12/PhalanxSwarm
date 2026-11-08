@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds contracts/aegis-core into artifacts/aegis_core.wasm.
+# Builds contracts/phalanx-core into artifacts/phalanx_core.wasm.
 #
 # Uses the same flags as `cargo near build non-reproducible-wasm`:
 #   RUSTFLAGS="-C link-arg=-s --cfg near"  (`--cfg near` selects near-sdk's on-chain host functions)
@@ -18,21 +18,21 @@ LOCKED=""
 if [ -f "$ROOT/Cargo.lock" ]; then LOCKED="--locked"; fi
 
 RUSTFLAGS="-C link-arg=-s --cfg near" \
-  cargo build -p aegis-core --target wasm32-unknown-unknown --release $LOCKED
+  cargo build -p phalanx-core --target wasm32-unknown-unknown --release $LOCKED
 
 mkdir -p "$ROOT/artifacts"
-cp "$TARGET_DIR/wasm32-unknown-unknown/release/aegis_core.wasm" "$ROOT/artifacts/aegis_core.wasm"
+cp "$TARGET_DIR/wasm32-unknown-unknown/release/phalanx_core.wasm" "$ROOT/artifacts/phalanx_core.wasm"
 
 if command -v wasm-opt >/dev/null 2>&1; then
   wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
-    "$ROOT/artifacts/aegis_core.wasm" -o "$ROOT/artifacts/aegis_core.wasm"
+    "$ROOT/artifacts/phalanx_core.wasm" -o "$ROOT/artifacts/phalanx_core.wasm"
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
-  HASH="$(sha256sum "$ROOT/artifacts/aegis_core.wasm" | cut -d' ' -f1)"
+  HASH="$(sha256sum "$ROOT/artifacts/phalanx_core.wasm" | cut -d' ' -f1)"
 else
-  HASH="$(shasum -a 256 "$ROOT/artifacts/aegis_core.wasm" | cut -d' ' -f1)"
+  HASH="$(shasum -a 256 "$ROOT/artifacts/phalanx_core.wasm" | cut -d' ' -f1)"
 fi
-echo "$HASH  aegis_core.wasm" > "$ROOT/artifacts/aegis_core.wasm.sha256"
-SIZE="$(wc -c < "$ROOT/artifacts/aegis_core.wasm" | tr -d ' ')"
-echo "artifacts/aegis_core.wasm  ${SIZE} bytes  sha256=${HASH}"
+echo "$HASH  phalanx_core.wasm" > "$ROOT/artifacts/phalanx_core.wasm.sha256"
+SIZE="$(wc -c < "$ROOT/artifacts/phalanx_core.wasm" | tr -d ' ')"
+echo "artifacts/phalanx_core.wasm  ${SIZE} bytes  sha256=${HASH}"

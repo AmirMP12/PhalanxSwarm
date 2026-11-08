@@ -126,7 +126,7 @@ export const ASSET_SNAPSHOT: Record<string, AssetInfo> = {
 const ROUTE_SPREAD_BPS: Record<string, number> = { near: 3, arb: 5, base: 5, sol: 8, eth: 12, btc: 15 };
 const TIME_ESTIMATE_SEC: Record<string, number> = { near: 8, arb: 10, base: 12, sol: 15, eth: 45, btc: 1_200 };
 const UNAUTHENTICATED_APP_FEE_BPS = 20;
-const offlineQuoter = keyPairFromSeed("aegis-offline-1click-quote-engine");
+const offlineQuoter = keyPairFromSeed("phalanx-offline-1click-quote-engine");
 
 function formatUnits(amount: bigint, decimals: number, digits = decimals): string {
   const s = amount.toString().padStart(decimals + 1, "0");
@@ -216,7 +216,7 @@ export interface OneClickClientOptions {
   jwt?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
-  /** Clock used for deadlines and offline quotes (the AegisSim VM clock in scenarios). */
+  /** Clock used for deadlines and offline quotes (the PhalanxSim VM clock in scenarios). */
   nowMs?: () => number;
 }
 
@@ -263,7 +263,7 @@ export class OneClickClient {
       recipient: p.recipient,
       recipientType: "DESTINATION_CHAIN",
       deadline: new Date(this.nowMs() + (p.deadlineSec ?? 1_800) * 1000).toISOString(),
-      referral: p.referral ?? "aegis-swarm",
+      referral: p.referral ?? "phalanx-swarm",
       quoteWaitingTimeMs: 0,
     });
   }

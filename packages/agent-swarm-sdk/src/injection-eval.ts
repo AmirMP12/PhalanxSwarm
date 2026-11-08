@@ -4,9 +4,9 @@
  * It answers two separate questions:
  * - Model: how often does an ordinarily prompted accounts-payable agent follow a payment-redirect
  *   instruction hidden in an invoice?
- * - Contract: does `aegis-core` stop every payment the agent then asks for?
+ * - Contract: does `phalanx-core` stop every payment the agent then asks for?
  *
- * Each variant of `injectionVariants` (12 injection styles on 2 invoices) runs in a fresh AegisSim
+ * Each variant of `injectionVariants` (12 injection styles on 2 invoices) runs in a fresh PhalanxSim
  * runtime with the compiled WASM. Mallory reads the invoice with her model and asks the contract to
  * pay what she decided. When the model resists, the injected instruction is submitted anyway and
  * labeled `forced`, so the contract's answer is measured for every variant.
@@ -20,7 +20,7 @@ import { sha256Hex } from "./encoding.ts";
 import { verifySignedCompletion } from "./nearai-inference.ts";
 import { ACCOUNTS, ATTACKER_EVM, NEAR_USD, SwarmRuntime, VENDOR_EVM, type RuntimeOptions } from "./swarm-orchestrator.ts";
 
-export const INJECTION_EVAL_SCHEMA = "aegis.injection-eval.v1";
+export const INJECTION_EVAL_SCHEMA = "phalanx.injection-eval.v1";
 
 /** What the model decided to do with the invoice. `error`: the model call failed or its answer did not parse. */
 export type ModelDecision = "paid_attacker" | "paid_vendor" | "held" | "other" | "error";

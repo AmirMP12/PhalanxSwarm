@@ -38,9 +38,9 @@ describe("Chain Signatures: offline derivation vectors & simulation", () => {
   const sim = new SimulatedMpcSigner("test-root-seed");
 
   it("derives deterministic tweaks for predecessor and path", () => {
-    const tweak1 = deriveTweak("aegis.testnet", "aegis-treasury/arb");
-    const tweak2 = deriveTweak("aegis.testnet", "aegis-treasury/arb");
-    const tweakOther = deriveTweak("aegis.testnet", "aegis-treasury/base");
+    const tweak1 = deriveTweak("phalanx.testnet", "phalanx-treasury/arb");
+    const tweak2 = deriveTweak("phalanx.testnet", "phalanx-treasury/arb");
+    const tweakOther = deriveTweak("phalanx.testnet", "phalanx-treasury/base");
 
     expect(tweak1).toBe(tweak2);
     expect(tweak1).toBeGreaterThan(0n);
@@ -48,9 +48,9 @@ describe("Chain Signatures: offline derivation vectors & simulation", () => {
   });
 
   it("derives distinct EVM addresses for distinct chain paths", () => {
-    const arbAddr = sim.addressFor("aegis.testnet", "aegis-treasury/arb");
-    const baseAddr = sim.addressFor("aegis.testnet", "aegis-treasury/base");
-    const solAddr = sim.addressFor("aegis.testnet", "aegis-treasury/sol");
+    const arbAddr = sim.addressFor("phalanx.testnet", "phalanx-treasury/arb");
+    const baseAddr = sim.addressFor("phalanx.testnet", "phalanx-treasury/base");
+    const solAddr = sim.addressFor("phalanx.testnet", "phalanx-treasury/sol");
 
     expect(arbAddr).toMatch(/^0x[0-9a-fA-F]{40}$/);
     expect(baseAddr).toMatch(/^0x[0-9a-fA-F]{40}$/);
@@ -61,8 +61,8 @@ describe("Chain Signatures: offline derivation vectors & simulation", () => {
   });
 
   it("simulated MPC signing produces valid signatures recovered via recoverEvmAddress", () => {
-    const path = "aegis-treasury/arb";
-    const predecessorId = "aegis.testnet";
+    const path = "phalanx-treasury/arb";
+    const predecessorId = "phalanx.testnet";
     const expectedAddress = sim.addressFor(predecessorId, path);
 
     const payload = new Uint8Array(32);
@@ -103,11 +103,11 @@ describe("Chain Signatures: offline derivation vectors & simulation", () => {
 
 describe("Chain Signatures: SDK derivation vs the real MPC contract", () => {
   // Gated: proves deriveChildPublicKey reproduces v1.signer-prod.testnet.derived_public_key exactly.
-  it.runIf(process.env.AEGIS_LIVE_MPC === "1")(
+  it.runIf(process.env.PHALANX_LIVE_MPC === "1")(
     "derives the same secp256k1 key as v1.signer-prod.testnet.derived_public_key",
     async () => {
-      const predecessor = "aegis-test.testnet";
-      const path = "aegis-treasury/arb";
+      const predecessor = "phalanx-test.testnet";
+      const path = "phalanx-treasury/arb";
       const rootStr = await view("public_key", { domain_id: 0 });
       const realDerived = await view("derived_public_key", { path, predecessor, domain_id: 0 });
 

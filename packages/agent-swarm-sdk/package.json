@@ -1,8 +1,8 @@
 {
-  "name": "@aegis/agent-swarm-sdk",
+  "name": "@phalanx/agent-swarm-sdk",
   "version": "0.1.0",
   "private": true,
-  "description": "PhalanxSwarm multi-agent runtime: in-process NEAR VM for aegis_core.wasm, NEAR Intents 1Click client, TEE receipt prover, Chain Signatures tooling and the 4-agent swarm orchestrator",
+  "description": "PhalanxSwarm multi-agent runtime: in-process NEAR VM for phalanx_core.wasm, NEAR Intents 1Click client, TEE receipt prover, Chain Signatures tooling and the 4-agent swarm orchestrator",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",

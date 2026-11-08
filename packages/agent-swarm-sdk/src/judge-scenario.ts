@@ -1,6 +1,6 @@
 /**
- * The judge scenario (`pnpm judge`): eleven steps against the compiled `aegis_core.wasm` inside
- * AegisSim. Each step records its narrative, the transactions it sent and assertions computed from
+ * The judge scenario (`pnpm judge`): eleven steps against the compiled `phalanx_core.wasm` inside
+ * PhalanxSim. Each step records its narrative, the transactions it sent and assertions computed from
  * contract state, VM state or cryptographic verification. The runtime it drives lives in
  * `swarm-orchestrator.ts`.
  */
@@ -97,7 +97,7 @@ class StepContext {
 
 /** The 11 judge steps, in order (titles are shown before a step starts). Attack is step 3 on purpose: the security kill is the hero, not buried at the end. */
 export const JUDGE_STEPS = [
-  { id: "boot", title: "Deploy aegis_core.wasm, fund the treasury, check NEAR AI hardware evidence" },
+  { id: "boot", title: "Deploy phalanx_core.wasm, fund the treasury, check NEAR AI hardware evidence" },
   { id: "spawn", title: "Spawn 4 agents (+1 unvetted third party) with scoped FunctionCall keys" },
   { id: "attack", title: "HERO · Invoice fraud: a fooled agent tries to pay an attacker inside every limit" },
   { id: "plan", title: "Nexus's model turns the business goal into budgeted RFPs" },
@@ -176,10 +176,10 @@ export async function runJudgeScenario(opts: ScenarioOptions): Promise<ScenarioR
   await run("boot", ["Owner DAO", "Investor", "Customer"], async (s) => {
     const account = rt.vm.getAccount(ACCOUNTS.contract);
     s.say(
-      `Deployed artifacts/aegis_core.wasm (sha256 ${rt.wasmSha256.slice(0, 16)}…) to ${ACCOUNTS.contract} inside AegisSim and called new() as the contract itself.`,
+      `Deployed artifacts/phalanx_core.wasm (sha256 ${rt.wasmSha256.slice(0, 16)}…) to ${ACCOUNTS.contract} inside PhalanxSim and called new() as the contract itself.`,
     );
     s.say(
-      "AegisSim is a local rehearsal that runs this exact WASM. It does not replace the public network proofs: pnpm verify:live checks that the testnet deployment runs the same bytes and re-checks its transactions.",
+      "PhalanxSim is a local rehearsal that runs this exact WASM. It does not replace the public network proofs: pnpm verify:live checks that the testnet deployment runs the same bytes and re-checks its transactions.",
     );
     s.check("deployed code hash equals sha256 of the compiled WASM", account?.codeHash === rt.wasmSha256, rt.wasmSha256);
     s.record("fund 100 NEAR capital", rt.investor, "fund_treasury", await rt.fund(100, "seed round"));
@@ -662,7 +662,7 @@ export async function runJudgeScenario(opts: ScenarioOptions): Promise<ScenarioR
     );
     s.check(
       "the stale proposal is refused: the policy changed since it was written",
-      !stale.ok && (stale.error ?? "").includes("AEGIS_E_STALE_POLICY"),
+      !stale.ok && (stale.error ?? "").includes("PHALANX_E_STALE_POLICY"),
       stale.error?.slice(0, 80) ?? "",
     );
     const strikesBefore = (await rt.contract.agent(nexus.accountId))?.violations ?? 0;
@@ -782,7 +782,7 @@ export async function runJudgeScenario(opts: ScenarioOptions): Promise<ScenarioR
     s.check("DAO proposal payload encodes the revoke_agent call", "FunctionCall" in kind && kind.FunctionCall.actions[0]?.method_name === "revoke_agent");
   });
 
-  await run("verify", ["AegisSim"], async (s) => {
+  await run("verify", ["PhalanxSim"], async (s) => {
     const dash = await rt.dashboard();
     const t = dash.treasury;
     const lhs = yocto(t.liquid) + yocto(t.reserved_for_tasks) + yocto(t.escrow_locked) + yocto(t.reserved_for_intents);

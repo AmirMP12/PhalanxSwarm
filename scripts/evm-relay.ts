@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Broadcasts an EVM transaction that aegis-core built and the MPC network signed, then records it
+ * Broadcasts an EVM transaction that phalanx-core built and the MPC network signed, then records it
  * on-chain (`pnpm evm:relay <contract-id> <tx-id>`).
  *
  * Anyone can relay: the raw transaction is public and only the treasury's Chain Signatures key
@@ -9,7 +9,7 @@
  * recovers the sender, which must be the contract's MPC-derived address for that chain.
  *
  * The on-chain confirmation is signed with the Sentinel's key stored by `pnpm testnet:swarm`
- * (~/.near-credentials/<network>/aegis-sentinel.<contract>.json). Without it the script prints the
+ * (~/.near-credentials/<network>/phalanx-sentinel.<contract>.json). Without it the script prints the
  * transaction hash for a DAO proposal instead.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -68,7 +68,7 @@ async function main() {
     throw new Error("the stored raw transaction does not match its request and signature");
   const sender = recoverTxSender(fromHex(record.signing_hash), record.signature);
   if (!cfg.mpcContract) throw new Error("no MPC contract on this network");
-  const path = `aegis-treasury/${record.chain}`;
+  const path = `phalanx-treasury/${record.chain}`;
   const rootString = await view<string>(cfg.rpc, cfg.mpcContract, "public_key", { domain_id: 0 });
   const raw = fromBase58(rootString.replace("secp256k1:", ""));
   const root = new Uint8Array(65);
@@ -112,7 +112,7 @@ async function main() {
 
   let status = record.status;
   if (status !== "confirmed") {
-    const sentinelId = `aegis-sentinel.${contractId}`;
+    const sentinelId = `phalanx-sentinel.${contractId}`;
     const cred = storedCredential(cfg, sentinelId);
     if (cred) {
       const sent = await send(accountFor(cfg, sentinelId, cred.private_key), contractId!, [

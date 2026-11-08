@@ -23,7 +23,7 @@ describe("TEE prover", () => {
     const run = enclave.run(() => ({ output: { answer: 42 }, verdict: "completed", confidenceBps: 9_000 }), {
       subjectKind: "task",
       subjectId: 1n,
-      agentId: "worker.aegis-swarm.testnet",
+      agentId: "worker.phalanx-swarm.testnet",
       inputHash: "aa".repeat(32),
       schemaHash: "bb".repeat(32),
       issuedAtNs: 1n,
@@ -60,10 +60,10 @@ describe("Chain Signatures tooling", () => {
     const out = mpc.call({
       vm: undefined as never,
       receiverId: "v1.signer-prod.testnet",
-      predecessorId: "aegis-swarm.testnet",
-      signerId: "rhea.aegis-swarm.testnet",
+      predecessorId: "phalanx-swarm.testnet",
+      signerId: "rhea.phalanx-swarm.testnet",
       methodName: "sign",
-      args: utf8(JSON.stringify({ request: { path: "aegis-treasury/arb", payload_v2: { Ecdsa: toHex(payload) }, domain_id: 0 } })),
+      args: utf8(JSON.stringify({ request: { path: "phalanx-treasury/arb", payload_v2: { Ecdsa: toHex(payload) }, domain_id: 0 } })),
       deposit: 1n,
     });
     const resp = JSON.parse(new TextDecoder().decode(out.value)) as {
@@ -74,8 +74,8 @@ describe("Chain Signatures tooling", () => {
     };
     expect(resp.scheme).toBe("Secp256k1");
     const sig: MpcSignatureT = { big_r: resp.big_r.affine_point, s: resp.s.scalar, recovery_id: resp.recovery_id };
-    expect(recoverEvmAddress(payload, sig)).toBe(mpc.addressFor("aegis-swarm.testnet", "aegis-treasury/arb"));
-    expect(mpc.addressFor("aegis-swarm.testnet", "aegis-treasury/base")).not.toBe(mpc.addressFor("aegis-swarm.testnet", "aegis-treasury/arb"));
+    expect(recoverEvmAddress(payload, sig)).toBe(mpc.addressFor("phalanx-swarm.testnet", "phalanx-treasury/arb"));
+    expect(mpc.addressFor("phalanx-swarm.testnet", "phalanx-treasury/base")).not.toBe(mpc.addressFor("phalanx-swarm.testnet", "phalanx-treasury/arb"));
   });
 
   it("rejects sign calls without the 1 yoctoNEAR deposit", () => {

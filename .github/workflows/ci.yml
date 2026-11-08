@@ -97,8 +97,8 @@ jobs:
       - name: Cargo clippy (deny warnings)
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Contract unit tests (aegis-core)
-        run: cargo test -p aegis-core --locked
+      - name: Contract unit tests (phalanx-core)
+        run: cargo test -p phalanx-core --locked
 
   build-and-test:
     name: Compile, Copy, Builds & Scenarios
@@ -150,7 +150,7 @@ jobs:
         run: node apps/web/scripts/copy-wasm.mjs
 
       - name: Build SDK
-        run: pnpm --filter @aegis/agent-swarm-sdk build
+        run: pnpm --filter @phalanx/agent-swarm-sdk build
 
       - name: Run SDK unit tests
         run: pnpm test
@@ -168,7 +168,7 @@ jobs:
         run: node apps/web/scripts/copy-wasm.mjs
 
       - name: Build Next.js web application
-        run: pnpm --filter @aegis/web build
+        run: pnpm --filter @phalanx/web build
 
       - name: Verify full workspace build (pnpm build)
         run: pnpm build
@@ -179,9 +179,9 @@ jobs:
         with:
           name: verification-artifacts
           path: |
-            artifacts/aegis_core.wasm
-            artifacts/aegis_core.wasm.sha256
-            artifacts/injection-eval.json
+            artifacts/phalanx_core.wasm
+            artifacts/phalanx_core.wasm.sha256
+            artifacts/injection-eval-offline.json
             artifacts/market-sim.json
           if-no-files-found: ignore
 
@@ -206,7 +206,7 @@ jobs:
         run: bash scripts/build-contract.sh
 
       - name: Run near-workspaces sandbox suite
-        run: cargo test -p aegis-sandbox-tests --locked -- --test-threads=2
+        run: cargo test -p phalanx-sandbox-tests --locked -- --test-threads=2
 
   ci-status:
     name: All CI Checks Passed

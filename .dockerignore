@@ -17,7 +17,7 @@ coverage
 *.tsbuildinfo
 
 # Copied build-time artifacts (recreated by scripts/copy-wasm.mjs)
-apps/web/public/aegis_core.wasm
+apps/web/public/phalanx_core.wasm
 apps/web/public/evidence
 
 # Secrets & local environment

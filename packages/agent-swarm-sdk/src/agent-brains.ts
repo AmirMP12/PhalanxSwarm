@@ -136,7 +136,8 @@ export const OrchestratorPlan = z.object({
       z.object({
         category: z.enum(["procurement", "defi_strategy"]),
         title: z.string().min(3).max(96),
-        budget_near: z.number().positive(),
+        // A model may answer 0 for a task it decides not to post; such entries are dropped below.
+        budget_near: z.number().nonnegative(),
         auction: z.enum(["sealed_bid", "reverse_dutch"]),
         rationale: z.string().default(""),
       }),

@@ -3,7 +3,7 @@
 import { CircleCheck, CircleX, CornerDownRight, Inbox, ScrollText } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import { Badge, Card, CardHeader, CopyButton, EmptyState, SegmentedControl, ago, cx, short } from "./ui";
 
@@ -20,7 +20,7 @@ function useNow(ms = 5000): number {
 
 /** Every transaction the UI sent to the contract, with its receipts and NEP-297 events. */
 export function ActivityFeed() {
-  const { activity } = useAegis();
+  const { activity } = usePhalanx();
   const [filter, setFilter] = useState<Filter>("all");
   const now = useNow();
   const okCount = activity.filter((a) => a.ok).length;
@@ -30,7 +30,7 @@ export function ActivityFeed() {
     <Card className="p-4 sm:p-5">
       <CardHeader
         icon={ScrollText}
-        eyebrow="AegisSim receipts"
+        eyebrow="PhalanxSim receipts"
         title="Transaction log"
         description="Newest first. Signer → method, transaction hash, NEP-297 events and the receipts each call produced."
         actions={

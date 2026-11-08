@@ -136,7 +136,7 @@ export interface TdxVerification {
 
 /**
  * Verifies a raw Intel TDX quote against Intel collateral. Implemented by `verifyTdxQuote` in the
- * node entry (`@aegis/agent-swarm-sdk/node`, which loads `@phala/dcap-qvl` + `node:fs`); injected
+ * node entry (`@phalanx/agent-swarm-sdk/node`, which loads `@phala/dcap-qvl` + `node:fs`); injected
  * here so this module stays free of Node built-ins and bundles for the browser. The browser path
  * calls the server route instead (see `apps/web/src/app/api/tee/attest`).
  */
@@ -303,8 +303,8 @@ export async function verifyAllModelAttestations(opts: ModelAttestationOptions):
  * "binding-only" and `verified` is false so callers never mistake it for a hardware proof.
  */
 export function offlineAttestation(imageLabel: string): AttestationResult {
-  const measurement = sha256Hex(`aegis-enclave-image:${imageLabel}`);
-  const signingAddress = sha256Hex(`aegis-enclave-key:${imageLabel}`);
+  const measurement = sha256Hex(`phalanx-enclave-image:${imageLabel}`);
+  const signingAddress = sha256Hex(`phalanx-enclave-key:${imageLabel}`);
   return {
     verified: false,
     status: "offline-fixture",

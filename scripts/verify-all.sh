@@ -8,17 +8,17 @@
 # WASM (offline, no network), the Next.js production build, and (when the host can run nearcore
 # 2.14) the near-workspaces sandbox suite. The Rust toolchain is pinned by rust-toolchain.toml.
 #
-# artifacts/aegis_core.wasm is the canonical reproducible build deployed on testnet. A local build
+# artifacts/phalanx_core.wasm is the canonical reproducible build deployed on testnet. A local build
 # has different bytes (toolchain paths are embedded), so the stages below test the local build and
 # the committed canonical artifact is restored when the script exits.
 #
 # Env:
-#   AEGIS_SANDBOX=auto|1|docker|0   sandbox suite: auto-detect (default), force native, run in Docker, skip
-#   AEGIS_INTENTS_MODE=offline|auto  judge quote mode (default offline: no network needed)
-#   AEGIS_AUDIT=1                      also run dependency audits (pnpm audit + cargo-audit). Off by
+#   PHALANX_SANDBOX=auto|1|docker|0   sandbox suite: auto-detect (default), force native, run in Docker, skip
+#   PHALANX_INTENTS_MODE=offline|auto  judge quote mode (default offline: no network needed)
+#   PHALANX_AUDIT=1                      also run dependency audits (pnpm audit + cargo-audit). Off by
 #                                      default: advisory databases change daily, so an audit result
 #                                      says nothing about whether this submission works.
-#   AEGIS_LIVE=1                       append the no-secret real-network proof suite
+#   PHALANX_LIVE=1                       append the no-secret real-network proof suite
 set -euo pipefail
 
 # Non-interactive WSL shells do not source Rust automatically. When this script is launched by
@@ -54,10 +54,10 @@ run_node() {
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-SANDBOX="${AEGIS_SANDBOX:-auto}"
-MODE="${AEGIS_INTENTS_MODE:-offline}"
-LIVE="${AEGIS_LIVE:-0}"
-AUDIT="${AEGIS_AUDIT:-0}"
+SANDBOX="${PHALANX_SANDBOX:-auto}"
+MODE="${PHALANX_INTENTS_MODE:-offline}"
+LIVE="${PHALANX_LIVE:-0}"
+AUDIT="${PHALANX_AUDIT:-0}"
 PASSED=()
 SKIPPED=()
 TOTAL=9
@@ -82,11 +82,11 @@ else
 fi
 
 CANONICAL="$(mktemp -d)"
-if [ -f artifacts/aegis_core.wasm ]; then cp artifacts/aegis_core.wasm artifacts/aegis_core.wasm.sha256 "$CANONICAL/"; fi
+if [ -f artifacts/phalanx_core.wasm ]; then cp artifacts/phalanx_core.wasm artifacts/phalanx_core.wasm.sha256 "$CANONICAL/"; fi
 restore_canonical() {
-  if [ -f "$CANONICAL/aegis_core.wasm" ]; then
-    cp "$CANONICAL/aegis_core.wasm" "$CANONICAL/aegis_core.wasm.sha256" artifacts/
-    if [ -d apps/web/public ]; then cp "$CANONICAL/aegis_core.wasm" apps/web/public/aegis_core.wasm; fi
+  if [ -f "$CANONICAL/phalanx_core.wasm" ]; then
+    cp "$CANONICAL/phalanx_core.wasm" "$CANONICAL/phalanx_core.wasm.sha256" artifacts/
+    if [ -d apps/web/public ]; then cp "$CANONICAL/phalanx_core.wasm" apps/web/public/phalanx_core.wasm; fi
   fi
   rm -rf "$CANONICAL"
 }
@@ -102,14 +102,14 @@ if [ "$AUDIT" = "1" ]; then
   cargo audit
   ok "dependency audits"
 else
-  SKIPPED+=("dependency audits (opt-in: AEGIS_AUDIT=1)")
+  SKIPPED+=("dependency audits (opt-in: PHALANX_AUDIT=1)")
 fi
 
 step "Rust: unit tests (near-sdk test blockchain)"
-cargo test -p aegis-core --locked
+cargo test -p phalanx-core --locked
 ok "contract unit tests"
 
-step "Build aegis_core.wasm from source (RUSTFLAGS='-C link-arg=-s --cfg near')"
+step "Build phalanx_core.wasm from source (RUSTFLAGS='-C link-arg=-s --cfg near')"
 bash scripts/build-contract.sh
 ok "wasm build"
 
@@ -126,19 +126,19 @@ run_pnpm check:source
 ok "lint + format + source integrity"
 
 step "SDK tests: VM semantics, Rust<->TS parity, 1Click client, TEE, Chain Signatures, E2E scenario"
-run_pnpm --filter @aegis/agent-swarm-sdk test
+run_pnpm --filter @phalanx/agent-swarm-sdk test
 ok "sdk tests"
 
 step "Judge scenario against the compiled WASM (1Click mode: $MODE)"
 if [ "$HOST_JS" = true ]; then
-  cmd.exe /d /s /c "set AEGIS_INTENTS_MODE=$MODE&& pnpm --filter @aegis/agent-swarm-sdk judge"
+  cmd.exe /d /s /c "set PHALANX_INTENTS_MODE=$MODE&& pnpm --filter @phalanx/agent-swarm-sdk judge"
 else
-  AEGIS_INTENTS_MODE="$MODE" pnpm --filter @aegis/agent-swarm-sdk judge
+  PHALANX_INTENTS_MODE="$MODE" pnpm --filter @phalanx/agent-swarm-sdk judge
 fi
 ok "judge scenario"
 
 step "Next.js production build (apps/web)"
-run_pnpm --filter @aegis/web build
+run_pnpm --filter @phalanx/web build
 ok "web build"
 
 step "near-workspaces sandbox suite (real nearcore 2.14 node)"
@@ -147,9 +147,9 @@ glibc_ok() {
   v="$(ldd --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+$' || echo 0)"
   awk -v v="$v" 'BEGIN { split(v, a, "."); exit !((a[1] > 2) || (a[1] == 2 && a[2] >= 39)) }'
 }
-run_native() { cargo test -p aegis-sandbox-tests --locked -- --test-threads=2; ok "sandbox suite (native)"; }
+run_native() { cargo test -p phalanx-sandbox-tests --locked -- --test-threads=2; ok "sandbox suite (native)"; }
 case "$SANDBOX" in
-  0) SKIPPED+=("sandbox suite (AEGIS_SANDBOX=0)") ;;
+  0) SKIPPED+=("sandbox suite (PHALANX_SANDBOX=0)") ;;
   1) run_native ;;
   docker) bash scripts/sandbox-docker.sh && ok "sandbox suite (docker)" ;;
   *)
@@ -158,7 +158,7 @@ case "$SANDBOX" in
     elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
       bash scripts/sandbox-docker.sh && ok "sandbox suite (docker)"
     else
-      SKIPPED+=("sandbox suite: needs macOS, Linux with glibc >= 2.39, or Docker (set AEGIS_SANDBOX=docker)")
+      SKIPPED+=("sandbox suite: needs macOS, Linux with glibc >= 2.39, or Docker (set PHALANX_SANDBOX=docker)")
     fi
     ;;
 esac

@@ -17,8 +17,8 @@
  */
 import { resolve } from "node:path";
 
-import { DEFAULT_NEARAI_MODEL, offlineAttestation } from "@aegis/agent-swarm-sdk";
-import { loadCachedNearAiEvidence, verifyNearAiAttestationNode, verifyNearAiModelNode } from "@aegis/agent-swarm-sdk/node";
+import { DEFAULT_NEARAI_MODEL, offlineAttestation } from "@phalanx/agent-swarm-sdk";
+import { loadCachedNearAiEvidence, verifyNearAiAttestationNode, verifyNearAiModelNode } from "@phalanx/agent-swarm-sdk/node";
 
 import { clientKey, createLimiter, envMs, isCrossSite } from "@/lib/server-guard";
 
@@ -32,7 +32,7 @@ const limiter = createLimiter({ perClient: 30, perInstance: 300, windowMs: 10 * 
 /** Copied from artifacts/ by scripts/copy-wasm.mjs; bundled via outputFileTracingIncludes. */
 const EVIDENCE_PATH = resolve(process.cwd(), "public/evidence/nearai-attestation.json");
 
-const offline = () => process.env.AEGIS_INTENTS_MODE === "offline" || process.env.AEGIS_TEE_MODE === "offline";
+const offline = () => process.env.PHALANX_INTENTS_MODE === "offline" || process.env.PHALANX_TEE_MODE === "offline";
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 async function withRetries<T>(attempts: number, run: () => Promise<T>): Promise<T> {
@@ -55,17 +55,17 @@ function cachedResponse(reason: string): Response {
   return Response.json(cached, {
     headers: {
       ...NO_STORE,
-      "X-Aegis-Attestation": cached.stale ? "cached-stale" : "cached",
-      "X-Aegis-Fresh-Error": reason.replace(/[^\x20-\x7e]/g, "?").slice(0, 200),
+      "X-Phalanx-Attestation": cached.stale ? "cached-stale" : "cached",
+      "X-Phalanx-Fresh-Error": reason.replace(/[^\x20-\x7e]/g, "?").slice(0, 200),
     },
   });
 }
 
 async function gatewayAttestation(limited: boolean): Promise<Response> {
-  if (offline()) return Response.json(offlineAttestation("aegis-gateway:offline"), { headers: NO_STORE });
+  if (offline()) return Response.json(offlineAttestation("phalanx-gateway:offline"), { headers: NO_STORE });
   // Over the limit, the saved evidence answers instead of a fresh quote and DCAP run.
   if (limited) return cachedResponse("rate limited: showing saved evidence");
-  const timeoutMs = envMs(process.env.AEGIS_TEE_TIMEOUT_MS, 10_000, 1_000, 10_000);
+  const timeoutMs = envMs(process.env.PHALANX_TEE_TIMEOUT_MS, 10_000, 1_000, 10_000);
   try {
     const result = await withRetries(2, async () => {
       const r = await verifyNearAiAttestationNode({ timeoutMs });

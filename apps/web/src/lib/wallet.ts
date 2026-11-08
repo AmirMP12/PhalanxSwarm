@@ -13,9 +13,9 @@ type FinalExecutionOutcome = Awaited<ReturnType<NearWalletBase["signAndSendTrans
 
 export { NETWORK };
 
-/** The DAO-owned v2.3.0 deployment recorded in artifacts/testnet-swarm.json. */
-const VERIFIED_TESTNET_CONTRACT_ID = "aegis-69b4.phalanxswarm.testnet";
-export const TESTNET_CONTRACT_ID = process.env.NEXT_PUBLIC_AEGIS_CONTRACT_ID ?? VERIFIED_TESTNET_CONTRACT_ID;
+/** The DAO-owned v3.0.0 deployment recorded in artifacts/testnet-swarm.json. */
+const VERIFIED_TESTNET_CONTRACT_ID = "phalanx-v3d1.phalanxswarm.testnet";
+export const TESTNET_CONTRACT_ID = process.env.NEXT_PUBLIC_PHALANX_CONTRACT_ID ?? VERIFIED_TESTNET_CONTRACT_ID;
 
 let connectorPromise: Promise<NearConnector> | null = null;
 
@@ -35,14 +35,14 @@ export async function connectedAccount(): Promise<{ wallet: NearWalletBase; acco
   }
 }
 
-/** Sends a single FunctionCall to an AegisCore contract through the connected wallet. */
+/** Sends a single FunctionCall to an PhalanxCore contract through the connected wallet. */
 export async function walletCall(
   method: string,
   args: Record<string, unknown>,
   opts: { contractId?: string; deposit?: string; gas?: string } = {},
 ): Promise<FinalExecutionOutcome> {
   const contractId = opts.contractId ?? TESTNET_CONTRACT_ID;
-  if (!contractId) throw new Error("enter a testnet contract id or set NEXT_PUBLIC_AEGIS_CONTRACT_ID");
+  if (!contractId) throw new Error("enter a testnet contract id or set NEXT_PUBLIC_PHALANX_CONTRACT_ID");
   if (NETWORK === "testnet" && !contractId.endsWith(".testnet")) throw new Error("testnet contract id must end in .testnet");
   const session = await connectedAccount();
   if (!session) throw new Error("connect a wallet first");

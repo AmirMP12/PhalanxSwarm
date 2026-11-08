@@ -3,7 +3,7 @@
 import { Binary, ExternalLink, Fingerprint, KeyRound, Network, RadioTower, RefreshCw, ShieldCheck, WalletCards, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { loadEvidence, type ReproEvidence, type SwarmEvidence } from "@/lib/evidence";
 
 import { Badge, Card, CardHeader, CodeBlock, SkeletonBlock, short } from "./ui";
@@ -121,7 +121,7 @@ const missing = (cmd: string) => (
 
 /** Public proof bundle: every link and hash can be re-checked without any private key. */
 export function LiveProofs() {
-  const { wasm, attestation } = useAegis();
+  const { wasm, attestation } = usePhalanx();
   const [data, setData] = useState<Evidence | null>(null);
 
   useEffect(() => {
@@ -155,7 +155,7 @@ export function LiveProofs() {
         icon={RadioTower}
         eyebrow="Primary evidence · public, keyless re-check"
         title="Live network proofs (not the sandbox)"
-        description="AegisSim above is a local rehearsal. This panel lists the public evidence: testnet transactions, the reproducible build and NEAR AI hardware attestation. pnpm verify:live re-checks all of it without a key, and the On-chain section below reads the deployment itself."
+        description="PhalanxSim above is a local rehearsal. This panel lists the public evidence: testnet transactions, the reproducible build and NEAR AI hardware attestation. pnpm verify:live re-checks all of it without a key, and the On-chain section below reads the deployment itself."
         actions={
           data?.live && (
             <Badge tone={data.live.passed ? "emerald" : "red"} dot>

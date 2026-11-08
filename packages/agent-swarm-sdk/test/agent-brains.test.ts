@@ -5,8 +5,8 @@ import { ATTACKER_EVM, extractJson, messagesFor, naiveInvoiceReading, poisonedIn
 
 describe("agent brains", () => {
   it("puts the proof binding marker into the system prompt only", () => {
-    const m = messagesFor("auditor", { a: 1 }, "AEGIS-BIND:v1:intent:0:x:y:z:1");
-    expect(m[0]!.content).toContain("AEGIS-BIND:v1:intent:0:x:y:z:1");
+    const m = messagesFor("auditor", { a: 1 }, "PHALANX-BIND:v1:intent:0:x:y:z:1");
+    expect(m[0]!.content).toContain("PHALANX-BIND:v1:intent:0:x:y:z:1");
     expect(m[1]!.content).toBe('{"a":1}');
   });
 

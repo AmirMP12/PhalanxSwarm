@@ -8,7 +8,7 @@ import {
   type RankedRoute,
   type SentinelAudit,
   type SettlementOutcomeT,
-} from "@aegis/agent-swarm-sdk";
+} from "@phalanx/agent-swarm-sdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRightLeft,
@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useAction } from "@/lib/use-action";
 
 import {
@@ -124,7 +124,7 @@ function Step({
 }
 
 export function IntentTerminal() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const [amount, setAmount] = useState("5");
   const [slippage, setSlippage] = useState("50");
@@ -644,7 +644,7 @@ const intentTone = (s: string): Tone =>
         : "sky";
 
 export function IntentLedger() {
-  const { dashboard } = useAegis();
+  const { dashboard } = usePhalanx();
   const personaOf = usePersonaOf();
   const count = dashboard ? dashboard.intents.length + dashboard.evm_txs.length : 0;
   return (

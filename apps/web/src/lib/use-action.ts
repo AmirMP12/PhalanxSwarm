@@ -1,18 +1,18 @@
 "use client";
 
-import type { CallResult, Signer, SwarmRuntime } from "@aegis/agent-swarm-sdk";
+import type { CallResult, Signer, SwarmRuntime } from "@phalanx/agent-swarm-sdk";
 import { useCallback } from "react";
 
 import { toast, type ToastInput } from "@/components/ui/toast";
 
-import { useAegis } from "./aegis-context";
+import { usePhalanx } from "./phalanx-context";
 
 /**
- * `act` from the Aegis context plus a toast with the outcome. `describe` can override the toast,
+ * `act` from the Phalanx context plus a toast with the outcome. `describe` can override the toast,
  * e.g. when the transaction succeeds but the policy engine rejected the request.
  */
 export function useAction() {
-  const { act } = useAegis();
+  const { act } = usePhalanx();
   return useCallback(
     async <T>(
       label: string,

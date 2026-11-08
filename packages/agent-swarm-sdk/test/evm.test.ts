@@ -70,12 +70,12 @@ describe("EVM transactions signed through Chain Signatures", () => {
   it("assembles a raw transaction whose sender is the MPC-derived treasury address", () => {
     const mpc = new SimulatedMpcSigner("evm-test-root");
     const built = buildEvmTx({ chain_id: 84_532 }, request);
-    const sig = mpcSign(mpc, "aegis-swarm.testnet", "aegis-treasury/basesepolia", built.signingHash);
+    const sig = mpcSign(mpc, "phalanx-swarm.testnet", "phalanx-treasury/basesepolia", built.signingHash);
     const { rawTx, txHash } = assembleSignedTx(built, sig);
     expect(txHash).toBe(`0x${toHex(keccak256Bytes(fromHex(rawTx)))}`);
     const decoded = rlpDecode(fromHex(rawTx).slice(1)) as Uint8Array[];
     expect(decoded).toHaveLength(12);
-    expect(recoverTxSender(built.signingHash, sig)).toBe(mpc.addressFor("aegis-swarm.testnet", "aegis-treasury/basesepolia"));
-    expect(recoverTxSender(built.signingHash, sig)).not.toBe(mpc.addressFor("aegis-swarm.testnet", "aegis-treasury/base"));
+    expect(recoverTxSender(built.signingHash, sig)).toBe(mpc.addressFor("phalanx-swarm.testnet", "phalanx-treasury/basesepolia"));
+    expect(recoverTxSender(built.signingHash, sig)).not.toBe(mpc.addressFor("phalanx-swarm.testnet", "phalanx-treasury/base"));
   });
 });

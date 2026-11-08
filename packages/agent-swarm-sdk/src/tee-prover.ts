@@ -3,7 +3,7 @@
  *
  * A `SimulatedEnclave` stands in for a confidential VM (NEAR AI Cloud runs models inside
  * Intel TDX CVMs with NVIDIA confidential GPUs). It has:
- * - a code measurement: `sha256("aegis-enclave-image:" + imageLabel)`, playing the role of the
+ * - a code measurement: `sha256("phalanx-enclave-image:" + imageLabel)`, playing the role of the
  *   TDX MRTD / RTMR digest that an attestation report binds;
  * - an ed25519 signing key that never leaves the object, playing the role of the key bound to
  *   that measurement by the attestation report.
@@ -52,7 +52,7 @@ export interface EnclaveRun<O> {
 }
 
 export function measurementFor(imageLabel: string): string {
-  return sha256Hex(`aegis-enclave-image:${imageLabel}`);
+  return sha256Hex(`phalanx-enclave-image:${imageLabel}`);
 }
 
 export function schemaHashFor(schemaId: string): string {
@@ -64,7 +64,7 @@ export class SimulatedEnclave {
   private readonly keyPair: Ed25519KeyPair;
 
   constructor(opts: { enclaveId: string; imageLabel: string; modelId: string; vendor?: string; teeType?: string; seed?: string; measurement?: string }) {
-    this.keyPair = keyPairFromSeed(opts.seed ?? `aegis-enclave-key:${opts.enclaveId}`);
+    this.keyPair = keyPairFromSeed(opts.seed ?? `phalanx-enclave-key:${opts.enclaveId}`);
     this.identity = {
       enclaveId: opts.enclaveId,
       measurement: (opts.measurement ?? measurementFor(opts.imageLabel)).toLowerCase(),

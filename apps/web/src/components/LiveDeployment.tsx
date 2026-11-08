@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AegisViews,
+  PhalanxViews,
   EVM_CHAINS,
   NATIVE_ASSET,
   nearHistorySource,
@@ -13,7 +13,7 @@ import {
   type IntentRecordT,
   type PreflightAction,
   type PreflightDecision,
-} from "@aegis/agent-swarm-sdk";
+} from "@phalanx/agent-swarm-sdk";
 import {
   Ban,
   Circle,
@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useReproEvidence, useSwarmEvidence, type SwarmEvidence } from "@/lib/evidence";
 import { loadLive, setLiveContract, startLive, useLiveDeployment, type LiveSnapshot } from "@/lib/live-deployment";
 import { accountUrl, FallbackRpcTransport, txUrl } from "@/lib/near-rpc";
@@ -86,7 +86,7 @@ const TX_LABELS: Record<string, string> = {
   vendor_account: "Create vendor A's account",
   new_vendor_account: "Create vendor B's account (not allow-listed)",
   contract_account: "Create the contract account",
-  deploy_and_init: "Deploy aegis_core.wasm and call new() in one batch",
+  deploy_and_init: "Deploy phalanx_core.wasm and call new() in one batch",
   delete_deploy_key: "Delete the deployer's key: no FullAccess key remains",
   fund_treasury: "Fund the treasury (capital)",
   deposit_revenue: "A customer pays revenue",
@@ -103,13 +103,29 @@ const TX_LABELS: Record<string, string> = {
   close_auction: "Nexus closes the auction; escrow locked",
   execute_verified_task: "Cipher's NEAR AI-signed work releases escrow",
   cipher_withdraw: "Cipher withdraws earnings to its payout account",
+  winner_withdraw: "The auction winner withdraws earnings to its payout account",
+  spawn_vega: "Spawn Vega (sub-account, scoped key)",
+  spawn_orion: "Spawn Orion (sub-account, scoped key)",
+  customer_account: "Create the customer's account",
+  big_vendor_account: "Create vendor C's account (not allow-listed)",
+  rfp1_close: "Nexus closes round 1; the best score wins",
+  order_placed: "A customer buys a procurement plan (payment held until delivery)",
+  rfp2_post: "Nexus posts a reverse-Dutch RFP for the order",
+  rfp2_orion_accept: "Orion accepts the Dutch price and promises 60 s",
+  rfp2_expired: "Orion misses its deadline: escrow returned, reputation cut, order reopened",
+  rfp3_post: "Nexus re-procures the order by sealed bid",
+  rfp3_close: "Nexus closes round 3",
+  rfp3_delivery: "The winner's signed work delivers the order; its price becomes revenue",
+  duplicate_invoice_refused: "The same invoice again: refused without a strike",
+  held_small_payment: "A small first payment to vendor B waits out the challenge window",
+  held_small_released: "Vendor B releases its payment after the window, without a vote",
   vendor_payment: "The treasury pays vendor A (real NEAR transfer)",
   evm_transfer_request: "Chain Signatures signs a contract-built Base Sepolia transfer",
   invoice_fraud_attempt: "Poisoned invoice rejected; Mallory quarantined and her key deleted",
   block_recipient: "The Sentinel blocklists the attacker",
   hold_rule_proposal: "DAO proposal: hold payments to new recipients",
   hold_rule_approved: "DAO vote: hold rule approved",
-  held_payment: "Payment to vendor B waits for the DAO",
+  held_payment: "A larger first payment to vendor C waits for the DAO",
   held_payment_proposal: "DAO proposal: approve the held payment",
   held_payment_approved: "DAO vote: held payment approved and paid",
   forged_audit_attempt: "Self-written audit rejected as a forgery; Rhea quarantined",
@@ -229,7 +245,7 @@ const ACTION_TEXT: Record<PreflightAction, string> = {
 /** Everything the deployment proves about itself, recomputed from this read. */
 function useChecks(s: LiveSnapshot, swarm: SwarmEvidence | null) {
   const repro = useReproEvidence();
-  const { wasm } = useAegis();
+  const { wasm } = usePhalanx();
   const d = s.dashboard;
   const canonical = repro?.wasm_sha256 ?? (swarm?.contract_id === s.contractId ? swarm.wasm_sha256 : null);
   // The deployment runs the build its recorded run used, and this repository now builds a newer one.
@@ -307,7 +323,7 @@ function ContractPicker({ current, loading }: { current: string; loading: boolea
           aria-label="Testnet contract account"
           value={value}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={`aegis-….${NETWORK}`}
+          placeholder={`phalanx-….${NETWORK}`}
           spellCheck={false}
           className="touch-target num h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 text-[12.5px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-violet-400/50"
         />
@@ -361,7 +377,7 @@ function Header({ s, loading, swarm }: { s: LiveSnapshot; loading: boolean; swar
         descriptionVisible
         description={
           <>
-            AegisCore v{d.info.version} · owner <Acct id={d.owner_id} head={28} />
+            PhalanxCore v{d.info.version} · owner <Acct id={d.owner_id} head={28} />
             {s.dao ? " (SputnikDAO)" : ""} · block <span className="num">#{d.block_height}</span> · read {ago(s.readAtMs, now)} via{" "}
             <span className="num">{s.rpcHost}</span>
           </>
@@ -537,7 +553,7 @@ function Recipients({ s }: { s: LiveSnapshot }) {
     setError(null);
     try {
       // The contract's answer, then the recipient's on-chain history: signals can only make it stricter.
-      setResult(await preflightRecipient(new AegisViews(new FallbackRpcTransport(s.contractId)), chain, recipient.trim(), { history }));
+      setResult(await preflightRecipient(new PhalanxViews(new FallbackRpcTransport(s.contractId)), chain, recipient.trim(), { history }));
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : String(err));
@@ -1277,7 +1293,7 @@ export function LiveDeployment() {
             <SkeletonBlock rows={6} />
           ) : (
             <p className="text-[12.5px] text-slate-400">
-              Enter an AegisCore v2.2 account below, or deploy one with <span className="num text-slate-300">pnpm testnet:swarm</span>.
+              Enter an PhalanxCore v2.2 account below, or deploy one with <span className="num text-slate-300">pnpm testnet:swarm</span>.
             </p>
           )}
           <ContractPicker current={live.contractId} loading={loading} />

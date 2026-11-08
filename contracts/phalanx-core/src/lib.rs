@@ -1,4 +1,4 @@
-//! # PhalanxSwarm Protocol: `aegis-core`
+//! # PhalanxSwarm Protocol: `phalanx-core`
 //!
 //! An autonomous business treasury operated by a swarm of AI agents, where humans only set
 //! the constraints:
@@ -15,6 +15,8 @@
 //!   authorizations of cross-chain rehearsals.
 //! * `evm.rs`: EIP-1559 transfers the contract builds and signs through Chain Signatures.
 //! * `earnings.rs`: agents' spendable earnings, agent-to-agent payments and withdrawals.
+//! * `invoices.rs`: the same invoice is never paid twice to the same recipient.
+//! * `orders.rs`: what the business sells: customers pay, the swarm delivers, or the customer is refunded.
 
 use near_sdk::json_types::{Base64VecU8, U128, U64};
 use near_sdk::store::{IterableMap, LookupMap, LookupSet, Vector};
@@ -27,6 +29,8 @@ pub mod events;
 pub mod evm;
 pub mod facts;
 pub mod intents;
+pub mod invoices;
+pub mod orders;
 pub mod policy;
 pub mod recipients;
 pub mod subaccounts;
@@ -37,9 +41,11 @@ mod tests;
 
 use attestation::{AttestationRecord, EnclaveRecord};
 use codec::is_safe_ascii;
-use events::{AegisEvent, PayoutLeg};
+use events::{PayoutLeg, PhalanxEvent};
 use evm::{EvmNonceState, EvmSpend, EvmTxRecord};
 use intents::IntentRecord;
+use invoices::InvoicePayment;
+use orders::Order;
 use policy::{GlobalPolicy, SecurityEvent, Severity};
 use recipients::BlockedRecipient;
 use subaccounts::AgentRecord;
@@ -50,7 +56,7 @@ pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 pub const STORAGE_BYTE_COST: u128 = 10_000_000_000_000_000_000;
 pub const SECURITY_EVENT_CAPACITY: u32 = 128;
 pub const MAX_PAGE: u32 = 50;
-pub const CONTRACT_VERSION: &str = "2.3.0";
+pub const CONTRACT_VERSION: &str = "3.0.0";
 pub const MAX_REVENUE_SPLITS: usize = 8;
 
 #[near(serializers = [borsh])]
@@ -72,6 +78,8 @@ pub(crate) enum StorageKey {
     EvmSpend,
     BlockedRecipients,
     EvmNonces,
+    Invoices,
+    Orders,
 }
 
 #[near(serializers = [json, borsh])]
@@ -100,7 +108,7 @@ impl ProtocolConfig {
             mpc_domain_id: 0,
             mpc_sign_gas_tgas: 50,
             callback_gas_tgas: 20,
-            intents_contract_id: "intents.near".parse().unwrap_or_else(|_| env::panic_str("AEGIS_E_CONFIG")),
+            intents_contract_id: "intents.near".parse().unwrap_or_else(|_| env::panic_str("PHALANX_E_CONFIG")),
             min_operating_reserve: U128(2 * ONE_NEAR),
             min_distribution: U128(ONE_NEAR / 10),
             max_receipt_age_sec: 3_600,
@@ -110,13 +118,13 @@ impl ProtocolConfig {
     }
 
     pub fn validate(&self) {
-        require!((5..=250).contains(&self.mpc_sign_gas_tgas), "AEGIS_E_CONFIG: mpc_sign_gas_tgas must be 5..=250");
-        require!((5..=100).contains(&self.callback_gas_tgas), "AEGIS_E_CONFIG: callback_gas_tgas must be 5..=100");
-        require!((60..=86_400).contains(&self.max_receipt_age_sec), "AEGIS_E_CONFIG: max_receipt_age_sec");
-        require!((60..=86_400).contains(&self.max_intent_horizon_sec), "AEGIS_E_CONFIG: max_intent_horizon_sec");
+        require!((5..=250).contains(&self.mpc_sign_gas_tgas), "PHALANX_E_CONFIG: mpc_sign_gas_tgas must be 5..=250");
+        require!((5..=100).contains(&self.callback_gas_tgas), "PHALANX_E_CONFIG: callback_gas_tgas must be 5..=100");
+        require!((60..=86_400).contains(&self.max_receipt_age_sec), "PHALANX_E_CONFIG: max_receipt_age_sec");
+        require!((60..=86_400).contains(&self.max_intent_horizon_sec), "PHALANX_E_CONFIG: max_intent_horizon_sec");
         require!(
             self.subaccount_min_deposit.0 >= 2_000_000_000_000_000_000_000,
-            "AEGIS_E_CONFIG: subaccount_min_deposit must cover account storage (>= 0.002 NEAR)"
+            "PHALANX_E_CONFIG: subaccount_min_deposit must cover account storage (>= 0.002 NEAR)"
         );
     }
 }
@@ -141,6 +149,8 @@ pub struct Treasury {
     pub agent_balances: u128,
     /// Gas allowances of active contract-account agent keys: gas they may still burn.
     pub contract_key_allowances: u128,
+    /// Customer payments for orders not yet delivered or refunded (a liability).
+    pub orders_escrow: u128,
 }
 
 #[near(serializers = [json])]
@@ -165,6 +175,7 @@ pub struct TreasuryReport {
     pub epoch_spent: U128,
     pub agent_balances: U128,
     pub contract_key_allowances: U128,
+    pub orders_escrow: U128,
     pub account_balance: U128,
     pub storage_usage: U64,
     /// Account balance minus storage staking and every obligation: what really backs `liquid`.
@@ -181,7 +192,7 @@ pub enum StakeholderKind {
     DaoTreasury,
     Operator,
     Investor,
-    /// Retained inside the AegisCore treasury.
+    /// Retained inside the PhalanxCore treasury.
     Reserve,
 }
 
@@ -236,6 +247,7 @@ pub struct Dashboard {
     pub attestations: Vec<AttestationRecord>,
     pub evm_txs: Vec<EvmTxRecord>,
     pub blocked_recipients: Vec<BlockedRecipient>,
+    pub orders: Vec<Order>,
     pub policy_version: U64,
     pub block_height: U64,
     pub block_timestamp_ns: U64,
@@ -244,7 +256,7 @@ pub struct Dashboard {
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
-pub struct AegisCore {
+pub struct PhalanxCore {
     pub(crate) owner_id: AccountId,
     pub(crate) config: ProtocolConfig,
     pub(crate) policy: GlobalPolicy,
@@ -274,18 +286,24 @@ pub struct AegisCore {
     pub(crate) policy_version: u64,
     /// Per EVM chain: the next nonce the treasury address will sign and the transfer holding it.
     pub(crate) evm_nonces: LookupMap<String, EvmNonceState>,
+    /// `<chain>:<recipient>:<invoice_ref>` of every invoice paid or being paid.
+    pub(crate) invoices: LookupMap<String, InvoicePayment>,
+    pub(crate) orders: LookupMap<u64, Order>,
+    pub(crate) next_order_id: u64,
+    /// Orders paid but not yet delivered or refunded.
+    pub(crate) open_orders: u32,
 }
 
 fn validate_splits(splits: &[RevenueSplit]) {
-    require!(!splits.is_empty() && splits.len() <= MAX_REVENUE_SPLITS, "AEGIS_E_SPLITS: 1..=8 entries");
+    require!(!splits.is_empty() && splits.len() <= MAX_REVENUE_SPLITS, "PHALANX_E_SPLITS: 1..=8 entries");
     let total: u32 = splits.iter().map(|s| s.bps).sum();
-    require!(total == 10_000, "AEGIS_E_SPLITS: bps must sum to 10000");
-    require!(splits.iter().all(|s| s.bps > 0), "AEGIS_E_SPLITS: bps must be > 0");
-    require!(splits.iter().all(|s| is_safe_ascii(&s.label, 32) && !s.label.is_empty()), "AEGIS_E_SPLITS: label");
-    require!(splits.iter().filter(|s| s.kind == StakeholderKind::Reserve).count() <= 1, "AEGIS_E_SPLITS: at most one reserve");
+    require!(total == 10_000, "PHALANX_E_SPLITS: bps must sum to 10000");
+    require!(splits.iter().all(|s| s.bps > 0), "PHALANX_E_SPLITS: bps must be > 0");
+    require!(splits.iter().all(|s| is_safe_ascii(&s.label, 32) && !s.label.is_empty()), "PHALANX_E_SPLITS: label");
+    require!(splits.iter().filter(|s| s.kind == StakeholderKind::Reserve).count() <= 1, "PHALANX_E_SPLITS: at most one reserve");
 }
 
-impl AegisCore {
+impl PhalanxCore {
     /// True when the predecessor is the owner and the call is not signed by an agent key
     /// (relevant when the contract owns itself and agents hold contract-account keys).
     pub(crate) fn is_owner_call(&self) -> bool {
@@ -301,7 +319,7 @@ impl AegisCore {
     }
 
     pub(crate) fn assert_owner(&self) {
-        require!(self.is_owner_call(), "AEGIS_E_OWNER_ONLY");
+        require!(self.is_owner_call(), "PHALANX_E_OWNER_ONLY");
     }
 
     /// Account balance minus storage staking and every obligation. Gas burned by
@@ -309,8 +327,12 @@ impl AegisCore {
     pub(crate) fn solvent_liquidity(&self) -> u128 {
         let t = &self.treasury;
         let storage = u128::from(env::storage_usage()).saturating_mul(STORAGE_BYTE_COST);
-        let obligations =
-            t.reserved_for_tasks + t.escrow_locked + t.reserved_for_intents + t.agent_balances + t.contract_key_allowances;
+        let obligations = t.reserved_for_tasks
+            + t.escrow_locked
+            + t.reserved_for_intents
+            + t.agent_balances
+            + t.contract_key_allowances
+            + t.orders_escrow;
         env::account_balance().as_yoctonear().saturating_sub(storage).saturating_sub(obligations)
     }
 
@@ -362,6 +384,7 @@ impl AegisCore {
             epoch_spent: U128(t.epoch_spent),
             agent_balances: U128(t.agent_balances),
             contract_key_allowances: U128(t.contract_key_allowances),
+            orders_escrow: U128(t.orders_escrow),
             account_balance: U128(env::account_balance().as_yoctonear()),
             storage_usage: U64(env::storage_usage()),
             solvent_liquidity: U128(self.solvent_liquidity()),
@@ -371,9 +394,9 @@ impl AegisCore {
 
     fn info(&self) -> ContractInfo {
         ContractInfo {
-            name: "aegis-core".to_string(),
+            name: "phalanx-core".to_string(),
             version: CONTRACT_VERSION.to_string(),
-            event_standard: "aegis".to_string(),
+            event_standard: "phalanx".to_string(),
             event_version: "1.0.0".to_string(),
             nep413_recipient: env::current_account_id(),
         }
@@ -381,7 +404,7 @@ impl AegisCore {
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Initializes the treasury. `#[private]`: only the contract account can initialize itself,
     /// so deploy + init happen in one batch transaction and cannot be front-run.
     #[init]
@@ -442,6 +465,10 @@ impl AegisCore {
             blocked_recipients: IterableMap::new(StorageKey::BlockedRecipients),
             policy_version: 0,
             evm_nonces: LookupMap::new(StorageKey::EvmNonces),
+            invoices: LookupMap::new(StorageKey::Invoices),
+            orders: LookupMap::new(StorageKey::Orders),
+            next_order_id: 0,
+            open_orders: 0,
         }
     }
 
@@ -449,11 +476,11 @@ impl AegisCore {
     #[payable]
     pub fn fund_treasury(&mut self, memo: Option<String>) -> TreasuryReport {
         let amount = env::attached_deposit().as_yoctonear();
-        require!(amount > 0, "AEGIS_E_ZERO_DEPOSIT");
-        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "AEGIS_E_INVALID_MEMO");
+        require!(amount > 0, "PHALANX_E_ZERO_DEPOSIT");
+        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "PHALANX_E_INVALID_MEMO");
         self.treasury.liquid += amount;
         self.treasury.total_capital_in += amount;
-        AegisEvent::TreasuryFunded {
+        PhalanxEvent::TreasuryFunded {
             from: env::predecessor_account_id(),
             amount: U128(amount),
             kind: "capital".to_string(),
@@ -467,12 +494,12 @@ impl AegisCore {
     #[payable]
     pub fn deposit_revenue(&mut self, customer_ref: String, memo: Option<String>) -> TreasuryReport {
         let amount = env::attached_deposit().as_yoctonear();
-        require!(amount > 0, "AEGIS_E_ZERO_DEPOSIT");
-        require!(!customer_ref.is_empty() && is_safe_ascii(&customer_ref, 64), "AEGIS_E_INVALID_CUSTOMER_REF");
-        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "AEGIS_E_INVALID_MEMO");
+        require!(amount > 0, "PHALANX_E_ZERO_DEPOSIT");
+        require!(!customer_ref.is_empty() && is_safe_ascii(&customer_ref, 64), "PHALANX_E_INVALID_CUSTOMER_REF");
+        require!(memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "PHALANX_E_INVALID_MEMO");
         self.treasury.liquid += amount;
         self.treasury.total_revenue += amount;
-        AegisEvent::TreasuryFunded {
+        PhalanxEvent::TreasuryFunded {
             from: env::predecessor_account_id(),
             amount: U128(amount),
             kind: "revenue".to_string(),
@@ -490,15 +517,15 @@ impl AegisCore {
         self.assert_owner();
         validate_splits(&splits);
         self.revenue_splits = splits;
-        AegisEvent::PolicyUpdated { scope: "revenue_splits".to_string() }.emit();
+        PhalanxEvent::PolicyUpdated { scope: "revenue_splits".to_string() }.emit();
     }
 
     /// Permissionless keeper call: distributes undistributed profit according to the splits.
     /// Amounts are fully determined on-chain, so anyone may trigger it.
     pub fn distribute_revenue(&mut self) -> DistributionRecord {
-        require!(!self.paused, "AEGIS_E_PAUSED");
+        require!(!self.paused, "PHALANX_E_PAUSED");
         let profit = self.distributable_profit();
-        require!(profit > 0 && profit >= self.config.min_distribution.0, "AEGIS_E_BELOW_MIN_DISTRIBUTION");
+        require!(profit > 0 && profit >= self.config.min_distribution.0, "PHALANX_E_BELOW_MIN_DISTRIBUTION");
 
         let splits = self.revenue_splits.clone();
         let mut legs: Vec<PayoutLeg> = Vec::new();
@@ -549,7 +576,7 @@ impl AegisCore {
             at_ns: U64(env::block_timestamp()),
         };
         self.distributions.push(record.clone());
-        AegisEvent::RevenueDistributed { distribution_id, total: U128(profit), retained: U128(retained), payouts: legs }.emit();
+        PhalanxEvent::RevenueDistributed { distribution_id, total: U128(profit), retained: U128(retained), payouts: legs }.emit();
         record
     }
 
@@ -557,7 +584,7 @@ impl AegisCore {
     #[private]
     pub fn on_distribution_settled(&mut self, distribution_id: U64, legs: Vec<PayoutLeg>) -> U128 {
         let count = env::promise_results_count();
-        require!(count >= 1 && count as usize == legs.len(), "AEGIS_E_CALLBACK_ONLY");
+        require!(count >= 1 && count as usize == legs.len(), "PHALANX_E_CALLBACK_ONLY");
         let mut failed = 0u128;
         for (i, leg) in legs.iter().enumerate() {
             if env::promise_result_checked(i as u64, 64).is_err() {
@@ -586,7 +613,7 @@ impl AegisCore {
         self.assert_owner();
         config.validate();
         self.config = config;
-        AegisEvent::PolicyUpdated { scope: "config".to_string() }.emit();
+        PhalanxEvent::PolicyUpdated { scope: "config".to_string() }.emit();
     }
 
     /// Hands governance to a new owner (for example a SputnikDAO / Trezu multisig).
@@ -594,7 +621,7 @@ impl AegisCore {
         self.assert_owner();
         let detail = format!("owner {} -> {}", self.owner_id, new_owner_id);
         self.owner_id = new_owner_id;
-        AegisEvent::PolicyUpdated { scope: "owner".to_string() }.emit();
+        PhalanxEvent::PolicyUpdated { scope: "owner".to_string() }.emit();
         self.record_security_event("ownership_transferred", None, Severity::Notice, vec![], detail);
     }
 
@@ -604,10 +631,10 @@ impl AegisCore {
     /// optionally calls `migrate()` with provided arguments in the same transaction.
     pub fn upgrade_contract(&mut self, code: Base64VecU8, migrate_args: Option<Base64VecU8>) -> Promise {
         self.assert_owner();
-        require!(!code.0.is_empty(), "AEGIS_E_UPGRADE: code must not be empty");
+        require!(!code.0.is_empty(), "PHALANX_E_UPGRADE: code must not be empty");
         let current = env::current_account_id();
         let promise = Promise::new(current).deploy_contract(code.0);
-        AegisEvent::PolicyUpdated { scope: "contract_upgraded".to_string() }.emit();
+        PhalanxEvent::PolicyUpdated { scope: "contract_upgraded".to_string() }.emit();
         self.record_security_event(
             "contract_upgraded",
             None,
@@ -669,6 +696,7 @@ impl AegisCore {
             attestations: self.list_attestations(Some(20)),
             evm_txs: self.list_evm_txs(Some(20)),
             blocked_recipients: self.list_blocked_recipients(None, Some(MAX_PAGE)),
+            orders: self.list_orders(Some(20)),
             policy_version: U64(self.policy_version),
             block_height: U64(env::block_height()),
             block_timestamp_ns: U64(env::block_timestamp()),

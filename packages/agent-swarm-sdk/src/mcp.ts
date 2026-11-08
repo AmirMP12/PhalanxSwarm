@@ -6,11 +6,11 @@
  * transaction. An agent that decides to pay signs the returned intent message with its own scoped
  * key and submits it itself, and the contract enforces the same rules again on-chain.
  *
- * - `aegis_check_recipient`: the contract's allow / warn / block answer for a recipient, on-chain
+ * - `phalanx_check_recipient`: the contract's allow / warn / block answer for a recipient, on-chain
  *   history signals (account age, activity, code changes, prior payments), and what the agent may do.
- * - `aegis_preview_payment`: a dry run of a payment through the contract's policy engine
+ * - `phalanx_preview_payment`: a dry run of a payment through the contract's policy engine
  *   (`evaluate_intent`), the facts a Sentinel audit must judge (v2.3), and the exact message to sign.
- * - `aegis_get_policy`: the DAO's current limits and rules.
+ * - `phalanx_get_policy`: the DAO's current limits and rules.
  *
  * Protocol: JSON-RPC 2.0, transport-agnostic (`mcp-cli.ts` runs it over stdio). It serves both MCP
  * eras: the stateless revisions (`server/discover`, protocol version in every request's `_meta`,
@@ -18,7 +18,7 @@
  */
 import { z } from "zod";
 
-import type { AegisViews } from "./contract-client.ts";
+import type { PhalanxViews } from "./contract-client.ts";
 import { formatNear, ONE_NEAR, toBase58, toBase64 } from "./encoding.ts";
 import { decidePreflight, preflightRecipient, type HistorySource } from "./preflight.ts";
 import { ASSETS } from "./swarm-orchestrator.ts";
@@ -40,12 +40,12 @@ interface JsonRpcResponse {
   error?: { code: number; message: string; data?: unknown };
 }
 
-export interface AegisMcpOptions {
-  /** Contract views over NEAR RPC (`RpcTransport`) or the in-process AegisSim (`VmTransport`). */
-  views: AegisViews;
+export interface PhalanxMcpOptions {
+  /** Contract views over NEAR RPC (`RpcTransport`) or the in-process PhalanxSim (`VmTransport`). */
+  views: PhalanxViews;
   /** Where the contract runs; history lookups are skipped for `sim`. */
   network: "testnet" | "mainnet" | "sim";
-  /** Recipient history for `aegis_check_recipient` (see `nearHistorySource`). */
+  /** Recipient history for `phalanx_check_recipient` (see `nearHistorySource`). */
   history?: HistorySource;
   /** Block time for request deadlines. Default: wall clock. */
   nowNs?: () => bigint;
@@ -81,7 +81,7 @@ const isPending = (v: PolicyViolationT, crossChain: boolean) =>
 
 const TOOLS = [
   {
-    name: "aegis_check_recipient",
+    name: "phalanx_check_recipient",
     title: "Check a payment recipient",
     description:
       "Ask the PhalanxSwarm treasury contract whether an agent may pay this recipient, before signing anything. Returns the contract's verdict (allow, warn or block) with its reasons, on-chain history signals, and the action to take: sign, refuse, submit for DAO approval, or ask the DAO to allow-list or confirm the recipient. Read-only.",
@@ -98,7 +98,7 @@ const TOOLS = [
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   {
-    name: "aegis_get_policy",
+    name: "phalanx_get_policy",
     title: "Read the treasury policy",
     description:
       "The PhalanxSwarm DAO's current rules: per-payment limit, epoch spending cap, allowed chains, what happens to unknown recipients, the DAO approval threshold, the pinned audit prompt and the task-prompt registry. Read-only.",
@@ -106,7 +106,7 @@ const TOOLS = [
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   {
-    name: "aegis_preview_payment",
+    name: "phalanx_preview_payment",
     title: "Preview a payment",
     description:
       "Dry-run a payment through the PhalanxSwarm policy engine before the agent signs it. Returns every policy finding (limits, chain, asset, recipient), whether the payment needs a DAO vote, the facts a Sentinel audit must judge, and the exact NEP-413 message the agent signs with its own key to submit it. Never signs or sends anything.",
@@ -127,12 +127,12 @@ const TOOLS = [
 ] as const;
 
 const INSTRUCTIONS =
-  "Call aegis_check_recipient before an agent pays anyone, and follow its action. Use aegis_preview_payment to see what the contract would decide and get the message to sign. These tools never sign or send; the contract enforces the same rules when the agent submits.";
+  "Call phalanx_check_recipient before an agent pays anyone, and follow its action. Use phalanx_preview_payment to see what the contract would decide and get the message to sign. These tools never sign or send; the contract enforces the same rules when the agent submits.";
 
-export class AegisMcpServer {
+export class PhalanxMcpServer {
   private readonly serverInfo: { name: string; title: string; version: string };
 
-  constructor(private readonly opts: AegisMcpOptions) {
+  constructor(private readonly opts: PhalanxMcpOptions) {
     this.serverInfo = { name: "phalanx-swarm", title: "PhalanxSwarm treasury guard", version: opts.serverVersion ?? "0.1.0" };
   }
 
@@ -207,11 +207,11 @@ export class AegisMcpServer {
 
   async callTool(name: string, args: unknown): Promise<Record<string, unknown>> {
     switch (name) {
-      case "aegis_check_recipient":
+      case "phalanx_check_recipient":
         return this.checkRecipient(CheckArgs.parse(args));
-      case "aegis_preview_payment":
+      case "phalanx_preview_payment":
         return this.previewPayment(PreviewArgs.parse(args));
-      case "aegis_get_policy":
+      case "phalanx_get_policy":
         z.strictObject({}).parse(args);
         return this.getPolicy();
       default:

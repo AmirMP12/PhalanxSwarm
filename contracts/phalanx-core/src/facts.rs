@@ -18,7 +18,7 @@ use crate::policy::PolicyViolation;
 use crate::ONE_NEAR;
 
 /// Schema tag written into every facts document.
-pub const AUDIT_FACTS_SCHEMA: &str = "aegis.audit-facts.v1";
+pub const AUDIT_FACTS_SCHEMA: &str = "phalanx.audit-facts.v1";
 
 /// What an auditor must be shown, and its hash.
 #[near(serializers = [json])]
@@ -57,7 +57,8 @@ pub fn is_stable_finding(v: &PolicyViolation) -> bool {
         | PolicyViolation::EvmChainNotAllowed { .. }
         | PolicyViolation::EvmAssetNotAllowed { .. }
         | PolicyViolation::EvmAmountExceedsLimit { .. }
-        | PolicyViolation::EvmFeeTooHigh { .. } => true,
+        | PolicyViolation::EvmFeeTooHigh { .. }
+        | PolicyViolation::InvoiceRefMissing => true,
         _ => false,
     }
 }
@@ -124,6 +125,7 @@ struct IntentRequestFacts<'a> {
     chain: &'a str,
     destination_asset: &'a str,
     execution_contract: &'a str,
+    invoice_ref: Option<&'a str>,
     kind: &'a str,
     memo: &'a str,
     min_amount_out: String,
@@ -153,6 +155,7 @@ struct EvmRequestFacts<'a> {
     chain: &'a str,
     chain_id: u64,
     fee_ceiling_wei: String,
+    invoice_ref: Option<&'a str>,
     memo: &'a str,
     nonce: u64,
     to: String,
@@ -182,6 +185,7 @@ pub struct IntentFactsInput<'a> {
     pub execution_contract: &'a str,
     pub memo: &'a str,
     pub quote_dry_run: Option<bool>,
+    pub invoice_ref: Option<&'a str>,
 }
 
 pub fn intent_facts(input: &IntentFactsInput, recipient: &RecipientStatus, violations: &[PolicyViolation]) -> AuditFacts {
@@ -198,6 +202,7 @@ pub fn intent_facts(input: &IntentFactsInput, recipient: &RecipientStatus, viola
             chain: input.chain,
             destination_asset: input.destination_asset,
             execution_contract: input.execution_contract,
+            invoice_ref: input.invoice_ref,
             kind: input.kind,
             memo: input.memo,
             min_amount_out: input.min_amount_out.to_string(),
@@ -208,7 +213,7 @@ pub fn intent_facts(input: &IntentFactsInput, recipient: &RecipientStatus, viola
         schema: AUDIT_FACTS_SCHEMA,
         subject: "intent",
     };
-    AuditFacts::new("intent", serde_json::to_string(&doc).unwrap_or_else(|_| env::panic_str("AEGIS_E_SERIALIZE")))
+    AuditFacts::new("intent", serde_json::to_string(&doc).unwrap_or_else(|_| env::panic_str("PHALANX_E_SERIALIZE")))
 }
 
 /// The fields of an EVM transfer the auditor sees.
@@ -223,6 +228,7 @@ pub struct EvmFactsInput<'a> {
     pub fee_ceiling_wei: u128,
     pub nonce: u64,
     pub memo: &'a str,
+    pub invoice_ref: Option<&'a str>,
 }
 
 pub fn evm_facts(input: &EvmFactsInput, recipient: &RecipientStatus, violations: &[PolicyViolation]) -> AuditFacts {
@@ -237,6 +243,7 @@ pub fn evm_facts(input: &EvmFactsInput, recipient: &RecipientStatus, violations:
             chain: input.chain,
             chain_id: input.chain_id,
             fee_ceiling_wei: input.fee_ceiling_wei.to_string(),
+            invoice_ref: input.invoice_ref,
             memo: input.memo,
             nonce: input.nonce,
             to: input.to.to_ascii_lowercase(),
@@ -244,7 +251,7 @@ pub fn evm_facts(input: &EvmFactsInput, recipient: &RecipientStatus, violations:
         schema: AUDIT_FACTS_SCHEMA,
         subject: "evm",
     };
-    AuditFacts::new("evm", serde_json::to_string(&doc).unwrap_or_else(|_| env::panic_str("AEGIS_E_SERIALIZE")))
+    AuditFacts::new("evm", serde_json::to_string(&doc).unwrap_or_else(|_| env::panic_str("PHALANX_E_SERIALIZE")))
 }
 
 #[cfg(test)]

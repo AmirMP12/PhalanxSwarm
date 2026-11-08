@@ -3,11 +3,11 @@
  *
  * - `deriveTweak` / `deriveChildPublicKey` reproduce the MPC network's key derivation
  *   (`sha3_256("near-mpc-recovery v0.1.0 epsilon derivation:" + predecessor + "," + path)`,
- *   child = root + tweak·G), so the EVM address controlled by `aegis-core` for a path can be
+ *   child = root + tweak·G), so the EVM address controlled by `phalanx-core` for a path can be
  *   computed off-chain from the MPC root key (`v1.signer-prod.testnet` → `public_key`).
  * - `recoverEvmAddress` turns an MPC `SignatureResponse` into the signer's EVM address, which is
  *   exactly what an EVM contract's `ecrecover` would see for the EIP-191 settlement digest.
- * - `SimulatedMpcSigner` mounts at the MPC account inside AegisSim and answers `sign` with a
+ * - `SimulatedMpcSigner` mounts at the MPC account inside PhalanxSim and answers `sign` with a
  *   real secp256k1 signature from a locally held root key. It is labeled as a simulation in
  *   every UI and log line; on testnet the same contract call goes to the real MPC network.
  */
@@ -88,7 +88,7 @@ export class SimulatedMpcSigner implements ExternalContract {
   readonly log: MpcSignLogEntry[] = [];
   private readonly rootSecret: bigint;
 
-  constructor(seed = "aegis-sim-mpc-root-key") {
+  constructor(seed = "phalanx-sim-mpc-root-key") {
     this.rootSecret = (bytesToBigInt(sha256Bytes(seed)) % (N - 1n)) + 1n;
     this.rootPublicKey = secp256k1.getPublicKey(bigIntTo32(this.rootSecret), false);
   }
@@ -128,7 +128,7 @@ export class SimulatedMpcSigner implements ExternalContract {
     };
     return {
       value: utf8(JSON.stringify(response)),
-      logs: [`sign: predecessor=${ctx.predecessorId} path=${request.path} (AegisSim simulated MPC responder)`],
+      logs: [`sign: predecessor=${ctx.predecessorId} path=${request.path} (PhalanxSim simulated MPC responder)`],
     };
   }
 }

@@ -5,7 +5,7 @@
 //! `CrossChainIntentRequest`. The flow is:
 //!
 //! 1. The contract rebuilds the canonical request message (a `token_diff`-shaped body plus an
-//!    `aegis` envelope binding chain, recipient, route contract and quote hash) and the NEP-413
+//!    `phalanx` envelope binding chain, recipient, route contract and quote hash) and the NEP-413
 //!    payload `{message, nonce, recipient: <this contract>}`. This signature authorizes the
 //!    treasury; the message is not itself submitted to `intents.near`.
 //! 2. It verifies the agent's ed25519 signature over `sha256(2^31+413 || borsh(payload))`
@@ -37,15 +37,16 @@ use crate::codec::{
     decode_ed25519_signature, decode_nonce_b64, ed25519_key_bytes, format_iso8601_millis, from_hex, is_hash32_hex, is_safe_ascii,
     is_valid_asset_id, is_valid_chain_id, parse_hash32, to_hex,
 };
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
 use crate::facts::{intent_facts, AuditFacts, IntentFactsInput, RecipientStatus};
+use crate::invoices::is_valid_invoice_ref;
 use crate::policy::{evaluate_spend, max_severity, PolicyDecision, PolicyViolation, PriceCheck, SpendRequest};
 use crate::subaccounts::{AgentRecord, AgentRole, AgentStatus};
-use crate::{AegisCore, AegisCoreExt};
+use crate::{PhalanxCore, PhalanxCoreExt};
 
 /// NEP-413 prefix tag: 2^31 + 413.
 pub const NEP413_TAG: u32 = 2_147_484_061;
-pub const SETTLEMENT_DOMAIN: &[u8] = b"AEGIS_SETTLEMENT_V1";
+pub const SETTLEMENT_DOMAIN: &[u8] = b"PHALANX_SETTLEMENT_V1";
 pub const EIP191_PREFIX_32: &[u8] = b"\x19Ethereum Signed Message:\n32";
 pub const WNEAR: &str = "nep141:wrap.near";
 const NS: u64 = 1_000_000_000;
@@ -111,6 +112,10 @@ pub struct CrossChainIntentRequest {
     pub signature: String,
     pub attestation: Option<ExecutionProof>,
     pub memo: Option<String>,
+    /// Vendor's invoice number. Required on vendor payments when the DAO sets
+    /// `require_invoice_ref`; the same invoice is never paid twice to the same recipient.
+    #[serde(default)]
+    pub invoice_ref: Option<String>,
 }
 
 impl CrossChainIntentRequest {
@@ -204,6 +209,10 @@ pub struct IntentRecord {
     pub dry_run: bool,
     pub mpc: Option<MpcAuthorization>,
     pub memo: Option<String>,
+    pub invoice_ref: Option<String>,
+    /// A held payment to a new recipient that anyone may release after this time
+    /// (`release_held_intent`), unless it is vetoed first. `None`: only a DAO vote releases it.
+    pub hold_release_at_ns: Option<U64>,
     pub created_at_ns: U64,
     pub settled_at_ns: Option<U64>,
     pub settlement_ref: Option<String>,
@@ -235,9 +244,10 @@ pub struct IntentAssessment {
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
-struct AegisEnvelope<'a> {
+struct PhalanxEnvelope<'a> {
     chain: &'a str,
     contract: &'a str,
+    invoice: &'a str,
     kind: &'a str,
     memo: &'a str,
     quote_hash: &'a str,
@@ -255,9 +265,9 @@ struct TokenDiffIntent<'a> {
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 struct IntentsMessage<'a> {
-    aegis: AegisEnvelope<'a>,
     deadline: String,
     intents: [TokenDiffIntent<'a>; 1],
+    phalanx: PhalanxEnvelope<'a>,
     signer_id: &'a str,
 }
 
@@ -307,7 +317,7 @@ struct MpcSignatureResponse {
 /// JSON args of `v1.signer[-prod.testnet].sign` for a 32-byte secp256k1 payload.
 pub(crate) fn mpc_sign_args(path: &str, payload_hex: &str, domain_id: u64) -> Vec<u8> {
     let args = MpcSignArgs { request: MpcSignRequest { path, payload_v2: MpcPayload { ecdsa: payload_hex }, domain_id } };
-    serde_json::to_vec(&args).unwrap_or_else(|_| env::panic_str("AEGIS_E_SERIALIZE"))
+    serde_json::to_vec(&args).unwrap_or_else(|_| env::panic_str("PHALANX_E_SERIALIZE"))
 }
 
 /// Parses the promise result of an MPC `sign` call.
@@ -336,9 +346,10 @@ pub fn build_intent_message(signer_id: &str, req: &CrossChainIntentRequest) -> S
     diff.insert(req.origin_asset.as_str(), format!("-{}", req.amount.0));
     diff.insert(req.destination_asset.as_str(), req.min_amount_out.0.to_string());
     let msg = IntentsMessage {
-        aegis: AegisEnvelope {
+        phalanx: PhalanxEnvelope {
             chain: &req.destination_chain,
             contract: req.execution_contract.as_str(),
+            invoice: req.invoice_ref.as_deref().unwrap_or(""),
             kind: req.kind.as_str(),
             memo: req.memo.as_deref().unwrap_or(""),
             quote_hash: req.quote.as_ref().map(|q| q.quote_hash.as_str()).unwrap_or(""),
@@ -348,7 +359,7 @@ pub fn build_intent_message(signer_id: &str, req: &CrossChainIntentRequest) -> S
         intents: [TokenDiffIntent { diff, intent: "token_diff" }],
         signer_id,
     };
-    serde_json::to_string(&msg).unwrap_or_else(|_| env::panic_str("AEGIS_E_SERIALIZE"))
+    serde_json::to_string(&msg).unwrap_or_else(|_| env::panic_str("PHALANX_E_SERIALIZE"))
 }
 
 fn push_str(buf: &mut Vec<u8>, s: &str) {
@@ -392,37 +403,44 @@ pub fn mpc_payload(commitment: &[u8; 32]) -> [u8; 32] {
 }
 
 fn validate_request_shape(req: &CrossChainIntentRequest) {
-    require!(is_valid_chain_id(&req.destination_chain), "AEGIS_E_INTENT: invalid destination_chain");
+    require!(is_valid_chain_id(&req.destination_chain), "PHALANX_E_INTENT: invalid destination_chain");
     require!(
         is_valid_asset_id(&req.origin_asset) && is_valid_asset_id(&req.destination_asset),
-        "AEGIS_E_INTENT: invalid asset id"
+        "PHALANX_E_INTENT: invalid asset id"
     );
     if req.is_near_payment() {
-        require!(req.origin_asset == WNEAR && req.destination_asset == WNEAR, "AEGIS_E_INTENT: NEAR payments are in wNEAR/NEAR");
-        require!(req.min_amount_out == req.amount, "AEGIS_E_INTENT: NEAR payments deliver the full amount");
-        require!(req.recipient.parse::<AccountId>().is_ok(), "AEGIS_E_INTENT: NEAR payment recipient must be an account id");
+        require!(
+            req.origin_asset == WNEAR && req.destination_asset == WNEAR,
+            "PHALANX_E_INTENT: NEAR payments are in wNEAR/NEAR"
+        );
+        require!(req.min_amount_out == req.amount, "PHALANX_E_INTENT: NEAR payments deliver the full amount");
+        require!(req.recipient.parse::<AccountId>().is_ok(), "PHALANX_E_INTENT: NEAR payment recipient must be an account id");
     } else {
-        require!(req.origin_asset != req.destination_asset, "AEGIS_E_INTENT: origin and destination asset must differ");
+        require!(req.origin_asset != req.destination_asset, "PHALANX_E_INTENT: origin and destination asset must differ");
     }
-    require!(req.amount.0 > 0 && req.min_amount_out.0 > 0, "AEGIS_E_INTENT: amounts must be > 0");
-    require!(!req.recipient.is_empty() && is_safe_ascii(&req.recipient, 128), "AEGIS_E_INTENT: invalid recipient");
-    require!(req.slippage_bps <= 10_000, "AEGIS_E_INTENT: slippage_bps must be <= 10000");
-    require!(decode_nonce_b64(&req.nonce).is_some(), "AEGIS_E_INTENT: nonce must be base64 of 32 bytes");
-    require!(req.memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "AEGIS_E_INTENT: invalid memo");
+    require!(req.amount.0 > 0 && req.min_amount_out.0 > 0, "PHALANX_E_INTENT: amounts must be > 0");
+    require!(!req.recipient.is_empty() && is_safe_ascii(&req.recipient, 128), "PHALANX_E_INTENT: invalid recipient");
+    require!(req.slippage_bps <= 10_000, "PHALANX_E_INTENT: slippage_bps must be <= 10000");
+    require!(decode_nonce_b64(&req.nonce).is_some(), "PHALANX_E_INTENT: nonce must be base64 of 32 bytes");
+    require!(req.memo.as_deref().map(|m| is_safe_ascii(m, 128)).unwrap_or(true), "PHALANX_E_INTENT: invalid memo");
+    require!(
+        req.invoice_ref.as_deref().map(is_valid_invoice_ref).unwrap_or(true),
+        "PHALANX_E_INTENT: invoice_ref is 1-64 printable characters"
+    );
     if let Some(q) = &req.quote {
-        require!(is_hash32_hex(&q.quote_hash), "AEGIS_E_INTENT: quote_hash must be 32-byte hex");
+        require!(is_hash32_hex(&q.quote_hash), "PHALANX_E_INTENT: quote_hash must be 32-byte hex");
         require!(
             is_safe_ascii(&q.provider, 32) && is_safe_ascii(&q.correlation_id, 64),
-            "AEGIS_E_INTENT: invalid quote metadata"
+            "PHALANX_E_INTENT: invalid quote metadata"
         );
         require!(
             q.deposit_address.as_deref().map(|d| is_safe_ascii(d, 128)).unwrap_or(true),
-            "AEGIS_E_INTENT: invalid deposit address"
+            "PHALANX_E_INTENT: invalid deposit address"
         );
     }
 }
 
-impl AegisCore {
+impl PhalanxCore {
     /// Read-only evaluation shared by `request_intent_settlement`, `evaluate_intent` and
     /// `get_intent_audit_facts`. Returns the assessment, the velocity window the agent would move
     /// to, the verified TEE receipt summary (recorded only if the request is approved), and the
@@ -515,6 +533,20 @@ impl AegisCore {
         let (spend_violations, limits) = evaluate_spend(&self.policy, self.paused, agent, &self.treasury, epoch, &spend);
         violations.extend(spend_violations);
 
+        if req.kind == IntentKind::VendorPayment && self.policy.require_invoice_ref && req.invoice_ref.is_none() {
+            violations.push(PolicyViolation::InvoiceRefMissing);
+        }
+        // Not part of the audit facts: it depends on payments made since the audit.
+        let duplicate = req
+            .invoice_ref
+            .as_deref()
+            .and_then(|r| self.invoice_payment(&req.destination_chain, &req.recipient, r).map(|p| (r, p)))
+            .map(|(r, p)| PolicyViolation::InvoiceAlreadyPaid {
+                invoice_ref: r.to_string(),
+                subject: p.subject,
+                subject_id: p.subject_id,
+            });
+
         // The auditor judges facts the contract computed, never facts the agent wrote.
         let facts = intent_facts(
             &IntentFactsInput {
@@ -529,6 +561,7 @@ impl AegisCore {
                 execution_contract: req.execution_contract.as_str(),
                 memo: req.memo.as_deref().unwrap_or(""),
                 quote_dry_run: req.quote.as_ref().map(|q| q.dry),
+                invoice_ref: req.invoice_ref.as_deref(),
             },
             &RecipientStatus {
                 allow_listed: self.policy.allows_recipient(&req.destination_chain, &req.recipient),
@@ -536,6 +569,7 @@ impl AegisCore {
             },
             &violations,
         );
+        violations.extend(duplicate);
 
         let mut attestation_hash = None;
         let mut attested_receipt = None;
@@ -624,7 +658,7 @@ impl AegisCore {
 
     /// Pays an approved NEAR vendor invoice: a real transfer, settled in the callback.
     fn pay_vendor(&mut self, record: &mut IntentRecord) {
-        let recipient: AccountId = record.recipient.parse().unwrap_or_else(|_| env::panic_str("AEGIS_E_INTENT: recipient"));
+        let recipient: AccountId = record.recipient.parse().unwrap_or_else(|_| env::panic_str("PHALANX_E_INTENT: recipient"));
         Promise::new(recipient)
             .transfer(NearToken::from_yoctonear(record.amount.0))
             .then(
@@ -647,7 +681,7 @@ impl AegisCore {
         let commitment = settlement_commitment(record);
         let payload = mpc_payload(&commitment);
         let payload_hex = to_hex(&payload);
-        let path = format!("aegis-treasury/{}", record.destination_chain);
+        let path = format!("phalanx-treasury/{}", record.destination_chain);
         let args = mpc_sign_args(&path, &payload_hex, self.config.mpc_domain_id);
         Promise::new(mpc_contract_id.clone())
             .function_call("sign", args, NearToken::from_yoctonear(1), Gas::from_tgas(self.config.mpc_sign_gas_tgas))
@@ -667,7 +701,7 @@ impl AegisCore {
             signature: None,
             error: None,
         });
-        AegisEvent::MpcSignatureRequested { intent_id: record.intent_id, mpc_contract_id, path, payload_hex }.emit();
+        PhalanxEvent::MpcSignatureRequested { intent_id: record.intent_id, mpc_contract_id, path, payload_hex }.emit();
     }
 
     /// Executes an approved settlement: pays a NEAR vendor or requests the MPC authorization.
@@ -680,17 +714,17 @@ impl AegisCore {
     }
 
     fn intent_or_panic(&self, intent_id: u64) -> IntentRecord {
-        self.intents.get(&intent_id).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_INTENT"))
+        self.intents.get(&intent_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_INTENT"))
     }
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Agents (scoped key) request a policy-checked settlement.
     pub fn request_intent_settlement(&mut self, request: CrossChainIntentRequest) -> SettlementOutcome {
         let agent = self.caller_agent("request_intent_settlement");
         // Frozen agents cannot even write audit records (prevents storage spam from leaked keys).
-        require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
 
         let (assessment, window_start, requests, attested_receipt, _facts) = self.assess_intent(&agent, &request);
         let now = env::block_timestamp();
@@ -730,6 +764,8 @@ impl AegisCore {
             dry_run: !request.is_near_payment(),
             mpc: None,
             memo: request.memo.clone(),
+            invoice_ref: request.invoice_ref.clone(),
+            hold_release_at_ns: None,
             created_at_ns: U64(now),
             settled_at_ns: None,
             settlement_ref: None,
@@ -739,7 +775,7 @@ impl AegisCore {
             self.intents.insert(intent_id, record);
             let (_severity, quarantined) =
                 self.apply_circuit_breaker(&agent.agent_id, "request_intent_settlement", &decision.violations);
-            AegisEvent::IntentRejected {
+            PhalanxEvent::IntentRejected {
                 intent_id: U64(intent_id),
                 agent_id: agent.agent_id.clone(),
                 nep413_hash: assessment.nep413_hash.clone(),
@@ -765,11 +801,31 @@ impl AegisCore {
         updated.total_spent = U128(updated.total_spent.0 + amount);
         self.agents.insert(updated.agent_id.clone(), updated);
 
+        if let Some(invoice) = request.invoice_ref.as_deref() {
+            self.record_invoice(
+                &request.destination_chain,
+                &request.recipient,
+                invoice,
+                "intent",
+                intent_id,
+                amount,
+                &agent.agent_id,
+            );
+        }
         record.status = if decision.requires_dao_approval { IntentStatus::PendingApproval } else { IntentStatus::Committed };
+        // A small payment held only because its recipient is new can clear after a challenge window.
+        let only_new_recipient = decision.approval_reasons.iter().all(|r| r == "recipient_needs_approval");
+        if record.status == IntentStatus::PendingApproval
+            && only_new_recipient
+            && self.policy.hold_release_after_sec > 0
+            && amount <= self.policy.hold_auto_release_max_yocto.0
+        {
+            record.hold_release_at_ns = Some(U64(now + self.policy.hold_release_after_sec * NS));
+        }
         if record.status == IntentStatus::Committed {
             self.execute_committed(&mut record);
         }
-        AegisEvent::IntentCommitted {
+        PhalanxEvent::IntentCommitted {
             intent_id: U64(intent_id),
             agent_id: agent.agent_id.clone(),
             nep413_hash: assessment.nep413_hash.clone(),
@@ -787,21 +843,28 @@ impl AegisCore {
     /// Callback of a NEAR vendor payment.
     #[private]
     pub fn on_vendor_payment(&mut self, intent_id: U64) -> IntentStatus {
-        require!(env::promise_results_count() == 1, "AEGIS_E_CALLBACK_ONLY");
+        require!(env::promise_results_count() == 1, "PHALANX_E_CALLBACK_ONLY");
         let mut record = self.intent_or_panic(intent_id.0);
-        require!(record.status == IntentStatus::Paying, "AEGIS_E_INTENT_NOT_PAYING");
-        let recipient: AccountId = record.recipient.parse().unwrap_or_else(|_| env::panic_str("AEGIS_E_INTENT: recipient"));
+        require!(record.status == IntentStatus::Paying, "PHALANX_E_INTENT_NOT_PAYING");
+        let recipient: AccountId = record.recipient.parse().unwrap_or_else(|_| env::panic_str("PHALANX_E_INTENT: recipient"));
         if env::promise_result_checked(0, 64).is_ok() {
             self.treasury.reserved_for_intents = self.treasury.reserved_for_intents.saturating_sub(record.amount.0);
             self.treasury.total_operating_costs += record.amount.0;
             record.status = IntentStatus::Settled;
             record.settled_at_ns = Some(U64(env::block_timestamp()));
             record.settlement_ref = Some(format!("near-transfer:{}", env::block_height()));
-            AegisEvent::VendorPaid { intent_id, recipient, amount: record.amount }.emit();
+            PhalanxEvent::VendorPaid { intent_id, recipient, amount: record.amount }.emit();
         } else {
             self.release_intent_funds(&record);
+            self.release_invoice(
+                &record.destination_chain,
+                &record.recipient,
+                record.invoice_ref.as_deref(),
+                "intent",
+                intent_id.0,
+            );
             record.status = IntentStatus::PaymentFailed;
-            AegisEvent::VendorPaymentFailed { intent_id, recipient, amount: record.amount }.emit();
+            PhalanxEvent::VendorPaymentFailed { intent_id, recipient, amount: record.amount }.emit();
         }
         let status = record.status;
         self.intents.insert(intent_id.0, record);
@@ -811,9 +874,9 @@ impl AegisCore {
     /// Callback of the MPC `sign` call.
     #[private]
     pub fn on_mpc_signature(&mut self, intent_id: U64) -> IntentStatus {
-        require!(env::promise_results_count() == 1, "AEGIS_E_CALLBACK_ONLY");
+        require!(env::promise_results_count() == 1, "PHALANX_E_CALLBACK_ONLY");
         let mut record = self.intent_or_panic(intent_id.0);
-        require!(record.status == IntentStatus::Signing, "AEGIS_E_INTENT_NOT_SIGNING");
+        require!(record.status == IntentStatus::Signing, "PHALANX_E_INTENT_NOT_SIGNING");
         let (ok, detail) = match parse_mpc_result(env::promise_result_checked(0, 4096)) {
             Ok(sig) => {
                 if let Some(mpc) = record.mpc.as_mut() {
@@ -828,10 +891,17 @@ impl AegisCore {
                 }
                 record.status = IntentStatus::AuthorizationFailed;
                 self.release_intent_funds(&record);
+                self.release_invoice(
+                    &record.destination_chain,
+                    &record.recipient,
+                    record.invoice_ref.as_deref(),
+                    "intent",
+                    intent_id.0,
+                );
                 (false, reason)
             }
         };
-        AegisEvent::MpcSignatureResolved { intent_id, ok, detail }.emit();
+        PhalanxEvent::MpcSignatureResolved { intent_id, ok, detail }.emit();
         let status = record.status;
         self.intents.insert(intent_id.0, record);
         status
@@ -842,18 +912,18 @@ impl AegisCore {
     pub fn confirm_intent_settlement(&mut self, intent_id: U64, settlement_ref: String) -> IntentRecord {
         if !self.is_owner_call() {
             let agent = self.caller_agent("confirm_intent_settlement");
-            require!(agent.role == AgentRole::Sentinel && agent.status == AgentStatus::Active, "AEGIS_E_UNAUTHORIZED");
+            require!(agent.role == AgentRole::Sentinel && agent.status == AgentStatus::Active, "PHALANX_E_UNAUTHORIZED");
         }
-        require!(!settlement_ref.is_empty() && is_safe_ascii(&settlement_ref, 128), "AEGIS_E_INVALID_SETTLEMENT_REF");
+        require!(!settlement_ref.is_empty() && is_safe_ascii(&settlement_ref, 128), "PHALANX_E_INVALID_SETTLEMENT_REF");
         let mut record = self.intent_or_panic(intent_id.0);
-        require!(record.destination_chain != "near", "AEGIS_E_NEAR_PAYMENTS_SETTLE_IN_CALLBACK");
-        require!(matches!(record.status, IntentStatus::Signed | IntentStatus::Committed), "AEGIS_E_INTENT_NOT_AUTHORIZED");
+        require!(record.destination_chain != "near", "PHALANX_E_NEAR_PAYMENTS_SETTLE_IN_CALLBACK");
+        require!(matches!(record.status, IntentStatus::Signed | IntentStatus::Committed), "PHALANX_E_INTENT_NOT_AUTHORIZED");
         self.release_intent_funds(&record);
         record.status = IntentStatus::Settled;
         record.settled_at_ns = Some(U64(env::block_timestamp()));
         record.settlement_ref = Some(settlement_ref.clone());
         self.intents.insert(intent_id.0, record.clone());
-        AegisEvent::IntentSettled { intent_id, settlement_ref, dry_run: record.dry_run }.emit();
+        PhalanxEvent::IntentSettled { intent_id, settlement_ref, dry_run: record.dry_run }.emit();
         record
     }
 
@@ -862,12 +932,38 @@ impl AegisCore {
     pub fn approve_intent(&mut self, intent_id: U64) -> IntentRecord {
         self.assert_owner();
         let mut record = self.intent_or_panic(intent_id.0);
-        require!(record.status == IntentStatus::PendingApproval, "AEGIS_E_INTENT_NOT_PENDING");
+        require!(record.status == IntentStatus::PendingApproval, "PHALANX_E_INTENT_NOT_PENDING");
         // A recipient blocked while the request waited is never paid, even with the DAO's approval.
-        require!(self.blocked_reason(&record.destination_chain, &record.recipient).is_none(), "AEGIS_E_RECIPIENT_BLOCKED");
+        require!(self.blocked_reason(&record.destination_chain, &record.recipient).is_none(), "PHALANX_E_RECIPIENT_BLOCKED");
         record.status = IntentStatus::Committed;
         self.execute_committed(&mut record);
         self.intents.insert(intent_id.0, record.clone());
+        record
+    }
+
+    /// Anyone releases a held payment to a new recipient once its challenge window is over
+    /// (`GlobalPolicy.hold_release_after_sec`), so a small first payment to a new vendor needs no
+    /// vote. Vetoes: the DAO cancels it (`cancel_intent`) or switches the window off, the DAO or a
+    /// Sentinel blocks the recipient, or a Sentinel reports the paying agent.
+    pub fn release_held_intent(&mut self, intent_id: U64) -> IntentRecord {
+        require!(!self.paused, "PHALANX_E_PAUSED");
+        let mut record = self.intent_or_panic(intent_id.0);
+        require!(record.status == IntentStatus::PendingApproval, "PHALANX_E_INTENT_NOT_PENDING");
+        let release_at = record.hold_release_at_ns.unwrap_or_else(|| env::panic_str("PHALANX_E_HOLD_NEEDS_DAO_VOTE"));
+        require!(self.policy.hold_release_after_sec > 0, "PHALANX_E_HOLD_NEEDS_DAO_VOTE: the DAO switched the window off");
+        require!(env::block_timestamp() >= release_at.0, "PHALANX_E_CHALLENGE_WINDOW_OPEN");
+        require!(self.blocked_reason(&record.destination_chain, &record.recipient).is_none(), "PHALANX_E_RECIPIENT_BLOCKED");
+        let agent = self.agent_or_panic(&record.agent_id);
+        require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+        record.status = IntentStatus::Committed;
+        self.execute_committed(&mut record);
+        self.intents.insert(intent_id.0, record.clone());
+        PhalanxEvent::HeldIntentReleased {
+            intent_id,
+            recipient: record.recipient.clone(),
+            released_by: env::predecessor_account_id(),
+        }
+        .emit();
         record
     }
 
@@ -877,12 +973,13 @@ impl AegisCore {
         let mut record = self.intent_or_panic(intent_id.0);
         require!(
             matches!(record.status, IntentStatus::PendingApproval | IntentStatus::Committed | IntentStatus::Signed),
-            "AEGIS_E_INTENT_NOT_CANCELLABLE"
+            "PHALANX_E_INTENT_NOT_CANCELLABLE"
         );
         self.release_intent_funds(&record);
+        self.release_invoice(&record.destination_chain, &record.recipient, record.invoice_ref.as_deref(), "intent", intent_id.0);
         record.status = IntentStatus::Cancelled;
         self.intents.insert(intent_id.0, record.clone());
-        AegisEvent::IntentCancelled { intent_id, released: record.amount }.emit();
+        PhalanxEvent::IntentCancelled { intent_id, released: record.amount }.emit();
         record
     }
 

@@ -4,7 +4,7 @@
  * real scoped FunctionCall key, obtains a live 1Click `dry:true` quote, submits a NEP-413 intent
  * with that agent key, and waits for a real signature from v1.signer-prod.testnet.
  *
- * Input: AEGIS_TESTNET_CREDENTIAL=/absolute/path/to/a disposable testnet credential JSON
+ * Input: PHALANX_TESTNET_CREDENTIAL=/absolute/path/to/a disposable testnet credential JSON
  *        { account_id, public_key, private_key }. The file must be outside this repository.
  * Output: artifacts/testnet-smoke.json (public tx/account evidence, no secrets).
  */
@@ -37,14 +37,14 @@ const MPC = "v1.signer-prod.testnet";
 const INTENTS = "intents.near";
 const TGAS = 10n ** 12n;
 const ONE_NEAR = 10n ** 24n;
-const credentialPath = process.env.AEGIS_TESTNET_CREDENTIAL;
-if (!credentialPath) throw new Error("set AEGIS_TESTNET_CREDENTIAL to a disposable .testnet credential JSON outside the repository");
+const credentialPath = process.env.PHALANX_TESTNET_CREDENTIAL;
+if (!credentialPath) throw new Error("set PHALANX_TESTNET_CREDENTIAL to a disposable .testnet credential JSON outside the repository");
 const cred = JSON.parse(readFileSync(credentialPath, "utf8")) as { account_id: string; public_key: string; private_key: string };
 if (!cred.account_id.endsWith(".testnet")) throw new Error("refusing: credential is not a .testnet account");
 const contractId = cred.account_id;
 const ownerSigner = KeyPairSigner.fromSecretKey(cred.private_key as KeyPairString);
 const owner = new Account(contractId, RPC, ownerSigner);
-const wasmPath = resolve("artifacts/aegis_core.wasm");
+const wasmPath = resolve("artifacts/phalanx_core.wasm");
 const wasm = new Uint8Array(readFileSync(wasmPath));
 
 const txHash = (r: unknown): string => String((r as { transaction?: { hash?: string } }).transaction?.hash ?? "unknown");
@@ -56,7 +56,7 @@ async function view<T>(accountId: string, method: string, args: unknown): Promis
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: "aegis-testnet-smoke",
+      id: "phalanx-testnet-smoke",
       method: "query",
       params: {
         request_type: "call_function",
@@ -88,7 +88,7 @@ async function main() {
     network: "testnet",
     contract_id: contractId,
     mpc_contract_id: MPC,
-    wasm_sha256: readFileSync(resolve("artifacts/aegis_core.wasm.sha256"), "utf8").trim().split(/\s+/)[0],
+    wasm_sha256: readFileSync(resolve("artifacts/phalanx_core.wasm.sha256"), "utf8").trim().split(/\s+/)[0],
     timestamp: new Date().toISOString(),
     transactions: {},
   };
@@ -151,7 +151,7 @@ async function main() {
   if (agentRecord.status.kind !== "active" || !agentRecord.key_active) throw new Error(`agent not active: ${JSON.stringify(agentRecord)}`);
   if (agentRecord.allowed_methods.join(",") !== "submit_bid,execute_verified_task,request_intent_settlement") throw new Error("wrong access-key scope");
 
-  const path = "aegis-treasury/arb";
+  const path = "phalanx-treasury/arb";
   const rootString = await view<string>(MPC, "public_key", { domain_id: 0 });
   const rootRaw = fromBase58(rootString.replace("secp256k1:", ""));
   const root = new Uint8Array(65);

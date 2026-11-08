@@ -6,7 +6,7 @@
  * owner SputnikDAO's policy and proposals. One shared store, so the section, the navigation
  * badge and the command palette show the same read.
  */
-import { AegisViews, fromBase58, fromBase64, fromUtf8, toHex, type DashboardT } from "@aegis/agent-swarm-sdk";
+import { PhalanxViews, fromBase58, fromBase64, fromUtf8, toHex, type DashboardT } from "@phalanx/agent-swarm-sdk";
 import { useSyncExternalStore } from "react";
 
 import { currentRpcHost, FallbackRpcTransport, viewAccessKeys, viewAccount, viewFunction, type AccessKeyPermission } from "./near-rpc";
@@ -15,7 +15,7 @@ import { TESTNET_CONTRACT_ID } from "./wallet";
 export interface KeyAudit {
   public_keys: string[];
   full_access: number;
-  /** FunctionCall keys whose receiver is the AegisCore contract. */
+  /** FunctionCall keys whose receiver is the PhalanxCore contract. */
   scoped: number;
 }
 
@@ -61,7 +61,7 @@ export interface LiveState {
   error: string | null;
 }
 
-const STORAGE_KEY = "aegis-testnet-contract";
+const STORAGE_KEY = "phalanx-testnet-contract";
 const INITIAL: LiveState = { contractId: TESTNET_CONTRACT_ID, status: "idle", snapshot: null, error: null };
 
 let state: LiveState = INITIAL;
@@ -161,8 +161,8 @@ async function readDao(owner: string): Promise<DaoState | null> {
 async function readDeployment(contractId: string): Promise<LiveSnapshot> {
   const info = await viewFunction<{ version?: unknown } | null>(contractId, "contract_info");
   const version = typeof info?.version === "string" ? info.version : "unknown";
-  if (!version.startsWith("2.")) throw new Error(`${contractId} runs AegisCore ${version}; this page reads v2.2. Deploy v2.2 with pnpm testnet:swarm.`);
-  const views = new AegisViews(new FallbackRpcTransport(contractId));
+  if (!version.startsWith("2.")) throw new Error(`${contractId} runs PhalanxCore ${version}; this page reads v2.2. Deploy v2.2 with pnpm testnet:swarm.`);
+  const views = new PhalanxViews(new FallbackRpcTransport(contractId));
   const [dashboard, account, keys] = await Promise.all([
     views.dashboard().catch((e: unknown) => {
       const issue = (e as { name?: string; issues?: Array<{ path?: unknown[]; message?: string }> }) ?? {};

@@ -1,6 +1,6 @@
 "use client";
 
-import { JUDGE_STEPS, type JudgeStepId, type StepReport } from "@aegis/agent-swarm-sdk";
+import { JUDGE_STEPS, type JudgeStepId, type StepReport } from "@phalanx/agent-swarm-sdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRightLeft,
@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import { Badge, Button, CopyButton, IconButton, Label, ProgressRing, cx, short, toast } from "./ui";
 
@@ -178,7 +178,7 @@ function StepDetail({
 }
 
 export function JudgeMode() {
-  const { scenario, runScenario, mode, inference, agentsInfo, wasm, status, reset, busy, dashboard } = useAegis();
+  const { scenario, runScenario, mode, inference, agentsInfo, wasm, status, reset, busy, dashboard } = usePhalanx();
   const [open, setOpen] = useState<number | null>(null);
   const [wasRunning, setWasRunning] = useState(scenario.running);
   if (scenario.running !== wasRunning) {
@@ -217,13 +217,13 @@ export function JudgeMode() {
             <span className="grid size-5 place-items-center rounded-full bg-emerald-400/20">
               <FlaskConical className="size-3" aria-hidden />
             </span>
-            AegisSim local rehearsal of artifacts/aegis_core.wasm · the live proofs are below
+            PhalanxSim local rehearsal of artifacts/phalanx_core.wasm · the live proofs are below
           </div>
           <h2 id="judge-title" className="mt-4 max-w-3xl text-balance text-[26px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
             Step 3 kills invoice fraud. Then the swarm runs the business.
           </h2>
           <p className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-slate-400">
-            Reproducible rehearsal of the compiled <span className="num text-emerald-300">aegis_core.wasm</span> inside AegisSim. Attack is intentionally early
+            Reproducible rehearsal of the compiled <span className="num text-emerald-300">phalanx_core.wasm</span> inside PhalanxSim. Attack is intentionally early
             so the security kill is the hero.
             {mode === "offline" ? (
               " Quotes come from the deterministic offline engine."

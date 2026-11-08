@@ -2,9 +2,9 @@
 /**
  * Optional, user-run mainnet funding: swaps a tiny amount of NEAR into native ETH on Base through
  * NEAR Intents 1Click and delivers it to the treasury's Chain Signatures address
- * (`pnpm oneclick:fund --contract <aegis contract> [--amount-near 0.3]`).
+ * (`pnpm oneclick:fund --contract <phalanx contract> [--amount-near 0.3]`).
  *
- * This spends real NEAR from a mainnet account you control (AEGIS_MAINNET_CREDENTIAL, outside the
+ * This spends real NEAR from a mainnet account you control (PHALANX_MAINNET_CREDENTIAL, outside the
  * repository). Without `--confirm-mainnet-spend` it only prints a `dry: true` quote. With it:
  *  1. requests a live quote (`dry: false`) and shows the deposit address 1Click returned;
  *  2. in one transaction to wrap.near: registers storage, wraps the NEAR and `ft_transfer`s the
@@ -13,7 +13,7 @@
  *
  * The treasury address is derived from the contract id with the MPC contract of the network the
  * contract lives on (`--contract-network testnet` by default). Afterwards the agents can move that
- * ETH on Base mainnet only through the contract's policy (`AEGIS_EVM_CHAIN=base pnpm testnet:swarm`).
+ * ETH on Base mainnet only through the contract's policy (`PHALANX_EVM_CHAIN=base pnpm testnet:swarm`).
  */
 import { randomBytes } from "node:crypto";
 
@@ -76,7 +76,7 @@ interface Quote {
 async function treasuryAddress(contractId: string, network: Network): Promise<string> {
   const cfg = networkConfig(network);
   if (!cfg.mpcContract) throw new Error(`no MPC contract on ${network}`);
-  const path = "aegis-treasury/base";
+  const path = "phalanx-treasury/base";
   const rootString = await view<string>(cfg.rpc, cfg.mpcContract, "public_key", { domain_id: 0 });
   const raw = fromBase58(rootString.replace("secp256k1:", ""));
   const root = new Uint8Array(65);
@@ -92,8 +92,8 @@ async function main() {
   if (amount <= 0n || amount > MAX_NEAR) throw new Error(`--amount-near must be in (0, ${formatNear(MAX_NEAR, 0)}]`);
   const contract = arg("contract");
   const recipient = arg("to") ?? (contract ? await treasuryAddress(contract, (arg("contract-network") as Network | undefined) ?? "testnet") : undefined);
-  if (!recipient || !/^0x[0-9a-fA-F]{40}$/.test(recipient)) throw new Error("pass --contract <aegis contract id> or --to <0x address>");
-  const cred = loadCredential(process.env.AEGIS_MAINNET_CREDENTIAL, mainnet, "AEGIS_MAINNET_CREDENTIAL");
+  if (!recipient || !/^0x[0-9a-fA-F]{40}$/.test(recipient)) throw new Error("pass --contract <phalanx contract id> or --to <0x address>");
+  const cred = loadCredential(process.env.PHALANX_MAINNET_CREDENTIAL, mainnet, "PHALANX_MAINNET_CREDENTIAL");
   const balance = await accountBalance(mainnet.rpc, cred.account_id);
   const base = new EvmRpc(EVM_CHAINS.base!.rpc);
   const before = await base.balance(recipient);
@@ -111,7 +111,7 @@ async function main() {
     refundTo: cred.account_id,
     refundType: "ORIGIN_CHAIN",
     deadline: new Date(Date.now() + 20 * 60_000).toISOString(),
-    referral: "aegis-swarm",
+    referral: "phalanx-swarm",
   });
   const preview = await oneClick<Quote>("/v0/quote", { method: "POST", body: JSON.stringify(request(true)) });
   console.log(
@@ -146,7 +146,7 @@ async function main() {
     call("storage_deposit", { account_id: cred.account_id, registration_only: true }, 10n, STORAGE),
     call("near_deposit", {}, 10n, amount),
     call("storage_deposit", { account_id: depositAddress, registration_only: true }, 10n, STORAGE),
-    call("ft_transfer", { receiver_id: depositAddress, amount: amount.toString(), memo: `aegis-fund-${randomBytes(3).toString("hex")}` }, 30n, 1n),
+    call("ft_transfer", { receiver_id: depositAddress, amount: amount.toString(), memo: `phalanx-fund-${randomBytes(3).toString("hex")}` }, 30n, 1n),
   ]);
   console.log(`${sent.ok ? "✔" : "✘"} deposit: ${mainnet.explorer(sent.hash)}`);
   if (!sent.ok) throw new Error(`deposit failed: ${sent.error}`);

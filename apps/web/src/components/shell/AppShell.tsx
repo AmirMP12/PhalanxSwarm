@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Command, ExternalLink, LogOut, Menu, Octagon
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useLiveDeployment } from "@/lib/live-deployment";
 import { useAction } from "@/lib/use-action";
 import { connectWallet, disconnectWallet, useWalletAccount } from "@/lib/use-wallet";
@@ -57,7 +57,7 @@ function Backdrop() {
 }
 
 function useNavCounts(): Partial<Record<NavSection["id"], { text: string; tone: Tone }>> {
-  const { dashboard, activity } = useAegis();
+  const { dashboard, activity } = usePhalanx();
   const live = useLiveDeployment();
   const onchain: { text: string; tone: Tone } | undefined = live.snapshot
     ? { text: live.snapshot.dashboard.paused ? "paused" : "live", tone: live.snapshot.dashboard.paused ? "red" : "emerald" }
@@ -236,7 +236,7 @@ function WalletButton() {
 }
 
 function Topbar({ active, onOpenMobileMenu, mobileOpen }: { active: NavSection["id"]; onOpenMobileMenu: () => void; mobileOpen: boolean }) {
-  const { status, busy } = useAegis();
+  const { status, busy } = usePhalanx();
   const section = SECTIONS.find((s) => s.id === active);
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#07090e]/80 backdrop-blur-xl">
@@ -510,7 +510,7 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
 }
 
 function PausedBanner() {
-  const { dashboard, runtime, busy } = useAegis();
+  const { dashboard, runtime, busy } = usePhalanx();
   const action = useAction();
   return (
     <AnimatePresence initial={false}>
@@ -550,7 +550,7 @@ function PausedBanner() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const active = useScrollSpy();
-  const { error } = useAegis();
+  const { error } = usePhalanx();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (

@@ -2,7 +2,7 @@
 /target/
 target/
 **/*.rs.bk
-artifacts/aegis_core.[0-9]*.wasm
+artifacts/phalanx_core.[0-9]*.wasm
 
 # Node / Next.js / TypeScript
 node_modules/
@@ -25,7 +25,7 @@ playwright/.cache/
 
 # Copied at build time from artifacts/ (see apps/web/scripts/copy-wasm.mjs).
 # Source artifacts stay committed; the web build recreates these public copies.
-apps/web/public/aegis_core.wasm
+apps/web/public/phalanx_core.wasm
 apps/web/public/evidence/
 
 # Local generated design assets

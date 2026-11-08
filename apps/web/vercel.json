@@ -11,7 +11,7 @@
   ],
   "headers": [
     {
-      "source": "/aegis_core.wasm",
+      "source": "/phalanx_core.wasm",
       "headers": [
         {
           "key": "Content-Type",

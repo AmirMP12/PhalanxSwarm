@@ -1,5 +1,5 @@
 {
-  "name": "@aegis/web",
+  "name": "@phalanx/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aegis/agent-swarm-sdk": "workspace:*",
+    "@phalanx/agent-swarm-sdk": "workspace:*",
     "@hot-labs/near-connect": "^0.12.0",
     "@phala/dcap-qvl": "^0.7.0",
     "framer-motion": "^14.7.1",

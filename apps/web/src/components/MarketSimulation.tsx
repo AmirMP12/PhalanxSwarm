@@ -1,6 +1,6 @@
 "use client";
 
-import { runMarketSim, type BidderStrategy, type MarketSimReport } from "@aegis/agent-swarm-sdk";
+import { runMarketSim, type BidderStrategy, type MarketSimReport } from "@phalanx/agent-swarm-sdk";
 import { Ban, Play, Scale, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -44,8 +44,8 @@ export function MarketSimulation() {
     setRunning(true);
     setError(null);
     try {
-      const res = await fetch("/aegis_core.wasm");
-      if (!res.ok) throw new Error(`GET /aegis_core.wasm → HTTP ${res.status}`);
+      const res = await fetch("/phalanx_core.wasm");
+      if (!res.ok) throw new Error(`GET /phalanx_core.wasm → HTTP ${res.status}`);
       const wasm = new Uint8Array(await res.arrayBuffer());
       setReport(await runMarketSim({ wasm, seed: nextSeed, rounds: 12 }));
       setSource("this tab");

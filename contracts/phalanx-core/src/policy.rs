@@ -35,9 +35,10 @@ use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near, require, AccountId, Promise};
 
 use crate::codec::{is_lower_evm_address, is_safe_ascii, is_valid_recipient_entry, recipient_key};
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
+use crate::orders::{Product, MAX_PRODUCTS};
 use crate::subaccounts::{key_allowance, AgentRecord, AgentRole, AgentStatus, SpawnMode};
-use crate::{AegisCore, AegisCoreExt, Treasury, ONE_NEAR, SECURITY_EVENT_CAPACITY};
+use crate::{PhalanxCore, PhalanxCoreExt, Treasury, ONE_NEAR, SECURITY_EVENT_CAPACITY};
 
 pub const MAX_RECIPIENTS: usize = 64;
 pub const MAX_PRICE_FLOORS: usize = 32;
@@ -149,6 +150,21 @@ pub struct GlobalPolicy {
     /// Lowest `min_reputation_bps` an agent-posted RFP may demand, so unvetted agents stay out.
     #[serde(default)]
     pub min_task_reputation_bps: u32,
+    /// Vendor payments and EVM transfers must name the vendor's invoice (`invoice_ref`). Paying the
+    /// same invoice to the same recipient twice is refused either way (`invoices.rs`).
+    #[serde(default)]
+    pub require_invoice_ref: bool,
+    /// Under the `hold` rule: a held payment to a new recipient of at most
+    /// `hold_auto_release_max_yocto` can be released by anyone this many seconds after it was
+    /// requested (`release_held_intent`), unless the DAO cancels it, the recipient is blocked or the
+    /// paying agent is quarantined first. 0: only a DAO vote releases a held payment.
+    #[serde(default)]
+    pub hold_release_after_sec: u64,
+    #[serde(default)]
+    pub hold_auto_release_max_yocto: U128,
+    /// What the business sells (`place_order`).
+    #[serde(default)]
+    pub products: Vec<Product>,
 }
 
 impl GlobalPolicy {
@@ -202,66 +218,87 @@ impl GlobalPolicy {
             task_prompt_hashes: vec![],
             min_task_confidence_bps: 5_000,
             min_task_reputation_bps: 0,
+            require_invoice_ref: true,
+            // Held payments wait for a DAO vote until the DAO opts into a challenge window.
+            hold_release_after_sec: 0,
+            hold_auto_release_max_yocto: U128(0),
+            products: vec![],
         }
     }
 
     pub fn validate(&self) {
-        require!(self.max_tx_amount_yocto.0 > 0, "AEGIS_E_POLICY: max_tx_amount_yocto must be > 0");
+        require!(self.max_tx_amount_yocto.0 > 0, "PHALANX_E_POLICY: max_tx_amount_yocto must be > 0");
         require!(
             self.epoch_spending_cap_yocto.0 >= self.max_tx_amount_yocto.0,
-            "AEGIS_E_POLICY: epoch_spending_cap_yocto must be >= max_tx_amount_yocto"
+            "PHALANX_E_POLICY: epoch_spending_cap_yocto must be >= max_tx_amount_yocto"
         );
-        require!(self.max_slippage_bps <= 2_000, "AEGIS_E_POLICY: max_slippage_bps must be <= 2000");
-        require!(self.velocity_limit >= 1 && self.velocity_window_sec >= 1, "AEGIS_E_POLICY: velocity window");
-        require!(self.quarantine_after_strikes >= 1, "AEGIS_E_POLICY: quarantine_after_strikes must be >= 1");
-        require!(self.allowed_target_chains.len() <= 32 && self.allowed_assets.len() <= 64, "AEGIS_E_POLICY: list too long");
-        require!(self.allowed_contract_ids.len() <= 32, "AEGIS_E_POLICY: list too long");
+        require!(self.max_slippage_bps <= 2_000, "PHALANX_E_POLICY: max_slippage_bps must be <= 2000");
+        require!(self.velocity_limit >= 1 && self.velocity_window_sec >= 1, "PHALANX_E_POLICY: velocity window");
+        require!(self.quarantine_after_strikes >= 1, "PHALANX_E_POLICY: quarantine_after_strikes must be >= 1");
+        require!(self.allowed_target_chains.len() <= 32 && self.allowed_assets.len() <= 64, "PHALANX_E_POLICY: list too long");
+        require!(self.allowed_contract_ids.len() <= 32, "PHALANX_E_POLICY: list too long");
         for c in &self.allowed_target_chains {
-            require!(crate::codec::is_valid_chain_id(c), "AEGIS_E_POLICY: invalid chain id");
+            require!(crate::codec::is_valid_chain_id(c), "PHALANX_E_POLICY: invalid chain id");
         }
         for a in &self.allowed_assets {
-            require!(crate::codec::is_valid_asset_id(a), "AEGIS_E_POLICY: invalid asset id");
+            require!(crate::codec::is_valid_asset_id(a), "PHALANX_E_POLICY: invalid asset id");
         }
-        require!(self.allowed_recipients.len() <= MAX_RECIPIENTS, "AEGIS_E_POLICY: too many recipients");
+        require!(self.allowed_recipients.len() <= MAX_RECIPIENTS, "PHALANX_E_POLICY: too many recipients");
         for r in &self.allowed_recipients {
-            require!(is_valid_recipient_entry(r), "AEGIS_E_POLICY: recipients are `<chain>:<address>`, EVM addresses lower-case");
+            require!(
+                is_valid_recipient_entry(r),
+                "PHALANX_E_POLICY: recipients are `<chain>:<address>`, EVM addresses lower-case"
+            );
         }
-        require!(self.price_floors.len() <= MAX_PRICE_FLOORS, "AEGIS_E_POLICY: too many price floors");
+        require!(self.price_floors.len() <= MAX_PRICE_FLOORS, "PHALANX_E_POLICY: too many price floors");
         for f in &self.price_floors {
             require!(
                 crate::codec::is_valid_asset_id(&f.origin_asset) && crate::codec::is_valid_asset_id(&f.destination_asset),
-                "AEGIS_E_POLICY: price floor asset id"
+                "PHALANX_E_POLICY: price floor asset id"
             );
-            require!(f.unit_in.0 > 0 && f.min_out_per_unit.0 > 0, "AEGIS_E_POLICY: price floor must be > 0");
+            require!(f.unit_in.0 > 0 && f.min_out_per_unit.0 > 0, "PHALANX_E_POLICY: price floor must be > 0");
         }
-        require!(self.evm_chains.len() <= MAX_EVM_CHAINS, "AEGIS_E_POLICY: too many EVM chains");
+        require!(self.evm_chains.len() <= MAX_EVM_CHAINS, "PHALANX_E_POLICY: too many EVM chains");
         for c in &self.evm_chains {
-            require!(crate::codec::is_valid_chain_id(&c.chain) && c.chain_id > 0, "AEGIS_E_POLICY: EVM chain");
-            require!(c.max_value_wei.0 <= c.epoch_cap_wei.0, "AEGIS_E_POLICY: EVM max_value_wei must be <= epoch_cap_wei");
-            require!(c.tokens.len() <= MAX_EVM_TOKENS, "AEGIS_E_POLICY: too many EVM tokens");
+            require!(crate::codec::is_valid_chain_id(&c.chain) && c.chain_id > 0, "PHALANX_E_POLICY: EVM chain");
+            require!(c.max_value_wei.0 <= c.epoch_cap_wei.0, "PHALANX_E_POLICY: EVM max_value_wei must be <= epoch_cap_wei");
+            require!(c.tokens.len() <= MAX_EVM_TOKENS, "PHALANX_E_POLICY: too many EVM tokens");
             for t in &c.tokens {
-                require!(is_lower_evm_address(&t.token), "AEGIS_E_POLICY: EVM token must be a lower-case 0x address");
-                require!(is_safe_ascii(&t.symbol, 16) && !t.symbol.is_empty(), "AEGIS_E_POLICY: EVM token symbol");
-                require!(t.max_amount.0 <= t.epoch_cap.0, "AEGIS_E_POLICY: EVM token max_amount must be <= epoch_cap");
+                require!(is_lower_evm_address(&t.token), "PHALANX_E_POLICY: EVM token must be a lower-case 0x address");
+                require!(is_safe_ascii(&t.symbol, 16) && !t.symbol.is_empty(), "PHALANX_E_POLICY: EVM token symbol");
+                require!(t.max_amount.0 <= t.epoch_cap.0, "PHALANX_E_POLICY: EVM token max_amount must be <= epoch_cap");
             }
         }
         let mut chains: Vec<&str> = self.evm_chains.iter().map(|c| c.chain.as_str()).collect();
         chains.sort_unstable();
         chains.dedup();
-        require!(chains.len() == self.evm_chains.len(), "AEGIS_E_POLICY: duplicate EVM chain");
+        require!(chains.len() == self.evm_chains.len(), "PHALANX_E_POLICY: duplicate EVM chain");
         require!(
             self.audit_prompt_hash.as_deref().map(crate::codec::is_lower_hash32_hex).unwrap_or(true),
-            "AEGIS_E_POLICY: audit_prompt_hash must be 32-byte lower-case hex"
+            "PHALANX_E_POLICY: audit_prompt_hash must be 32-byte lower-case hex"
         );
-        require!(self.task_prompt_hashes.len() <= MAX_TASK_PROMPTS, "AEGIS_E_POLICY: too many task prompts");
+        require!(self.task_prompt_hashes.len() <= MAX_TASK_PROMPTS, "PHALANX_E_POLICY: too many task prompts");
         require!(
             self.task_prompt_hashes.iter().all(|h| crate::codec::is_lower_hash32_hex(h)),
-            "AEGIS_E_POLICY: task_prompt_hashes must be 32-byte lower-case hex"
+            "PHALANX_E_POLICY: task_prompt_hashes must be 32-byte lower-case hex"
         );
         require!(
             self.min_task_confidence_bps <= 10_000 && self.min_task_reputation_bps <= 10_000,
-            "AEGIS_E_POLICY: task floors must be <= 10000"
+            "PHALANX_E_POLICY: task floors must be <= 10000"
         );
+        require!(
+            self.hold_release_after_sec == 0 || (60..=2_592_000).contains(&self.hold_release_after_sec),
+            "PHALANX_E_POLICY: hold_release_after_sec must be 0 or 60..=2592000"
+        );
+        require!(
+            self.hold_auto_release_max_yocto.0 <= self.max_tx_amount_yocto.0,
+            "PHALANX_E_POLICY: hold_auto_release_max_yocto must be <= max_tx_amount_yocto"
+        );
+        require!(self.products.len() <= MAX_PRODUCTS, "PHALANX_E_POLICY: too many products");
+        for (i, p) in self.products.iter().enumerate() {
+            p.validate();
+            require!(!self.products[..i].iter().any(|q| q.product_id == p.product_id), "PHALANX_E_POLICY: duplicate product_id");
+        }
     }
 
     pub fn evm_chain(&self, chain: &str) -> Option<&EvmChainPolicy> {
@@ -303,17 +340,17 @@ impl AgentPolicy {
     }
 
     pub fn validate(&self) {
-        require!(self.max_tx_amount_yocto.0 > 0, "AEGIS_E_POLICY: agent max_tx_amount_yocto must be > 0");
+        require!(self.max_tx_amount_yocto.0 > 0, "PHALANX_E_POLICY: agent max_tx_amount_yocto must be > 0");
         require!(
             self.epoch_spending_cap_yocto.0 >= self.max_tx_amount_yocto.0,
-            "AEGIS_E_POLICY: agent epoch_spending_cap_yocto must be >= max_tx_amount_yocto"
+            "PHALANX_E_POLICY: agent epoch_spending_cap_yocto must be >= max_tx_amount_yocto"
         );
         require!(
             self.allowed_target_chains.len() <= 32 && self.allowed_contract_ids.len() <= 32,
-            "AEGIS_E_POLICY: list too long"
+            "PHALANX_E_POLICY: list too long"
         );
         for c in &self.allowed_target_chains {
-            require!(crate::codec::is_valid_chain_id(c), "AEGIS_E_POLICY: invalid chain id");
+            require!(crate::codec::is_valid_chain_id(c), "PHALANX_E_POLICY: invalid chain id");
         }
     }
 }
@@ -462,6 +499,14 @@ pub enum PolicyViolation {
     EvmTransferOutstanding {
         tx_id: U64,
     },
+    /// The DAO requires an invoice number on vendor payments and EVM transfers.
+    InvoiceRefMissing,
+    /// This invoice was already paid to this recipient, or its payment is in flight.
+    InvoiceAlreadyPaid {
+        invoice_ref: String,
+        subject: String,
+        subject_id: U64,
+    },
 }
 
 impl PolicyViolation {
@@ -499,6 +544,8 @@ impl PolicyViolation {
             Self::TaskFloorBelowPolicy { .. } => "task_floor_below_policy",
             Self::EvmNonceMismatch { .. } => "evm_nonce_mismatch",
             Self::EvmTransferOutstanding { .. } => "evm_transfer_outstanding",
+            Self::InvoiceRefMissing => "invoice_ref_missing",
+            Self::InvoiceAlreadyPaid { .. } => "invoice_already_paid",
         }
     }
 
@@ -511,7 +558,19 @@ impl PolicyViolation {
             | Self::RecipientNeedsApproval { .. }
             // Nonce discipline protects by rejecting: a stale nonce can be an honest race.
             | Self::EvmNonceMismatch { .. }
-            | Self::EvmTransferOutstanding { .. } => Severity::Notice,
+            | Self::EvmTransferOutstanding { .. }
+            // A duplicate is usually an honest retry or two agents handling one invoice.
+            | Self::InvoiceRefMissing
+            | Self::InvoiceAlreadyPaid { .. } => Severity::Notice,
+            // Rate limiting: up to twice the limit inside one window is refused without a strike
+            // (an honest batch backs off and retries); a burst beyond that is treated as an attack.
+            Self::VelocityExceeded { requests, limit, .. } => {
+                if *requests > limit.saturating_mul(2) {
+                    Severity::Critical
+                } else {
+                    Severity::Notice
+                }
+            }
             // Attempting to move 4x the allowed amount in one shot is treated as an attack.
             Self::AmountExceedsTxLimit { amount, limit } | Self::EvmAmountExceedsLimit { amount, limit } => {
                 if amount.0 >= limit.0.saturating_mul(4) {
@@ -523,7 +582,6 @@ impl PolicyViolation {
             Self::ChainNotAllowed { .. }
             | Self::ContractNotAllowed { .. }
             | Self::AssetNotAllowed { .. }
-            | Self::VelocityExceeded { .. }
             | Self::InvalidTeeAttestation { .. }
             | Self::InvalidIntentSignature
             | Self::NonceReused
@@ -798,7 +856,7 @@ pub fn evaluate_spend(
 // Keep metadata-only edits above this boundary deliberate: Rust embeds panic source locations.
 // Internal state transitions
 
-impl AegisCore {
+impl PhalanxCore {
     pub(crate) fn record_security_event(
         &mut self,
         kind: &str,
@@ -842,7 +900,7 @@ impl AegisCore {
     /// Returns `true` when an on-chain key revocation was scheduled.
     pub(crate) fn quarantine_agent(&mut self, agent_id: &AccountId, reason: String, codes: Vec<String>, automatic: bool) -> bool {
         let Some(mut agent) = self.agents.get(agent_id).cloned() else {
-            env::panic_str("AEGIS_E_UNKNOWN_AGENT");
+            env::panic_str("PHALANX_E_UNKNOWN_AGENT");
         };
         if matches!(agent.status, AgentStatus::Quarantined { .. } | AgentStatus::Revoked { .. }) {
             return false;
@@ -854,7 +912,7 @@ impl AegisCore {
         };
         let key_revoked = self.delete_contract_key(&mut agent);
         self.agents.insert(agent_id.clone(), agent);
-        AegisEvent::AgentQuarantined {
+        PhalanxEvent::AgentQuarantined {
             agent_id: agent_id.clone(),
             reason: reason.clone(),
             violation_codes: codes.clone(),
@@ -879,7 +937,7 @@ impl AegisCore {
             return (severity, false);
         }
         let codes: Vec<String> = violations.iter().map(|v| v.code().to_string()).collect();
-        AegisEvent::PolicyViolation {
+        PhalanxEvent::PolicyViolation {
             agent_id: agent_id.clone(),
             method: method.to_string(),
             severity: severity.as_str().to_string(),
@@ -922,13 +980,13 @@ impl AegisCore {
 
 // Governance and kill-switch methods
 
-impl AegisCore {
+impl PhalanxCore {
     /// Rejects a change written against an older policy, then bumps the version.
     fn next_policy_version(&mut self, expected_version: Option<U64>) {
         if let Some(expected) = expected_version {
             require!(
                 expected.0 == self.policy_version,
-                "AEGIS_E_STALE_POLICY: the policy changed since this proposal was written"
+                "PHALANX_E_STALE_POLICY: the policy changed since this proposal was written"
             );
         }
         self.policy_version += 1;
@@ -936,7 +994,7 @@ impl AegisCore {
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Owner (human / DAO) replaces the global policy. With `expected_version`, the call fails if
     /// the policy changed since the proposal was written, so an older proposal cannot undo a newer one.
     pub fn update_global_policy(&mut self, policy: GlobalPolicy, expected_version: Option<U64>) {
@@ -944,7 +1002,7 @@ impl AegisCore {
         policy.validate();
         self.next_policy_version(expected_version);
         self.policy = policy;
-        AegisEvent::PolicyUpdated { scope: "global".to_string() }.emit();
+        PhalanxEvent::PolicyUpdated { scope: "global".to_string() }.emit();
         self.record_security_event("policy_updated", None, Severity::None, vec![], "global policy updated".to_string());
     }
 
@@ -954,15 +1012,15 @@ impl AegisCore {
         self.assert_owner();
         require!(
             is_valid_recipient_entry(&recipient),
-            "AEGIS_E_POLICY: recipients are `<chain>:<address>`, EVM addresses lower-case"
+            "PHALANX_E_POLICY: recipients are `<chain>:<address>`, EVM addresses lower-case"
         );
         if self.policy.allowed_recipients.contains(&recipient) {
             return false;
         }
-        require!(self.policy.allowed_recipients.len() < MAX_RECIPIENTS, "AEGIS_E_POLICY: too many recipients");
+        require!(self.policy.allowed_recipients.len() < MAX_RECIPIENTS, "PHALANX_E_POLICY: too many recipients");
         self.next_policy_version(expected_version);
         self.policy.allowed_recipients.push(recipient.clone());
-        AegisEvent::PolicyUpdated { scope: format!("recipient_added:{recipient}") }.emit();
+        PhalanxEvent::PolicyUpdated { scope: format!("recipient_added:{recipient}") }.emit();
         self.record_security_event("policy_updated", None, Severity::None, vec![], format!("{recipient} allow-listed"));
         true
     }
@@ -975,7 +1033,7 @@ impl AegisCore {
         };
         self.next_policy_version(expected_version);
         self.policy.allowed_recipients.remove(pos);
-        AegisEvent::PolicyUpdated { scope: format!("recipient_removed:{recipient}") }.emit();
+        PhalanxEvent::PolicyUpdated { scope: format!("recipient_removed:{recipient}") }.emit();
         self.record_security_event(
             "policy_updated",
             None,
@@ -995,24 +1053,24 @@ impl AegisCore {
     pub fn set_agent_policy(&mut self, agent_id: AccountId, policy: AgentPolicy) {
         self.assert_owner();
         policy.validate();
-        let mut agent = self.agents.get(&agent_id).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_AGENT"));
+        let mut agent = self.agents.get(&agent_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_AGENT"));
         agent.policy = policy;
         self.agents.insert(agent_id.clone(), agent);
-        AegisEvent::PolicyUpdated { scope: format!("agent:{agent_id}") }.emit();
+        PhalanxEvent::PolicyUpdated { scope: format!("agent:{agent_id}") }.emit();
         self.record_security_event("policy_updated", Some(&agent_id), Severity::None, vec![], "agent policy updated".to_string());
     }
 
     /// Global kill switch. The owner can pause and resume; a Sentinel agent can only pause.
     pub fn set_protocol_paused(&mut self, paused: bool, reason: String) {
-        require!(is_safe_ascii(&reason, 160), "AEGIS_E_INVALID_REASON");
+        require!(is_safe_ascii(&reason, 160), "PHALANX_E_INVALID_REASON");
         if !self.is_owner_call() {
             let agent = self.caller_agent("set_protocol_paused");
-            require!(agent.role == AgentRole::Sentinel, "AEGIS_E_UNAUTHORIZED");
-            require!(agent.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
-            require!(paused, "AEGIS_E_ONLY_OWNER_CAN_RESUME");
+            require!(agent.role == AgentRole::Sentinel, "PHALANX_E_UNAUTHORIZED");
+            require!(agent.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+            require!(paused, "PHALANX_E_ONLY_OWNER_CAN_RESUME");
         }
         self.paused = paused;
-        AegisEvent::ProtocolPaused { paused, reason: reason.clone() }.emit();
+        PhalanxEvent::ProtocolPaused { paused, reason: reason.clone() }.emit();
         let severity = if paused { Severity::Critical } else { Severity::None };
         self.record_security_event("kill_switch", None, severity, vec![], reason);
     }
@@ -1020,18 +1078,18 @@ impl AegisCore {
     /// Manual freeze by the owner.
     pub fn freeze_agent(&mut self, agent_id: AccountId, reason: String) -> bool {
         self.assert_owner();
-        require!(is_safe_ascii(&reason, 160), "AEGIS_E_INVALID_REASON");
+        require!(is_safe_ascii(&reason, 160), "PHALANX_E_INVALID_REASON");
         self.quarantine_agent(&agent_id, format!("owner freeze: {reason}"), vec!["manual_freeze".to_string()], false)
     }
 
     /// Sentinel trips the breaker on another agent after an off-chain audit finding.
     pub fn report_agent(&mut self, agent_id: AccountId, reason: String, evidence_hash: String) -> bool {
         let reporter = self.caller_agent("report_agent");
-        require!(reporter.role == AgentRole::Sentinel, "AEGIS_E_UNAUTHORIZED");
-        require!(reporter.status == AgentStatus::Active, "AEGIS_E_AGENT_NOT_ACTIVE");
-        require!(reporter.agent_id != agent_id, "AEGIS_E_SELF_REPORT");
-        require!(is_safe_ascii(&reason, 160), "AEGIS_E_INVALID_REASON");
-        require!(crate::codec::is_hash32_hex(&evidence_hash), "AEGIS_E_INVALID_EVIDENCE_HASH");
+        require!(reporter.role == AgentRole::Sentinel, "PHALANX_E_UNAUTHORIZED");
+        require!(reporter.status == AgentStatus::Active, "PHALANX_E_AGENT_NOT_ACTIVE");
+        require!(reporter.agent_id != agent_id, "PHALANX_E_SELF_REPORT");
+        require!(is_safe_ascii(&reason, 160), "PHALANX_E_INVALID_REASON");
+        require!(crate::codec::is_hash32_hex(&evidence_hash), "PHALANX_E_INVALID_EVIDENCE_HASH");
         let detail = format!("sentinel {} report: {} [evidence {}]", reporter.agent_id, reason, evidence_hash);
         self.quarantine_agent(&agent_id, detail, vec!["sentinel_report".to_string()], false)
     }
@@ -1039,8 +1097,8 @@ impl AegisCore {
     /// Owner lifts a quarantine after review. Revoked contract keys are re-provisioned.
     pub fn reinstate_agent(&mut self, agent_id: AccountId) {
         self.assert_owner();
-        let mut agent = self.agents.get(&agent_id).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_AGENT"));
-        require!(matches!(agent.status, AgentStatus::Quarantined { .. }), "AEGIS_E_NOT_QUARANTINED");
+        let mut agent = self.agents.get(&agent_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_AGENT"));
+        require!(matches!(agent.status, AgentStatus::Quarantined { .. }), "PHALANX_E_NOT_QUARANTINED");
         agent.status = AgentStatus::Active;
         agent.violations = 0;
         if agent.spawn_mode == SpawnMode::ContractKey && !agent.key_active {
@@ -1056,7 +1114,7 @@ impl AegisCore {
             self.treasury.contract_key_allowances += agent.allowance_cap.0;
         }
         self.agents.insert(agent_id.clone(), agent);
-        AegisEvent::AgentReinstated { agent_id: agent_id.clone() }.emit();
+        PhalanxEvent::AgentReinstated { agent_id: agent_id.clone() }.emit();
         self.record_security_event("reinstated", Some(&agent_id), Severity::None, vec![], "owner reinstated agent".to_string());
     }
 

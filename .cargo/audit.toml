@@ -1,6 +1,6 @@
 # cargo-audit scans every package in Cargo.lock, including host-only unit/sandbox-test tooling.
 # These exceptions do not occur in the production wasm32 dependency graph (`cargo tree -p
-# aegis-core --target wasm32-unknown-unknown -e normal`). Keep each exception narrow and remove it
+# phalanx-core --target wasm32-unknown-unknown -e normal`). Keep each exception narrow and remove it
 # as soon as near-sdk / near-workspaces update their host-side dependency graph.
 [advisories]
 ignore = [

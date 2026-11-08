@@ -13,7 +13,7 @@ import {
   type PolicyViolationT,
   type PreflightDecision,
   type SettlementOutcomeT,
-} from "@aegis/agent-swarm-sdk";
+} from "@phalanx/agent-swarm-sdk";
 import { AnimatePresence } from "framer-motion";
 import {
   Ban,
@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useTestnetTxs } from "@/lib/testnet-evidence";
 import { useAction } from "@/lib/use-action";
 
@@ -197,7 +197,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** The guided demo: a fooled agent loses its key, an approval over invented facts fails, a new vendor waits for the DAO. */
 export function TryIt() {
-  const { runtime, dashboard, busy, reset, inference, agentsInfo, scenario } = useAegis();
+  const { runtime, dashboard, busy, reset, inference, agentsInfo, scenario } = usePhalanx();
   const action = useAction();
   const txs = useTestnetTxs();
   const [limits, setLimits] = useState<Limits>({ maxTx: "", cap: "", vendorNear: true, vendorEvm: true, holdNew: false });
@@ -569,10 +569,10 @@ export function TryIt() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-3xl">
             <h2 id="try-title" className="text-balance text-[26px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
-              The contract decides whether an AI&apos;s decision counts.
+              A TEE signature proves which model answered, not what it was asked.
             </h2>
             <p className="mt-2.5 text-[14px] leading-relaxed text-slate-400">
-              AI agents can be fooled or hacked, so the NEAR contract checks every payment against the DAO&apos;s rules before any money moves.
+              The NEAR contract checks both: the DAO pins the auditor&apos;s prompt and the contract writes its evidence, so a signed approval over a self-written prompt or invented facts fails. An agent that breaks a critical rule loses its key in the same transaction.
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

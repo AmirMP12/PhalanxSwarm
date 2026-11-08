@@ -1,6 +1,6 @@
 "use client";
 
-import type { IntentsMode } from "@aegis/agent-swarm-sdk";
+import type { IntentsMode } from "@phalanx/agent-swarm-sdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { loadLive } from "@/lib/live-deployment";
 import { connectWallet } from "@/lib/use-wallet";
 
@@ -44,7 +44,7 @@ function score(item: CommandItem, q: string): number {
 
 /** Commands that belong to the page itself: navigation, judge mode, 1Click mode, wallet. */
 function useGlobalCommands() {
-  const { runScenario, reset, setMode, configure, mode, brains, agentsInfo, status, scenario, busy } = useAegis();
+  const { runScenario, reset, setMode, configure, mode, brains, agentsInfo, status, scenario, busy } = usePhalanx();
   useCommands(
     () => [
       ...SECTIONS.flatMap<CommandItem>((s) => [
@@ -112,7 +112,7 @@ function useGlobalCommands() {
         id: "judge-reset",
         group: "Judge scenario",
         title: "Reset sandbox",
-        subtitle: "Boot a fresh AegisSim runtime",
+        subtitle: "Boot a fresh PhalanxSim runtime",
         icon: RotateCcw,
         disabled: scenario.running || status !== "ready" || busy !== null,
         disabledReason: "Busy",

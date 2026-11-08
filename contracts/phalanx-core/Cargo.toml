@@ -1,5 +1,5 @@
 [package]
-name = "aegis-core"
+name = "phalanx-core"
 version = "0.1.0"
 description = "PhalanxSwarm core contract: policy-enforced agent treasury, swarm bidding market, TEE-verified escrow and NEAR Intents / Chain Signatures settlement"
 edition.workspace = true

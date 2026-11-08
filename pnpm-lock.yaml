@@ -54,15 +54,15 @@ importers:
 
   apps/web:
     dependencies:
-      '@aegis/agent-swarm-sdk':
-        specifier: workspace:*
-        version: link:../../packages/agent-swarm-sdk
       '@hot-labs/near-connect':
         specifier: ^0.12.0
         version: 0.12.0
       '@phala/dcap-qvl':
         specifier: ^0.7.0
         version: 0.7.0
+      '@phalanx/agent-swarm-sdk':
+        specifier: workspace:*
+        version: link:../../packages/agent-swarm-sdk
       framer-motion:
         specifier: ^14.7.1
         version: 14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

@@ -7,7 +7,7 @@ onlyBuiltDependencies:
   - sharp
   - "@tailwindcss/oxide"
 
-# @phala/dcap-qvl uses elliptic only in its browser compatibility layer. Aegis imports it from
+# @phala/dcap-qvl uses elliptic only in its browser compatibility layer. Phalanx imports it from
 # the Node-only SDK entry and only verifies public Intel signatures; it never generates ECDSA
 # signatures or handles an elliptic private key, so CVE-2025-14505's signing-key exposure path is
 # unreachable. Upstream has no patched elliptic release yet; keep this narrow exception until one

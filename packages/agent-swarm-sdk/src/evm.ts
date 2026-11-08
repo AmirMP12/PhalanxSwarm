@@ -1,5 +1,5 @@
 /**
- * EVM side of Chain Signatures spending (mirrors `contracts/aegis-core/src/evm.rs`).
+ * EVM side of Chain Signatures spending (mirrors `contracts/phalanx-core/src/evm.rs`).
  *
  * - `buildEvmTx` reproduces the exact EIP-1559 transaction the contract builds for an
  *   `EvmTransferRequest`, so its `signing_hash` can be checked against the contract's preview.
@@ -139,7 +139,7 @@ export interface BuiltEvmTx {
   data: Uint8Array;
 }
 
-/** The transaction `aegis-core` signs for `request` under `chain` (byte-identical to the contract). */
+/** The transaction `phalanx-core` signs for `request` under `chain` (byte-identical to the contract). */
 export function buildEvmTx(chain: Pick<EvmChainPolicyT, "chain_id">, request: EvmTransferRequestT): BuiltEvmTx {
   const native = request.asset === NATIVE_ASSET;
   const txTo = native ? request.to.toLowerCase() : request.asset;

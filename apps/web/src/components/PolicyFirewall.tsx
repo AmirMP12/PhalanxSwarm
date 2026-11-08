@@ -1,10 +1,10 @@
 "use client";
 
-import { formatNear, parseNear, type GlobalPolicyT } from "@aegis/agent-swarm-sdk";
+import { formatNear, parseNear, type GlobalPolicyT } from "@phalanx/agent-swarm-sdk";
 import { Info, KeyRound, OctagonAlert, Play, Power, ShieldCheck, ShieldEllipsis, ShieldX, Snowflake, TriangleAlert, Undo2, UserCog } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 import { useAction } from "@/lib/use-action";
 
 import {
@@ -69,7 +69,7 @@ const intError = (v: string, min: number, max: number) =>
 
 /** Kill switch / resume, shared by the card header and the command palette. */
 function usePauseControls() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const pause = () =>
     runtime &&
@@ -116,7 +116,7 @@ function usePauseControls() {
 }
 
 export function PolicyFirewall() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const { pause, resume } = usePauseControls();
   const [draft, setDraft] = useState<Draft>({ maxTx: "", cap: "", velocity: "", slippage: "", tee: true });
@@ -352,7 +352,7 @@ export function PolicyFirewall() {
 
 /** The shared blocklist: an active Sentinel or the DAO adds an address with its evidence; only the owner removes one. */
 function BlockedRecipients() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const blocked = dashboard?.blocked_recipients ?? [];
   return (
@@ -410,7 +410,7 @@ function BlockedRecipients() {
 }
 
 export function SecurityEvents() {
-  const { dashboard } = useAegis();
+  const { dashboard } = usePhalanx();
   const events = dashboard?.security_events ?? [];
   const count = (s: string) => events.filter((e) => e.severity === s).length;
   return (
@@ -486,7 +486,7 @@ export function SecurityEvents() {
 }
 
 export function AgentControls() {
-  const { runtime, dashboard, busy } = useAegis();
+  const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const personaOf = usePersonaOf();
   const controlFor = (a: NonNullable<typeof dashboard>["agents"][number], full = false) => {

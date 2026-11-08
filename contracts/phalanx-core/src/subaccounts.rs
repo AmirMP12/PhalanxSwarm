@@ -13,9 +13,9 @@
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near, require, AccountId, Allowance, CurveType, Gas, NearToken, Promise, PublicKey};
 
-use crate::events::AegisEvent;
+use crate::events::PhalanxEvent;
 use crate::policy::{AgentPolicy, Severity};
-use crate::{AegisCore, AegisCoreExt, ONE_NEAR};
+use crate::{PhalanxCore, PhalanxCoreExt, ONE_NEAR};
 
 /// Methods every agent key may call: bid, prove work, request settlements and spend earnings.
 pub const WORKER_METHODS: [&str; 6] = [
@@ -159,25 +159,25 @@ pub fn methods_for_role(role: AgentRole) -> Vec<String> {
 }
 
 pub(crate) fn key_allowance(cap: u128) -> Allowance {
-    Allowance::limited(NearToken::from_yoctonear(cap)).unwrap_or_else(|| env::panic_str("AEGIS_E_ZERO_ALLOWANCE"))
+    Allowance::limited(NearToken::from_yoctonear(cap)).unwrap_or_else(|| env::panic_str("PHALANX_E_ZERO_ALLOWANCE"))
 }
 
 /// NEAR account-id rules for one label: 2-32 chars of `[a-z0-9]`, single `-`/`_` separators.
 pub fn validate_handle(handle: &str) {
     let bytes = handle.as_bytes();
-    require!((2..=32).contains(&bytes.len()), "AEGIS_E_INVALID_HANDLE: length must be 2..=32");
+    require!((2..=32).contains(&bytes.len()), "PHALANX_E_INVALID_HANDLE: length must be 2..=32");
     let is_sep = |c: u8| c == b'-' || c == b'_';
-    require!(!is_sep(bytes[0]) && !is_sep(bytes[bytes.len() - 1]), "AEGIS_E_INVALID_HANDLE: separator at edge");
+    require!(!is_sep(bytes[0]) && !is_sep(bytes[bytes.len() - 1]), "PHALANX_E_INVALID_HANDLE: separator at edge");
     let mut prev_sep = false;
     for &c in bytes {
         let sep = is_sep(c);
-        require!(sep || c.is_ascii_lowercase() || c.is_ascii_digit(), "AEGIS_E_INVALID_HANDLE: charset");
-        require!(!(sep && prev_sep), "AEGIS_E_INVALID_HANDLE: double separator");
+        require!(sep || c.is_ascii_lowercase() || c.is_ascii_digit(), "PHALANX_E_INVALID_HANDLE: charset");
+        require!(!(sep && prev_sep), "PHALANX_E_INVALID_HANDLE: double separator");
         prev_sep = sep;
     }
 }
 
-impl AegisCore {
+impl PhalanxCore {
     /// Resolves the calling agent from the predecessor (sub-account mode) or from the
     /// signing key (contract-key mode).
     pub(crate) fn resolve_agent_caller(&self) -> Option<AgentRecord> {
@@ -196,13 +196,13 @@ impl AegisCore {
     /// Like `resolve_agent_caller`, but panics for non-agents and re-checks the key scope
     /// (defense in depth: the protocol already enforces the FunctionCall method list).
     pub(crate) fn caller_agent(&self, method: &str) -> AgentRecord {
-        let agent = self.resolve_agent_caller().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_AGENT"));
-        require!(agent.allowed_methods.iter().any(|m| m == method), "AEGIS_E_METHOD_NOT_IN_KEY_SCOPE");
+        let agent = self.resolve_agent_caller().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_AGENT"));
+        require!(agent.allowed_methods.iter().any(|m| m == method), "PHALANX_E_METHOD_NOT_IN_KEY_SCOPE");
         agent
     }
 
     pub(crate) fn agent_or_panic(&self, agent_id: &AccountId) -> AgentRecord {
-        self.agents.get(agent_id).cloned().unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_AGENT"))
+        self.agents.get(agent_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_AGENT"))
     }
 
     /// Credits spendable earnings to an agent (escrow payouts and agent-to-agent payments).
@@ -211,12 +211,12 @@ impl AegisCore {
         agent.balance = U128(agent.balance.0 + amount);
         agent.total_earned = U128(agent.total_earned.0 + amount);
         self.agents.insert(agent_id.clone(), agent);
-        AegisEvent::EarningsCredited { agent_id: agent_id.clone(), amount: U128(amount), source: source.to_string() }.emit();
+        PhalanxEvent::EarningsCredited { agent_id: agent_id.clone(), amount: U128(amount), source: source.to_string() }.emit();
     }
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Owner-only. Registers an agent and provisions its scoped FunctionCall key.
     ///
     /// Sub-account mode requires an attached deposit (>= `config.subaccount_min_deposit`)
@@ -240,19 +240,19 @@ impl AegisCore {
     ) -> AgentRecord {
         self.assert_owner();
         validate_handle(&agent_handle);
-        require!(self.agents.len() < MAX_AGENTS, "AEGIS_E_TOO_MANY_AGENTS");
-        require!(public_key.curve_type() == CurveType::ED25519, "AEGIS_E_ED25519_KEY_REQUIRED");
-        require!(allowance_cap.0 > 0 && allowance_cap.0 <= MAX_ALLOWANCE, "AEGIS_E_INVALID_ALLOWANCE: must be in (0, 5 NEAR]");
+        require!(self.agents.len() < MAX_AGENTS, "PHALANX_E_TOO_MANY_AGENTS");
+        require!(public_key.curve_type() == CurveType::ED25519, "PHALANX_E_ED25519_KEY_REQUIRED");
+        require!(allowance_cap.0 > 0 && allowance_cap.0 <= MAX_ALLOWANCE, "PHALANX_E_INVALID_ALLOWANCE: must be in (0, 5 NEAR]");
         let reputation = initial_reputation_bps.unwrap_or(INITIAL_REPUTATION_BPS);
-        require!(reputation <= 10_000, "AEGIS_E_INVALID_REPUTATION");
+        require!(reputation <= 10_000, "PHALANX_E_INVALID_REPUTATION");
 
         let contract_id = env::current_account_id();
         let agent_id: AccountId = format!("{agent_handle}.{contract_id}")
             .parse()
-            .unwrap_or_else(|_| env::panic_str("AEGIS_E_INVALID_HANDLE: resulting account id is invalid"));
-        require!(self.agents.get(&agent_id).is_none(), "AEGIS_E_AGENT_EXISTS");
+            .unwrap_or_else(|_| env::panic_str("PHALANX_E_INVALID_HANDLE: resulting account id is invalid"));
+        require!(self.agents.get(&agent_id).is_none(), "PHALANX_E_AGENT_EXISTS");
         let pk_str = String::from(&public_key);
-        require!(!self.agent_by_key.contains_key(&pk_str), "AEGIS_E_KEY_ALREADY_REGISTERED");
+        require!(!self.agent_by_key.contains_key(&pk_str), "PHALANX_E_KEY_ALREADY_REGISTERED");
 
         let mode = spawn_mode.unwrap_or(if reputation < INITIAL_REPUTATION_BPS {
             SpawnMode::ContractKey
@@ -263,12 +263,12 @@ impl AegisCore {
         match mode {
             SpawnMode::SubAccount => require!(
                 deposit.as_yoctonear() >= self.config.subaccount_min_deposit.0,
-                "AEGIS_E_DEPOSIT_TOO_LOW: sub-account spawn needs config.subaccount_min_deposit"
+                "PHALANX_E_DEPOSIT_TOO_LOW: sub-account spawn needs config.subaccount_min_deposit"
             ),
             SpawnMode::ContractKey => {
-                require!(deposit.is_zero(), "AEGIS_E_NO_DEPOSIT_FOR_CONTRACT_KEY");
+                require!(deposit.is_zero(), "PHALANX_E_NO_DEPOSIT_FOR_CONTRACT_KEY");
                 // The key burns gas from the contract balance: reserve its full allowance.
-                require!(allowance_cap.0 <= self.available_liquidity(), "AEGIS_E_INSUFFICIENT_LIQUIDITY_FOR_GAS_ALLOWANCE");
+                require!(allowance_cap.0 <= self.available_liquidity(), "PHALANX_E_INSUFFICIENT_LIQUIDITY_FOR_GAS_ALLOWANCE");
                 self.treasury.contract_key_allowances += allowance_cap.0;
             }
         }
@@ -330,7 +330,7 @@ impl AegisCore {
             )
             .detach();
 
-        AegisEvent::AgentSpawnRequested {
+        PhalanxEvent::AgentSpawnRequested {
             agent_id,
             role,
             spawn_mode: mode,
@@ -345,7 +345,7 @@ impl AegisCore {
     /// Callback of the provisioning receipt.
     #[private]
     pub fn on_agent_spawned(&mut self, agent_id: AccountId, deposit: U128) -> bool {
-        require!(env::promise_results_count() == 1, "AEGIS_E_CALLBACK_ONLY");
+        require!(env::promise_results_count() == 1, "PHALANX_E_CALLBACK_ONLY");
         let ok = env::promise_result_checked(0, 64).is_ok();
         let Some(mut agent) = self.agents.get(&agent_id).cloned() else {
             return false;
@@ -355,7 +355,7 @@ impl AegisCore {
             agent.key_active = true;
             let role = agent.role;
             self.agents.insert(agent_id.clone(), agent);
-            AegisEvent::AgentSpawned { agent_id, role }.emit();
+            PhalanxEvent::AgentSpawned { agent_id, role }.emit();
             true
         } else {
             // The failed receipt refunded the deposit to this contract; hand it back to the owner.
@@ -368,7 +368,7 @@ impl AegisCore {
             if deposit.0 > 0 {
                 Promise::new(self.owner_id.clone()).transfer(NearToken::from_yoctonear(deposit.0)).detach();
             }
-            AegisEvent::AgentSpawnFailed { agent_id: agent_id.clone(), refunded: deposit }.emit();
+            PhalanxEvent::AgentSpawnFailed { agent_id: agent_id.clone(), refunded: deposit }.emit();
             self.record_security_event(
                 "agent_spawn_failed",
                 Some(&agent_id),
@@ -384,11 +384,11 @@ impl AegisCore {
     pub fn revoke_agent(&mut self, agent_id: AccountId) {
         self.assert_owner();
         let mut agent = self.agent_or_panic(&agent_id);
-        require!(!matches!(agent.status, AgentStatus::Revoked { .. }), "AEGIS_E_ALREADY_REVOKED");
+        require!(!matches!(agent.status, AgentStatus::Revoked { .. }), "PHALANX_E_ALREADY_REVOKED");
         self.delete_contract_key(&mut agent);
         agent.status = AgentStatus::Revoked { at_ns: U64(env::block_timestamp()) };
         self.agents.insert(agent_id.clone(), agent);
-        AegisEvent::AgentRevoked { agent_id: agent_id.clone() }.emit();
+        PhalanxEvent::AgentRevoked { agent_id: agent_id.clone() }.emit();
         self.record_security_event("revoked", Some(&agent_id), Severity::Warning, vec![], "owner revoked agent".to_string());
     }
 

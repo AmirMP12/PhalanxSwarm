@@ -8,7 +8,7 @@ import { accountBalance, accountExists, networkConfig, REPO_ROOT, saveCredential
 async function main() {
   const cfg = networkConfig("testnet");
   const suffix = randomBytes(3).toString("hex");
-  const accountId = process.argv[2] ?? `aegis-deploy-${suffix}.testnet`;
+  const accountId = process.argv[2] ?? `phalanx-deploy-${suffix}.testnet`;
 
   console.log(`Generating key pair for ${accountId}...`);
   const keyPair = randomKeyPair();
@@ -62,14 +62,14 @@ async function main() {
 
   const normalizedPath = credPath.replace(/\\/g, "/");
 
-  if (/^AEGIS_TESTNET_CREDENTIAL=.*$/m.test(envContent)) {
-    envContent = envContent.replace(/^AEGIS_TESTNET_CREDENTIAL=.*$/m, `AEGIS_TESTNET_CREDENTIAL=${normalizedPath}`);
+  if (/^PHALANX_TESTNET_CREDENTIAL=.*$/m.test(envContent)) {
+    envContent = envContent.replace(/^PHALANX_TESTNET_CREDENTIAL=.*$/m, `PHALANX_TESTNET_CREDENTIAL=${normalizedPath}`);
   } else {
-    envContent += `\nAEGIS_TESTNET_CREDENTIAL=${normalizedPath}\n`;
+    envContent += `\nPHALANX_TESTNET_CREDENTIAL=${normalizedPath}\n`;
   }
 
   writeFileSync(envPath, envContent, "utf8");
-  console.log(`Updated .env with AEGIS_TESTNET_CREDENTIAL=${normalizedPath}`);
+  console.log(`Updated .env with PHALANX_TESTNET_CREDENTIAL=${normalizedPath}`);
 }
 
 main().catch((e) => {

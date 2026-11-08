@@ -79,5 +79,9 @@ export function describeViolation(v: PolicyViolationT): string {
       return `EVM nonce ${v.got} is not the next one the treasury signs (${v.expected}).`;
     case "evm_transfer_outstanding":
       return `EVM transfer #${v.tx_id} is still signed and unconfirmed; confirm or cancel it first.`;
+    case "invoice_ref_missing":
+      return "The DAO requires the vendor's invoice number on every payment.";
+    case "invoice_already_paid":
+      return `Invoice ${short(v.invoice_ref, 24, 0)} was already paid to this recipient (${v.subject} #${v.subject_id}).`;
   }
 }

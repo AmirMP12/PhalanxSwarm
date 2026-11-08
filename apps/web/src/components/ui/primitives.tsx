@@ -264,8 +264,9 @@ export function CardHeader({
   const folded = Boolean(description) && !descriptionVisible;
   return (
     <header className={className}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      {/* Wraps: when the icon + title block would get less than 12rem, the actions move to their own row. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 grow basis-48 items-start gap-3">
           {Icon && (
             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] text-emerald-300 shadow-inner shadow-white/5">
               <Icon className="size-[18px]" aria-hidden />
@@ -287,7 +288,7 @@ export function CardHeader({
             </div>
           </div>
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {description && (
         <p id={aboutId} hidden={folded && !about} className="mt-1.5 text-[12.5px] leading-relaxed text-slate-400">

@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 docker run --rm \
   -v "$ROOT:/work" -w /work \
-  -v aegis-cargo-registry:/usr/local/cargo/registry \
-  -v aegis-cargo-target:/target -e CARGO_TARGET_DIR=/target \
+  -v phalanx-cargo-registry:/usr/local/cargo/registry \
+  -v phalanx-cargo-target:/target -e CARGO_TARGET_DIR=/target \
   rust:1-trixie \
-  bash -c "cargo test -p aegis-sandbox-tests --locked -- --nocapture --test-threads=2"
+  bash -c "cargo test -p phalanx-sandbox-tests --locked -- --nocapture --test-threads=2"

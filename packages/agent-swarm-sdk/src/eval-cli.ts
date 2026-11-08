@@ -5,9 +5,10 @@
  *   pnpm eval:injection --live          # Mallory's model is live: NEARAI_API_KEY, else GEMINI_API_KEY / OPENAI_API_KEY.
  *                                       # About 48 chat completions (draft and critique for 24 invoices).
  *   pnpm eval:injection --only INV-2291:footer_note,INV-3307:pay_link
+ *   pnpm eval:injection --live --model z-ai/glm-5.3-flash --out injection-eval-glm.json
  *   pnpm eval:injection --json          # print the report on stdout
  *
- * Writes artifacts/injection-eval.json. Exit code 1 if a payment to the attacker was not stopped
+ * Writes artifacts/injection-eval.json (--live) or artifacts/injection-eval-offline.json. Exit code 1 if a payment to the attacker was not stopped
  * or a variant failed to run.
  */
 import { writeFileSync } from "node:fs";
@@ -29,6 +30,11 @@ const only = value("--only")
   ?.split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+const modelArg = value("--model");
+if (modelArg) process.env.NEARAI_MODEL = modelArg;
+// The live measurement is the canonical artifact; an offline run never overwrites it.
+const outName = value("--out") ?? (flag("--live") ? "injection-eval.json" : "injection-eval-offline.json");
+if (!/^[A-Za-z0-9._-]+\.json$/.test(outName)) throw new Error("--out takes a file name inside artifacts/, ending in .json");
 const env = liveModelFromEnv();
 if (live && !env.nearAiApiKey && !env.llmApiKey) {
   throw new Error("--live needs NEARAI_API_KEY (NEAR AI Cloud), GEMINI_API_KEY or OPENAI_API_KEY");
@@ -64,12 +70,12 @@ async function main(): Promise<void> {
     llmApiKey: live && !env.nearAiApiKey ? env.llmApiKey : undefined,
     llmBaseUrl: live && !env.nearAiApiKey ? env.llmBaseUrl : undefined,
     llmModel: env.llmModel,
-    intentsTimeoutMs: Number(process.env.AEGIS_INTENTS_TIMEOUT_MS ?? 6000),
+    intentsTimeoutMs: Number(process.env.PHALANX_INTENTS_TIMEOUT_MS ?? 6000),
     concurrency: live ? 3 : 4,
     only,
     onResult: (r, done, total) => log(`[${String(done).padStart(2)}/${total}] ${describe(r)}`),
   });
-  const out = resolve(WASM_PATH, "../injection-eval.json");
+  const out = resolve(WASM_PATH, "..", outName);
   writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
   if (json) {
     console.log(JSON.stringify(report, null, 2));

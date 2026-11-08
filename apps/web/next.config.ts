@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: repoRoot,
   poweredByHeader: false,
   // The SDK ships TypeScript sources; Next compiles them with the app.
-  transpilePackages: ["@aegis/agent-swarm-sdk"],
+  transpilePackages: ["@phalanx/agent-swarm-sdk"],
   // The DCAP verifier is only used by the Node.js attestation route.
   serverExternalPackages: ["@phala/dcap-qvl"],
   // The attestation route reads the saved DCAP evidence at runtime when a fresh check fails.
@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
         ],
       },
-      { source: "/aegis_core.wasm", headers: [{ key: "Content-Type", value: "application/wasm" }] },
+      { source: "/phalanx_core.wasm", headers: [{ key: "Content-Type", value: "application/wasm" }] },
     ];
   },
 };

@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["contracts/aegis-core", "contracts/aegis-sandbox-tests"]
+members = ["contracts/phalanx-core", "contracts/phalanx-sandbox-tests"]
 # `cargo test` at the root runs the fast, hermetic unit tests only.
-# The near-workspaces sandbox suite is opt-in: `cargo test -p aegis-sandbox-tests`.
-default-members = ["contracts/aegis-core"]
+# The near-workspaces sandbox suite is opt-in: `cargo test -p phalanx-sandbox-tests`.
+default-members = ["contracts/phalanx-core"]
 
 [workspace.package]
 edition = "2021"

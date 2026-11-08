@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
-const wasmSrc = resolve(root, "artifacts/aegis_core.wasm");
-const wasmDst = resolve(here, "../public/aegis_core.wasm");
+const wasmSrc = resolve(root, "artifacts/phalanx_core.wasm");
+const wasmDst = resolve(here, "../public/phalanx_core.wasm");
 
 if (!existsSync(wasmSrc)) {
   console.error(`[copy-wasm] ${wasmSrc} is missing. Run \`pnpm build:contract\` first.`);
@@ -15,7 +15,7 @@ if (!existsSync(wasmSrc)) {
 }
 mkdirSync(dirname(wasmDst), { recursive: true });
 copyFileSync(wasmSrc, wasmDst);
-console.log("[copy-wasm] artifacts/aegis_core.wasm -> apps/web/public/aegis_core.wasm");
+console.log("[copy-wasm] artifacts/phalanx_core.wasm -> apps/web/public/phalanx_core.wasm");
 
 const EVIDENCE = [
   "reproducible-build.json",

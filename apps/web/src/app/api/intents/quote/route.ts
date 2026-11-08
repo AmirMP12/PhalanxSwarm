@@ -5,7 +5,7 @@
  * - validates the request body with the SDK's 1Click schema.
  * The browser client falls back to the deterministic offline engine if this route fails.
  */
-import { OneClickQuoteRequest } from "@aegis/agent-swarm-sdk";
+import { OneClickQuoteRequest } from "@phalanx/agent-swarm-sdk";
 
 import { clientKey, createLimiter, envMs, isCrossSite } from "@/lib/server-guard";
 
@@ -31,7 +31,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   const parsed = OneClickQuoteRequest.safeParse({ ...(body as object), dry: true });
   if (!parsed.success) return Response.json({ message: "invalid quote request", issues: parsed.error.issues }, { status: 400 });
-  if (process.env.AEGIS_INTENTS_MODE === "offline") return Response.json({ message: "live quotes disabled (AEGIS_INTENTS_MODE=offline)" }, { status: 503 });
+  if (process.env.PHALANX_INTENTS_MODE === "offline") return Response.json({ message: "live quotes disabled (PHALANX_INTENTS_MODE=offline)" }, { status: 503 });
 
   const base = process.env.ONECLICK_API_BASE || "https://1click.chaindefuser.com";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -41,7 +41,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   const controller = new AbortController();
   // An empty or non-numeric value used to become a 0 ms timeout, which aborted every request.
-  const timer = setTimeout(() => controller.abort(), envMs(process.env.AEGIS_INTENTS_TIMEOUT_MS, 6_000, 500, 30_000));
+  const timer = setTimeout(() => controller.abort(), envMs(process.env.PHALANX_INTENTS_TIMEOUT_MS, 6_000, 500, 30_000));
   try {
     const upstream = await fetch(`${base}/v0/quote`, {
       method: "POST",

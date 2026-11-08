@@ -1,5 +1,5 @@
 /**
- * 1:1 Zod mirror of the `aegis-core` JSON interface (snake_case, as serialized by serde).
+ * 1:1 Zod mirror of the `phalanx-core` JSON interface (snake_case, as serialized by serde).
  *
  * Every object schema is strict: if the contract adds, removes or renames a field, parsing a
  * real contract response fails. `test/parity.test.ts` parses live outputs of the compiled WASM
@@ -87,6 +87,15 @@ export const EvmChainPolicy = z.strictObject({
 
 export const UnknownRecipientRule = z.enum(["quarantine", "hold"]);
 
+/** Something the business sells (`place_order`). */
+export const Product = z.strictObject({
+  product_id: z.string(),
+  title: z.string(),
+  price: U128,
+  delivery_sec: num,
+  max_cost_bps: num,
+});
+
 export const GlobalPolicy = z.strictObject({
   max_tx_amount_yocto: U128,
   epoch_spending_cap_yocto: U128,
@@ -112,6 +121,12 @@ export const GlobalPolicy = z.strictObject({
   /** Floors an agent-posted RFP must meet. Contracts before 2.3 omit them. */
   min_task_confidence_bps: num.default(0),
   min_task_reputation_bps: num.default(0),
+  /** Vendor payments and EVM transfers must name an invoice. Contracts before 3.0 omit these four fields. */
+  require_invoice_ref: z.boolean().default(false),
+  /** Challenge window after which anyone may release a small held payment to a new recipient (0: DAO vote only). */
+  hold_release_after_sec: num.default(0),
+  hold_auto_release_max_yocto: U128.default("0"),
+  products: z.array(Product).default([]),
 });
 
 export const Severity = z.enum(["none", "notice", "warning", "critical"]);
@@ -149,6 +164,8 @@ export const PolicyViolation = z.discriminatedUnion("code", [
   z.strictObject({ code: z.literal("task_floor_below_policy"), field: z.string(), value: num, floor: num }),
   z.strictObject({ code: z.literal("evm_nonce_mismatch"), expected: U64, got: U64 }),
   z.strictObject({ code: z.literal("evm_transfer_outstanding"), tx_id: U64 }),
+  z.strictObject({ code: z.literal("invoice_ref_missing") }),
+  z.strictObject({ code: z.literal("invoice_already_paid"), invoice_ref: z.string(), subject: z.string(), subject_id: U64 }),
 ]);
 
 export const EffectiveLimits = z.strictObject({
@@ -215,6 +232,8 @@ export const TreasuryReport = z.strictObject({
   epoch_spent: U128,
   agent_balances: U128,
   contract_key_allowances: U128,
+  /** Customer payments for undelivered orders (a liability). Contracts before 3.0 omit it. */
+  orders_escrow: U128.default("0"),
   account_balance: U128,
   storage_usage: U64,
   solvent_liquidity: U128,
@@ -349,6 +368,8 @@ export const TaskRfpInput = z.strictObject({
   deadline_epochs: num,
   max_bidders: num,
   verification: VerificationSchema,
+  /** The customer order this task delivers. */
+  order_id: U64.nullable().optional(),
 });
 
 export const TaskRfp = z.strictObject({
@@ -376,6 +397,7 @@ export const TaskRfp = z.strictObject({
   winning_score_bps: num.nullable(),
   winning_latency_sec: num.nullable(),
   receipt_hash: Hash32Hex.nullable(),
+  order_id: U64.nullable().default(null),
 });
 
 export const BidAction = z.discriminatedUnion("type", [
@@ -479,6 +501,8 @@ export const CrossChainIntentRequest = z.strictObject({
   signature: z.string(),
   attestation: ExecutionProof.nullable(),
   memo: z.string().nullable(),
+  /** Vendor's invoice number: signed with the request, never paid twice to the same recipient. */
+  invoice_ref: z.string().nullable().optional(),
 });
 
 export const MpcSignature = z.strictObject({ big_r: z.string(), s: z.string(), recovery_id: num });
@@ -516,6 +540,9 @@ export const IntentRecord = z.strictObject({
   dry_run: z.boolean(),
   mpc: MpcAuthorization.nullable(),
   memo: z.string().nullable(),
+  invoice_ref: z.string().nullable().default(null),
+  /** When anyone may release this held payment (`release_held_intent`); `null`: DAO vote only. */
+  hold_release_at_ns: U64.nullable().default(null),
   created_at_ns: U64,
   settled_at_ns: U64.nullable(),
   settlement_ref: z.string().nullable(),
@@ -567,6 +594,7 @@ export const EvmTransferRequest = z.strictObject({
   max_priority_fee_per_gas: U128,
   memo: z.string().nullable(),
   attestation: ExecutionProof.nullable(),
+  invoice_ref: z.string().nullable().optional(),
 });
 
 export const EvmTxStatus = z.enum(["rejected", "signing", "signed", "authorization_failed", "confirmed", "cancelled", "superseded"]);
@@ -599,6 +627,7 @@ export const EvmTxRecord = z.strictObject({
   status: EvmTxStatus,
   error: z.string().nullable(),
   memo: z.string().nullable(),
+  invoice_ref: z.string().nullable().default(null),
   /** `cancel`: a zero-value replacement at the same nonce. Contracts before 2.3 omit these four fields. */
   kind: EvmTxKind.default("transfer"),
   replaces: U64.nullable().default(null),
@@ -635,6 +664,36 @@ export const BlockedRecipient = z.strictObject({
   at_ns: U64,
 });
 
+export const OrderStatus = z.enum(["paid", "in_production", "delivered", "refunding", "refunded"]);
+
+/** A customer order (`place_order`): delivered by a verified task, or refunded after its deadline. */
+export const Order = z.strictObject({
+  order_id: U64,
+  customer: AccountId,
+  product_id: z.string(),
+  price: U128,
+  spec_hash: Hash32Hex,
+  placed_at_ns: U64,
+  deadline_ns: U64,
+  status: OrderStatus,
+  task_id: U64.nullable(),
+  failed_tasks: z.array(U64),
+  result_hash: Hash32Hex.nullable(),
+  receipt_hash: Hash32Hex.nullable(),
+  closed_at_ns: U64.nullable(),
+});
+
+/** The payment recorded for one invoice (`get_invoice_payment`). */
+export const InvoicePayment = z.strictObject({
+  invoice_ref: z.string(),
+  recipient: z.string(),
+  subject: z.enum(["intent", "evm"]),
+  subject_id: U64,
+  amount: U128,
+  agent_id: AccountId,
+  at_ns: U64,
+});
+
 export const Dashboard = z.strictObject({
   info: ContractInfo,
   owner_id: AccountId,
@@ -653,6 +712,8 @@ export const Dashboard = z.strictObject({
   evm_txs: z.array(EvmTxRecord),
   /** Contracts before 2.2 omit it. */
   blocked_recipients: z.array(BlockedRecipient).default([]),
+  /** Customer orders, newest first. Contracts before 3.0 omit it. */
+  orders: z.array(Order).default([]),
   /** Bumped by every global-policy change. Contracts before 2.3 omit it. */
   policy_version: U64.default("0"),
   block_height: U64,
@@ -676,13 +737,13 @@ export const RecipientCheck = z.strictObject({
 
 const ev = <N extends string, D extends z.ZodRawShape>(event: N, data: D) =>
   z.strictObject({
-    standard: z.literal("aegis"),
+    standard: z.literal("phalanx"),
     version: z.literal("1.0.0"),
     event: z.literal(event),
     data: z.strictObject(data),
   });
 
-export const AegisEvent = z.discriminatedUnion("event", [
+export const PhalanxEvent = z.discriminatedUnion("event", [
   ev("treasury_funded", { from: AccountId, amount: U128, kind: z.string(), memo: z.string().nullable() }),
   ev("agent_spawn_requested", {
     agent_id: AccountId,
@@ -757,8 +818,8 @@ export const AegisEvent = z.discriminatedUnion("event", [
 ]);
 
 /** Parses every `EVENT_JSON:` log line through the strict event schema. */
-export function parseAegisEvents(logs: readonly string[]): AegisEventT[] {
-  return logs.filter((l) => l.startsWith("EVENT_JSON:")).map((l) => AegisEvent.parse(JSON.parse(l.slice("EVENT_JSON:".length))));
+export function parsePhalanxEvents(logs: readonly string[]): PhalanxEventT[] {
+  return logs.filter((l) => l.startsWith("EVENT_JSON:")).map((l) => PhalanxEvent.parse(JSON.parse(l.slice("EVENT_JSON:".length))));
 }
 
 export type AgentRoleT = z.infer<typeof AgentRole>;
@@ -819,8 +880,12 @@ export type EvmTxRecordT = z.infer<typeof EvmTxRecord>;
 export type EvmTransferOutcomeT = z.infer<typeof EvmTransferOutcome>;
 export type EvmTxPreviewT = z.infer<typeof EvmTxPreview>;
 export type DashboardT = z.infer<typeof Dashboard>;
+export type ProductT = z.infer<typeof Product>;
+export type OrderT = z.infer<typeof Order>;
+export type OrderStatusT = z.infer<typeof OrderStatus>;
+export type InvoicePaymentT = z.infer<typeof InvoicePayment>;
 export type UnknownRecipientRuleT = z.infer<typeof UnknownRecipientRule>;
 export type BlockedRecipientT = z.infer<typeof BlockedRecipient>;
 export type RecipientVerdictT = z.infer<typeof RecipientVerdict>;
 export type RecipientCheckT = z.infer<typeof RecipientCheck>;
-export type AegisEventT = z.infer<typeof AegisEvent>;
+export type PhalanxEventT = z.infer<typeof PhalanxEvent>;

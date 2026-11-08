@@ -2,15 +2,15 @@
  * Off-chain mirrors of every digest and message the contract computes. A signature produced
  * with these helpers verifies on-chain only if the bytes match exactly; parity tests compare
  * them against the compiled WASM (`compute_*` / `evaluate_intent` views) and the Rust golden
- * vector in `contracts/aegis-core/src/tests.rs`.
+ * vector in `contracts/phalanx-core/src/tests.rs`.
  */
 import { BorshWriter, canonicalJson, concatBytes, fromHex, isoMillis, keccak256Bytes, sha256Bytes, toHex, utf8 } from "./encoding.ts";
 import type { CrossChainIntentRequestT, ExecutionReceiptT, IntentRecordT } from "./types.ts";
 
 /** NEP-413 prefix tag, 2^31 + 413. */
 export const NEP413_TAG = 2_147_484_061;
-export const RECEIPT_DOMAIN = "AEGIS_TEE_RECEIPT_V1";
-export const SETTLEMENT_DOMAIN = "AEGIS_SETTLEMENT_V1";
+export const RECEIPT_DOMAIN = "PHALANX_TEE_RECEIPT_V1";
+export const SETTLEMENT_DOMAIN = "PHALANX_SETTLEMENT_V1";
 export const EIP191_PREFIX_32 = "\x19Ethereum Signed Message:\n32";
 export const MAX_LATENCY_SEC = 86_400;
 
@@ -19,16 +19,17 @@ export type UnsignedIntentRequest = Omit<CrossChainIntentRequestT, "signature" |
   attestation?: CrossChainIntentRequestT["attestation"];
 };
 
-/** Canonical NEAR Intents message (`token_diff` + `aegis` envelope) an agent signs. */
+/** Canonical NEAR Intents message (`token_diff` + `phalanx` envelope) an agent signs. */
 export function buildIntentMessage(signerId: string, req: UnsignedIntentRequest): string {
   const diff: Record<string, string> = {
     [req.origin_asset]: `-${req.amount}`,
     [req.destination_asset]: req.min_amount_out,
   };
   return canonicalJson({
-    aegis: {
+    phalanx: {
       chain: req.destination_chain,
       contract: req.execution_contract,
+      invoice: req.invoice_ref ?? "",
       kind: req.kind,
       memo: req.memo ?? "",
       quote_hash: req.quote?.quote_hash ?? "",
@@ -80,7 +81,7 @@ export function bidCommitment(taskId: bigint | string, agentId: string, price: b
   return toHex(sha256Bytes(bytes));
 }
 
-export const NEARAI_BIND_PREFIX = "AEGIS-BIND:v1";
+export const NEARAI_BIND_PREFIX = "PHALANX-BIND:v1";
 
 /** The marker a NEAR AI request must contain to count as a proof (see `attestation.rs`). */
 export function nearAiBindingMarker(

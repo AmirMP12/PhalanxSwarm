@@ -6,7 +6,7 @@
  * `text = "<sha256(request body)>:<sha256(response body)>"` signed by the model TEE's ed25519
  * key. That key is bound to the hardware by the model attestation (`nearai.ts`).
  *
- * `NearAiBackend` keeps the exact request and response bytes so `aegis-core` can re-hash them,
+ * `NearAiBackend` keeps the exact request and response bytes so `phalanx-core` can re-hash them,
  * verify the signature with `env::ed25519_verify` and read the model's verdict. Every request an
  * agent wants to use as a proof embeds the binding marker (`nearAiBindingMarker`), so a proof
  * cannot be replayed for another task, agent or input.
@@ -24,7 +24,7 @@ import type { ExecutionProofT, SubjectKindT } from "./types.ts";
 
 /** TEE-hosted (owned_by "nearai") model with JSON mode; override with NEARAI_MODEL. */
 export const DEFAULT_NEARAI_MODEL = "Qwen/Qwen3.6-35B-A3B-FP8";
-export const STANDIN_MODEL = "aegis-standin/deterministic-v1";
+export const STANDIN_MODEL = "phalanx-standin/deterministic-v1";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -145,7 +145,7 @@ export class StandInBackend implements CompletionBackend {
   private readonly secret: Uint8Array;
   readonly signingAddress: string;
 
-  constructor(seed = "aegis-standin-model-key") {
+  constructor(seed = "phalanx-standin-model-key") {
     const kp = keyPairFromSeed(seed);
     this.secret = kp.secretKey;
     this.signingAddress = toHex(kp.publicKey);

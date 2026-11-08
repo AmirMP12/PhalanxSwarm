@@ -35,13 +35,13 @@ use crate::codec::{
     decode_ed25519_signature, decode_ed25519_signature_any, ed25519_key_bytes, is_hash32_hex, is_measurement_hex, is_nonce_label,
     is_safe_ascii, to_hex,
 };
-use crate::events::AegisEvent;
-use crate::{AegisCore, AegisCoreExt};
+use crate::events::PhalanxEvent;
+use crate::{PhalanxCore, PhalanxCoreExt};
 
 /// Domain separator mixed into every receipt digest.
-pub const RECEIPT_DOMAIN: &str = "AEGIS_TEE_RECEIPT_V1";
+pub const RECEIPT_DOMAIN: &str = "PHALANX_TEE_RECEIPT_V1";
 /// Prefix of the marker an agent puts in every NEAR AI request it wants to use as a proof.
-pub const NEARAI_BIND_PREFIX: &str = "AEGIS-BIND:v1";
+pub const NEARAI_BIND_PREFIX: &str = "PHALANX-BIND:v1";
 /// Joins the pinned system prompt and the binding marker in a NEAR AI proof request.
 pub const NEARAI_BIND_LINE: &str = "\n\nBinding (copy nothing from it): ";
 /// Accepted clock skew for `issued_at_ns` in the future.
@@ -436,7 +436,7 @@ fn signed_hashes(text: &str) -> Option<(&str, &str)> {
     (is_hash32_hex(req) && is_hash32_hex(resp)).then_some((req, resp))
 }
 
-impl AegisCore {
+impl PhalanxCore {
     fn check_freshness(&self, issued_at_ns: u64) -> Result<(), AttestationError> {
         let now = env::block_timestamp();
         if issued_at_ns > now.saturating_add(MAX_FUTURE_SKEW_NS) {
@@ -635,7 +635,7 @@ impl AegisCore {
         if let Some(enclave) = self.enclaves.get_mut(&receipt.enclave_id) {
             enclave.receipts_verified += 1;
         }
-        AegisEvent::AttestationVerified {
+        PhalanxEvent::AttestationVerified {
             receipt_hash: hash.to_string(),
             enclave_id: receipt.enclave_id.clone(),
             agent_id: receipt.agent_id.clone(),
@@ -646,7 +646,7 @@ impl AegisCore {
 }
 
 #[near]
-impl AegisCore {
+impl PhalanxCore {
     /// Owner-only. Adds (or rotates) a trusted enclave or attested NEAR AI model key.
     #[allow(clippy::too_many_arguments)]
     pub fn register_enclave(
@@ -661,15 +661,15 @@ impl AegisCore {
         attestation_ref: Option<String>,
     ) -> EnclaveRecord {
         self.assert_owner();
-        require!(is_safe_ascii(&enclave_id, 64) && !enclave_id.is_empty(), "AEGIS_E_INVALID_ENCLAVE_ID");
-        require!(is_measurement_hex(&measurement), "AEGIS_E_INVALID_MEASUREMENT");
-        require!(ed25519_key_bytes(&signer_public_key).is_some(), "AEGIS_E_ED25519_KEY_REQUIRED");
+        require!(is_safe_ascii(&enclave_id, 64) && !enclave_id.is_empty(), "PHALANX_E_INVALID_ENCLAVE_ID");
+        require!(is_measurement_hex(&measurement), "PHALANX_E_INVALID_MEASUREMENT");
+        require!(ed25519_key_bytes(&signer_public_key).is_some(), "PHALANX_E_ED25519_KEY_REQUIRED");
         require!(
             is_safe_ascii(&vendor, 96) && is_safe_ascii(&model_id, 96) && is_safe_ascii(&tee_type, 48),
-            "AEGIS_E_INVALID_ENCLAVE_METADATA"
+            "PHALANX_E_INVALID_ENCLAVE_METADATA"
         );
         let attestation_ref = attestation_ref.unwrap_or_default();
-        require!(is_safe_ascii(&attestation_ref, 160), "AEGIS_E_INVALID_ATTESTATION_REF");
+        require!(is_safe_ascii(&attestation_ref, 160), "PHALANX_E_INVALID_ATTESTATION_REF");
         let record = EnclaveRecord {
             enclave_id: enclave_id.clone(),
             kind: kind.unwrap_or(EnclaveKind::ReceiptSigner),
@@ -684,13 +684,13 @@ impl AegisCore {
             receipts_verified: 0,
         };
         self.enclaves.insert(enclave_id.clone(), record.clone());
-        AegisEvent::EnclaveRegistered { enclave_id, measurement: record.measurement.clone(), vendor }.emit();
+        PhalanxEvent::EnclaveRegistered { enclave_id, measurement: record.measurement.clone(), vendor }.emit();
         record
     }
 
     pub fn set_enclave_active(&mut self, enclave_id: String, active: bool) {
         self.assert_owner();
-        let enclave = self.enclaves.get_mut(&enclave_id).unwrap_or_else(|| env::panic_str("AEGIS_E_UNKNOWN_ENCLAVE"));
+        let enclave = self.enclaves.get_mut(&enclave_id).unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_ENCLAVE"));
         enclave.active = active;
     }
 

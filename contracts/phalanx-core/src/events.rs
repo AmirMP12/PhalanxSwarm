@@ -1,5 +1,5 @@
 //! NEP-297 events. Every state transition that matters to an indexer, auditor or
-//! the PhalanxSwarm UI is logged as `EVENT_JSON:{"standard":"aegis","version":"1.0.0",...}`.
+//! the PhalanxSwarm UI is logged as `EVENT_JSON:{"standard":"phalanx","version":"1.0.0",...}`.
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{near, AccountId};
@@ -17,8 +17,8 @@ pub struct PayoutLeg {
     pub label: String,
 }
 
-#[near(event_json(standard = "aegis"))]
-pub enum AegisEvent {
+#[near(event_json(standard = "phalanx"))]
+pub enum PhalanxEvent {
     #[event_version("1.0.0")]
     TreasuryFunded { from: AccountId, amount: U128, kind: String, memo: Option<String> },
     #[event_version("1.0.0")]
@@ -125,4 +125,16 @@ pub enum AegisEvent {
     RecipientBlocked { recipient: String, reason: String, evidence_hash: String, reported_by: AccountId },
     #[event_version("1.0.0")]
     RecipientUnblocked { recipient: String, by: AccountId },
+    #[event_version("1.0.0")]
+    HeldIntentReleased { intent_id: U64, recipient: String, released_by: AccountId },
+    #[event_version("1.0.0")]
+    OrderPlaced { order_id: U64, customer: AccountId, product_id: String, price: U128, spec_hash: String, deadline_ns: U64 },
+    #[event_version("1.0.0")]
+    OrderInProduction { order_id: U64, task_id: U64 },
+    #[event_version("1.0.0")]
+    OrderDelivered { order_id: U64, customer: AccountId, task_id: U64, price: U128, result_hash: String },
+    #[event_version("1.0.0")]
+    OrderReopened { order_id: U64, failed_task_id: U64 },
+    #[event_version("1.0.0")]
+    OrderRefunded { order_id: U64, customer: AccountId, amount: U128 },
 }

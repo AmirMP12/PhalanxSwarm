@@ -1,6 +1,6 @@
 /**
- * Rust ↔ TypeScript parity: golden vectors shared with contracts/aegis-core/src/tests.rs and
- * live comparisons against the compiled WASM running in AegisSim.
+ * Rust ↔ TypeScript parity: golden vectors shared with contracts/phalanx-core/src/tests.rs and
+ * live comparisons against the compiled WASM running in PhalanxSim.
  */
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -17,7 +17,7 @@ import {
   messagesFor,
   nearAiBindingMarker,
   nep413Hash,
-  parseAegisEvents,
+  parsePhalanxEvents,
   promptHash,
   receiptDigest,
   sha256Hex,
@@ -30,10 +30,10 @@ import {
 } from "../src/index.ts";
 import { loadContractWasm } from "../src/node.ts";
 
-// Known-answer vector shared byte-for-byte with contracts/aegis-core/src/tests.rs. Its inputs must
+// Known-answer vector shared byte-for-byte with contracts/phalanx-core/src/tests.rs. Its inputs must
 // stay fixed (the timestamp is part of the signed message), otherwise GOLDEN_HASH changes.
 const GOLDEN_TIMESTAMP_NS = 1_793_491_200_000_000_000n;
-const GOLDEN_HASH = "6d05b091626ad3c576d82c18c3d58c1608bb2f5ecbeb2a02febfb530fe3c7a9e";
+const GOLDEN_HASH = "74ab5a206c06eca4460d3950e95cf7983230bff8a7717dfbb8c5a75a438bf615";
 
 const golden: UnsignedIntentRequest = {
   kind: "swap",
@@ -59,25 +59,27 @@ const golden: UnsignedIntentRequest = {
   },
   nonce: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
   memo: "golden",
+  invoice_ref: "INV-GOLDEN",
 };
 
 describe("golden vectors shared with the Rust unit tests", () => {
   it("builds the exact canonical intent message", () => {
-    expect(buildIntentMessage("rhea-yield-strategist.aegis-swarm.testnet", golden)).toBe(
-      '{"aegis":{"chain":"arb","contract":"intents.near","kind":"swap","memo":"golden","quote_hash":"' +
-        "ab".repeat(32) +
-        '","recipient":"0x2527D02599Ba641c19FEa793cD0F167589a0f10D"},"deadline":"2026-11-01T00:15:00.000Z",' +
+    expect(buildIntentMessage("rhea-yield-strategist.phalanx-swarm.testnet", golden)).toBe(
+      '{"deadline":"2026-11-01T00:15:00.000Z",' +
         '"intents":[{"diff":{"nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near":"56282000",' +
         '"nep141:wrap.near":"-12000000000000000000000000"},"intent":"token_diff"}],' +
-        '"signer_id":"rhea-yield-strategist.aegis-swarm.testnet"}',
+        '"phalanx":{"chain":"arb","contract":"intents.near","invoice":"INV-GOLDEN","kind":"swap","memo":"golden","quote_hash":"' +
+        "ab".repeat(32) +
+        '","recipient":"0x2527D02599Ba641c19FEa793cD0F167589a0f10D"},' +
+        '"signer_id":"rhea-yield-strategist.phalanx-swarm.testnet"}',
     );
   });
 
   it("hashes the NEP-413 payload to the Rust golden value", () => {
-    const message = buildIntentMessage("rhea-yield-strategist.aegis-swarm.testnet", golden);
+    const message = buildIntentMessage("rhea-yield-strategist.phalanx-swarm.testnet", golden);
     const nonce = fromBase64(golden.nonce);
     expect(nonce).toEqual(new Uint8Array(32).fill(7));
-    expect(toHex(nep413Hash(message, nonce, "aegis-swarm.testnet"))).toBe(GOLDEN_HASH);
+    expect(toHex(nep413Hash(message, nonce, "phalanx-swarm.testnet"))).toBe(GOLDEN_HASH);
   });
 
   it("encodes the hand-derived EIP-1559 vector from the Rust tests", () => {
@@ -100,7 +102,7 @@ describe("golden vectors shared with the Rust unit tests", () => {
   });
 });
 
-describe("parity against the compiled WASM (AegisSim)", () => {
+describe("parity against the compiled WASM (PhalanxSim)", () => {
   let rt: SwarmRuntime;
 
   beforeAll(async () => {
@@ -227,10 +229,10 @@ describe("parity against the compiled WASM (AegisSim)", () => {
     expect(() => Dashboard.parse(raw)).not.toThrow();
     const r = await rt.recordRevenue(5, "parity-customer", "schema check");
     expect(r.ok).toBe(true);
-    expect(parseAegisEvents(r.outcome!.logs).map((e) => e.event)).toEqual(["treasury_funded"]);
+    expect(parsePhalanxEvents(r.outcome!.logs).map((e) => e.event)).toEqual(["treasury_funded"]);
     const dash = await rt.dashboard();
     expect(dash.info.nep413_recipient).toBe(ACCOUNTS.contract);
-    expect(dash.info.version).toBe("2.3.0");
+    expect(dash.info.version).toBe("3.0.0");
     expect(dash.policy.unknown_recipient).toBe("quarantine");
     expect(dash.blocked_recipients).toEqual([]);
     expect(dash.agents).toHaveLength(5);
@@ -245,7 +247,7 @@ describe("parity against the compiled WASM (AegisSim)", () => {
     expect(canonicalJson(JSON.parse(facts.facts))).toBe(facts.facts);
     expect(sha256Hex(facts.facts)).toBe(facts.facts_hash);
     const doc = JSON.parse(facts.facts) as { schema: string; agent: string; request: { amount_near: string; recipient: string } };
-    expect(doc.schema).toBe("aegis.audit-facts.v1");
+    expect(doc.schema).toBe("phalanx.audit-facts.v1");
     expect(doc.agent).toBe(rt.agents.rhea.accountId);
     expect(doc.request.amount_near).toBe("1.000");
     expect(doc.request.recipient).toBe(built.request.recipient);

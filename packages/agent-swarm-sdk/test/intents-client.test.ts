@@ -28,13 +28,13 @@ const RECORDED_LIVE = {
     depositType: "INTENTS",
     destinationAsset: ASSETS.USDC_BASE,
     amount: "12000000000000000000000000",
-    refundTo: "aegis-swarm.testnet",
+    refundTo: "phalanx-swarm.testnet",
     refundType: "INTENTS",
     recipient: "0x2527D02599Ba641c19FEa793cD0F167589a0f10D",
     recipientType: "DESTINATION_CHAIN",
     deadline: "2026-10-29T00:59:09.918Z",
     confidentiality: "public",
-    referral: "aegis-swarm",
+    referral: "phalanx-swarm",
     quoteWaitingTimeMs: 0,
     insured: false,
     appFees: [{ recipient: "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd", fee: 20 }],
@@ -49,7 +49,7 @@ const params = {
   destinationAsset: ASSETS.USDC_BASE,
   amount: 12n * 10n ** 24n,
   recipient: "0x2527D02599Ba641c19FEa793cD0F167589a0f10D",
-  refundTo: "aegis-swarm.testnet",
+  refundTo: "phalanx-swarm.testnet",
   slippageBps: 50,
 };
 
@@ -109,14 +109,14 @@ describe("NEAR Intents 1Click client", () => {
 
   it("ranks routes by delivered value net of latency", async () => {
     const client = new OneClickClient({ mode: "offline", nowMs: () => NOW });
-    const ranked = await rankRoutes(client, { originAsset: ASSETS.WNEAR, amount: 12n * 10n ** 24n, refundTo: "aegis-swarm.testnet", slippageBps: 50 }, [
+    const ranked = await rankRoutes(client, { originAsset: ASSETS.WNEAR, amount: 12n * 10n ** 24n, refundTo: "phalanx-swarm.testnet", slippageBps: 50 }, [
       { label: "eth", destinationChain: "eth", destinationAsset: ASSETS.USDC_ETH, recipient: params.recipient },
       { label: "base", destinationChain: "base", destinationAsset: ASSETS.USDC_BASE, recipient: params.recipient },
     ]);
     expect(ranked.map((r) => r.candidate.label)).toEqual(["base", "eth"]);
   });
 
-  it.runIf(process.env.AEGIS_LIVE_INTENTS === "1")("returns a real dry-run quote from 1click.chaindefuser.com", async () => {
+  it.runIf(process.env.PHALANX_LIVE_INTENTS === "1")("returns a real dry-run quote from 1click.chaindefuser.com", async () => {
     const r = await new OneClickClient({ mode: "live", timeoutMs: 15_000 }).quote(params);
     expect(r.source).toBe("live");
     expect(r.response.quoteRequest.dry).toBe(true);

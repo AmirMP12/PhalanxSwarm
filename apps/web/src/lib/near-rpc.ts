@@ -8,7 +8,7 @@
  * Only transport failures (network error, timeout, HTTP 408/429/5xx) move on to the next endpoint;
  * a JSON-RPC or contract error is an answer and is thrown as is.
  */
-import { fromUtf8, toBase64, utf8, type AegisTransport } from "@aegis/agent-swarm-sdk";
+import { fromUtf8, toBase64, utf8, type PhalanxTransport } from "@phalanx/agent-swarm-sdk";
 
 /** `testnet` unless the build sets exactly `mainnet`: an empty or mistyped value used to leave no RPC endpoint at all. */
 export const NETWORK: "testnet" | "mainnet" = process.env.NEXT_PUBLIC_NEAR_NETWORK?.trim() === "mainnet" ? "mainnet" : "testnet";
@@ -46,7 +46,7 @@ export async function rpcCall<T>(method: string, params: unknown): Promise<{ res
       const res = await fetch(rpc, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: "aegis-ui", method, params }),
+        body: JSON.stringify({ jsonrpc: "2.0", id: "phalanx-ui", method, params }),
         cache: "no-store",
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
@@ -78,7 +78,7 @@ interface CallFunctionResult {
   error?: string;
 }
 
-/** A view call on any contract (the AegisCore deployment, its SputnikDAO, ...). */
+/** A view call on any contract (the PhalanxCore deployment, its SputnikDAO, ...). */
 export async function viewFunction<T>(accountId: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
   const { result } = await rpcCall<CallFunctionResult>("query", {
     request_type: "call_function",
@@ -115,8 +115,8 @@ export async function viewAccessKeys(accountId: string): Promise<Array<{ public_
   return result.keys.map((k) => ({ public_key: k.public_key, permission: k.access_key.permission }));
 }
 
-/** `AegisTransport` for the SDK's typed views (`AegisViews`), over the fallback endpoints. */
-export class FallbackRpcTransport implements AegisTransport {
+/** `PhalanxTransport` for the SDK's typed views (`PhalanxViews`), over the fallback endpoints. */
+export class FallbackRpcTransport implements PhalanxTransport {
   constructor(readonly contractId: string) {}
 
   view(method: string, args: Record<string, unknown>): Promise<unknown> {

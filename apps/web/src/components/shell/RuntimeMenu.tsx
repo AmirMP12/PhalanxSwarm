@@ -1,16 +1,16 @@
 "use client";
 
-import type { IntentsMode } from "@aegis/agent-swarm-sdk";
+import type { IntentsMode } from "@phalanx/agent-swarm-sdk";
 import { ArrowRight, Bot, Globe, Settings2, WifiOff, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { useAegis, type AgentBrains } from "@/lib/aegis-context";
+import { usePhalanx, type AgentBrains } from "@/lib/phalanx-context";
 
 import { Badge, SegmentedControl, StatusDot, cx, short, type Tone } from "../ui";
 
 /** 1Click quote mode and agent models. Changing either restarts the sandbox with the new setting. */
 function SandboxSettings() {
-  const { mode, brains, agentsInfo, configure, scenario, busy, status } = useAegis();
+  const { mode, brains, agentsInfo, configure, scenario, busy, status } = usePhalanx();
   const disabled = scenario.running || busy !== null || status !== "ready";
   return (
     <div className="space-y-3">
@@ -65,7 +65,7 @@ function SandboxSettings() {
 }
 
 function RuntimeDetails() {
-  const { wasm, dashboard, mode, inference, agentsInfo } = useAegis();
+  const { wasm, dashboard, mode, inference, agentsInfo } = usePhalanx();
   const live = inference === "nearai" || inference === "generic_llm";
   const rows: Array<[string, string]> = [
     ["wasm", wasm ? `${Math.round(wasm.size / 1024)} KB` : "—"],
@@ -95,7 +95,7 @@ function RuntimeDetails() {
 
 /** The one place for how the demo runs: status, the sandbox settings and runtime details. */
 export function RuntimeMenu({ className }: { className?: string }) {
-  const { status } = useAegis();
+  const { status } = usePhalanx();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -144,7 +144,7 @@ export function RuntimeMenu({ className }: { className?: string }) {
         className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-1.5rem))] space-y-3 rounded-xl border border-white/10 bg-[#0c1018] p-3.5 text-left shadow-2xl shadow-black/60"
       >
         <p className="text-[12px] leading-relaxed text-slate-400">
-          This tab runs the compiled contract (<span className="num text-slate-300">aegis_core.wasm</span>) locally, in your browser. The same steps also ran on
+          This tab runs the compiled contract (<span className="num text-slate-300">phalanx_core.wasm</span>) locally, in your browser. The same steps also ran on
           NEAR testnet; each step&apos;s details link to its transaction.
         </p>
         <SandboxSettings />

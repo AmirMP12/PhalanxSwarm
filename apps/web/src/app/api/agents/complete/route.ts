@@ -9,7 +9,7 @@
  *   signature covers the exact request and response bytes. The browser re-checks the signature
  *   and that the prompt is the one its agent built; the contract verifies it again on-chain.
  */
-import { DEFAULT_NEARAI_MODEL, GenericLlmBackend, messagesFor, NearAiBackend, type BrainRole } from "@aegis/agent-swarm-sdk";
+import { DEFAULT_NEARAI_MODEL, GenericLlmBackend, messagesFor, NearAiBackend, type BrainRole } from "@phalanx/agent-swarm-sdk";
 
 import { clientKey, createLimiter, isCrossSite } from "@/lib/server-guard";
 
@@ -19,8 +19,8 @@ export const maxDuration = 60;
 
 const ROLES: readonly BrainRole[] = ["orchestrator", "bidder", "procurement", "strategy", "auditor", "accounts_payable"];
 const MAX_CONTEXT_CHARS = 16_384;
-/** `AEGIS-BIND:v1:{kind}:{id}:{agent}:{input_hash}:{nonce}:{issued_at_ns}` (see attestation.rs). */
-const MARKER = /^AEGIS-BIND:v1:(task|intent|evm):\d{1,20}:[a-z0-9._-]{2,64}:[0-9a-f]{64}:[A-Za-z0-9_-]{8,64}:\d{1,20}$/;
+/** `PHALANX-BIND:v1:{kind}:{id}:{agent}:{input_hash}:{nonce}:{issued_at_ns}` (see attestation.rs). */
+const MARKER = /^PHALANX-BIND:v1:(task|intent|evm):\d{1,20}:[a-z0-9._-]{2,64}:[0-9a-f]{64}:[A-Za-z0-9_-]{8,64}:\d{1,20}$/;
 /**
  * Every call spends the operator's model credits. A judge run makes about 10 calls, so 60 per
  * client and 300 per server instance in 10 minutes leave room for repeated runs while bounding
@@ -50,7 +50,7 @@ const baseUrl = () => {
   return "https://api.openai.com/v1";
 };
 
-const enabled = () => Boolean(nearAiKey() || genericKey()) && process.env.AEGIS_INTENTS_MODE !== "offline" && process.env.AEGIS_AGENTS_MODE !== "offline";
+const enabled = () => Boolean(nearAiKey() || genericKey()) && process.env.PHALANX_INTENTS_MODE !== "offline" && process.env.PHALANX_AGENTS_MODE !== "offline";
 
 /** One instance per server process: its signing key is random, so every completion here shares one key. */
 let generic: GenericLlmBackend | null = null;
@@ -82,7 +82,7 @@ export async function POST(req: Request): Promise<Response> {
   if (body.model !== model()) return bad(`model must be ${model()}`);
   if (typeof body.role !== "string" || !ROLES.includes(body.role as BrainRole)) return bad(`role must be one of ${ROLES.join(", ")}`);
   const marker = body.marker ?? null;
-  if (marker !== null && (typeof marker !== "string" || !MARKER.test(marker))) return bad("marker is not an AEGIS-BIND:v1 binding marker");
+  if (marker !== null && (typeof marker !== "string" || !MARKER.test(marker))) return bad("marker is not an PHALANX-BIND:v1 binding marker");
   const contextJson = body.context === undefined ? undefined : JSON.stringify(body.context);
   if (contextJson === undefined || contextJson.length > MAX_CONTEXT_CHARS)
     return bad(`context is required and must be at most ${MAX_CONTEXT_CHARS} characters of JSON`);

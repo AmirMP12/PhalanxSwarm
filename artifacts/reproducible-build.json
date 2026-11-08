@@ -6,7 +6,7 @@
   "target_path": "/tmp/target",
   "rustflags": "-C link-arg=-s --cfg near",
   "cargo_locked": true,
-  "wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
-  "size_bytes": 921021,
+  "wasm_sha256": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895",
+  "size_bytes": 975829,
   "two_clean_builds_byte_identical": true
 }

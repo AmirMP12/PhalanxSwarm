@@ -17,7 +17,7 @@ import {
   verifyEd25519,
 } from "../src/index.ts";
 
-describe("encoding primitives (mirrors contracts/aegis-core/src/codec.rs)", () => {
+describe("encoding primitives (mirrors contracts/phalanx-core/src/codec.rs)", () => {
   it("formats nanosecond timestamps exactly like format_iso8601_millis", () => {
     expect(isoMillis(1_793_491_200_000_000_000n)).toBe("2026-11-01T00:00:00.000Z");
     expect(isoMillis(951_782_400_123_000_000n)).toBe("2000-02-29T00:00:00.123Z");

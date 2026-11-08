@@ -1,9 +1,9 @@
 /**
- * Typed client for `aegis-core`. Views and call results are validated with the strict Zod
+ * Typed client for `phalanx-core`. Views and call results are validated with the strict Zod
  * schemas in `types.ts`; every NEP-297 event in a call's logs is parsed as well.
  *
  * Two transports implement the same interface:
- * - `VmTransport`: the in-process AegisSim VM (local sandbox, CI, browser judge mode);
+ * - `VmTransport`: the in-process PhalanxSim VM (local sandbox, CI, browser judge mode);
  * - `RpcTransport`: NEAR JSON-RPC `call_function` for views on testnet. Writes on testnet go
  *   through the user's wallet (see `apps/web/src/lib/wallet.ts`).
  */
@@ -23,12 +23,12 @@ import {
   GlobalPolicy,
   IntentAssessment,
   IntentRecord,
-  parseAegisEvents,
+  parsePhalanxEvents,
   RecipientCheck,
   SecurityEvent,
   TaskView,
   TreasuryReport,
-  type AegisEventT,
+  type PhalanxEventT,
   type CrossChainIntentRequestT,
   type EvmTransferRequestT,
   type ExecutionProofT,
@@ -52,16 +52,16 @@ export interface CallResult<T> {
   error: string | null;
   /** `null` when the transaction was rejected before execution. */
   outcome: TxOutcome | null;
-  events: AegisEventT[];
+  events: PhalanxEventT[];
   failedReceipts: Array<{ receiverId: string; error: string }>;
 }
 
-export interface AegisTransport {
+export interface PhalanxTransport {
   readonly contractId: string;
   view(method: string, args: Record<string, unknown>): Promise<unknown>;
 }
 
-export class VmTransport implements AegisTransport {
+export class VmTransport implements PhalanxTransport {
   constructor(
     readonly vm: NearVm,
     readonly contractId: string,
@@ -73,7 +73,7 @@ export class VmTransport implements AegisTransport {
   }
 }
 
-export class RpcTransport implements AegisTransport {
+export class RpcTransport implements PhalanxTransport {
   constructor(
     readonly rpcUrl: string,
     readonly contractId: string,
@@ -86,7 +86,7 @@ export class RpcTransport implements AegisTransport {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: "aegis",
+        id: "phalanx",
         method: "query",
         params: {
           request_type: "call_function",
@@ -106,8 +106,8 @@ export class RpcTransport implements AegisTransport {
 }
 
 /** Read-only API shared by both transports. */
-export class AegisViews {
-  constructor(readonly transport: AegisTransport) {}
+export class PhalanxViews {
+  constructor(readonly transport: PhalanxTransport) {}
 
   get contractId(): string {
     return this.transport.contractId;
@@ -204,8 +204,8 @@ export class AegisViews {
   }
 }
 
-/** Full client over the AegisSim VM: views plus signed calls. */
-export class AegisContract extends AegisViews {
+/** Full client over the PhalanxSim VM: views plus signed calls. */
+export class PhalanxContract extends PhalanxViews {
   constructor(
     readonly vm: NearVm,
     contractId: string,
@@ -223,7 +223,7 @@ export class AegisContract extends AegisViews {
       }
       throw err;
     }
-    const events = parseAegisEvents(outcome.logs);
+    const events = parsePhalanxEvents(outcome.logs);
     const failedReceipts = outcome.receipts.flatMap((r) => (r.status.type === "Failure" ? [{ receiverId: r.receiverId, error: r.status.error }] : []));
     if (outcome.status.type === "Failure") {
       return { ok: false, value: null, error: outcome.status.error, outcome, events, failedReceipts };

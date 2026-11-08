@@ -1,4 +1,4 @@
-//! Independent re-implementation of the AegisCore signing formats.
+//! Independent re-implementation of the PhalanxCore signing formats.
 //!
 //! The sandbox suite drives the deployed WASM exactly like an off-chain agent: it builds the
 //! canonical intent message by hand (not with serde), hashes the NEP-413 payload, signs it with
@@ -15,9 +15,9 @@ use sha2::{Digest, Sha256};
 pub const NEP413_TAG: u32 = 2_147_484_061;
 pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 
-/// `artifacts/aegis_core.wasm`, produced by `pnpm build:contract`.
+/// `artifacts/phalanx_core.wasm`, produced by `pnpm build:contract`.
 pub fn wasm_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/aegis_core.wasm")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/phalanx_core.wasm")
 }
 
 pub fn read_wasm() -> anyhow::Result<Vec<u8>> {
@@ -80,6 +80,7 @@ pub struct IntentFields<'a> {
     pub signer_id: &'a str,
     pub chain: &'a str,
     pub contract: &'a str,
+    pub invoice: &'a str,
     pub kind: &'a str,
     pub memo: &'a str,
     pub quote_hash: &'a str,
@@ -105,17 +106,19 @@ pub fn intent_message(f: &IntentFields) -> String {
     let diff = diff.iter().map(|(asset, amount)| format!(r#""{asset}":"{amount}""#)).collect::<Vec<_>>().join(",");
     format!(
         concat!(
-            r#"{{"aegis":{{"chain":"{}","contract":"{}","kind":"{}","memo":"{}","quote_hash":"{}","recipient":"{}"}},"#,
-            r#""deadline":"{}","intents":[{{"diff":{{{}}},"intent":"token_diff"}}],"signer_id":"{}"}}"#
+            r#"{{"deadline":"{}","intents":[{{"diff":{{{}}},"intent":"token_diff"}}],"#,
+            r#""phalanx":{{"chain":"{}","contract":"{}","invoice":"{}","kind":"{}","memo":"{}","quote_hash":"{}","recipient":"{}"}},"#,
+            r#""signer_id":"{}"}}"#
         ),
+        iso8601_millis(f.deadline_ns),
+        diff,
         f.chain,
         f.contract,
+        f.invoice,
         f.kind,
         f.memo,
         f.quote_hash,
         f.recipient,
-        iso8601_millis(f.deadline_ns),
-        diff,
         f.signer_id
     )
 }
@@ -154,7 +157,7 @@ pub struct ReceiptFields<'a> {
 /// Digest an enclave signs for an `ExecutionReceipt` (see `attestation.rs`).
 pub fn receipt_digest(r: &ReceiptFields) -> [u8; 32] {
     let mut buf = Vec::new();
-    push_str(&mut buf, "AEGIS_TEE_RECEIPT_V1");
+    push_str(&mut buf, "PHALANX_TEE_RECEIPT_V1");
     push_str(&mut buf, r.subject_kind);
     buf.extend_from_slice(&r.subject_id.to_le_bytes());
     push_str(&mut buf, r.agent_id);
@@ -213,7 +216,7 @@ pub fn binding_marker(
     nonce: &str,
     issued_at_ns: u64,
 ) -> String {
-    format!("AEGIS-BIND:v1:{subject_kind}:{subject_id}:{agent_id}:{input_hash}:{nonce}:{issued_at_ns}")
+    format!("PHALANX-BIND:v1:{subject_kind}:{subject_id}:{agent_id}:{input_hash}:{nonce}:{issued_at_ns}")
 }
 
 /// System prompt the sandbox RFP pins (`verification.prompt_hash = sha256(SANDBOX_PROMPT)`).

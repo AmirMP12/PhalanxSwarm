@@ -3,7 +3,7 @@
 # and a few others), so secrets and local build output are listed here explicitly.
 #
 # Do not add: package.json files, pnpm-lock.yaml, pnpm-workspace.yaml, apps/web, packages/ or
-# artifacts/aegis_core.wasm. The web build needs all of them (prebuild copies the WASM into
+# artifacts/phalanx_core.wasm. The web build needs all of them (prebuild copies the WASM into
 # apps/web/public).
 
 # Secrets and personal data

@@ -1,13 +1,13 @@
 /**
  * Autonomous 4-agent swarm (plus one third-party accounts-payable agent) operating the
- * `aegis-core` treasury. Every agent decision is a model call (NEAR AI Cloud when a key is
+ * `phalanx-core` treasury. Every agent decision is a model call (NEAR AI Cloud when a key is
  * configured, the labeled deterministic stand-in otherwise); every action it leads to goes
  * through the contract's policy engine.
  *
  * - Nexus-Orchestrator: turns a business goal into budgeted task RFPs from live treasury state.
  * - Rhea-Yield-Strategist: wins the strategy task, quotes routes through NEAR Intents 1Click
  *   (dry), ranks them, rehearses the rebalance and spends from the treasury's EVM address.
- * - Aegis-Sentinel: the audit role. Every settlement and EVM transfer needs a signed audit under the
+ * - Phalanx-Sentinel: the audit role. Every settlement and EVM transfer needs a signed audit under the
  *   DAO-pinned Sentinel prompt over the facts the contract builds. Confirms settlements and EVM
  *   transfers, cancels a signed EVM transfer before it is mined, and can pause the protocol.
  * - Cipher-Compute-Worker: prices its sealed bid from its own cost estimate, wins the procurement
@@ -17,7 +17,7 @@
  *   reads an invoice with a hidden payment-redirect instruction; if its model follows it, it asks
  *   to pay the attacker inside every limit.
  *
- * All decisions run against the compiled `aegis_core.wasm` inside AegisSim (`sandbox/near-vm.ts`).
+ * All decisions run against the compiled `phalanx_core.wasm` inside PhalanxSim (`sandbox/near-vm.ts`).
  */
 import {
   BINDING_LINE,
@@ -35,7 +35,7 @@ import {
   type Thought,
 } from "./agent-brains.ts";
 import { SimulatedMpcSigner, recoverEvmAddress, TESTNET_MPC_CONTRACT } from "./chain-signatures.ts";
-import { AegisContract, type CallResult, type Signer } from "./contract-client.ts";
+import { PhalanxContract, type CallResult, type Signer } from "./contract-client.ts";
 import { functionCallProposal, type SputnikAddProposal } from "./dao-export.ts";
 import {
   canonicalJson,
@@ -95,6 +95,7 @@ import {
   type EvmTxRecordT,
   type ExecutionProofT,
   type GlobalPolicyT,
+  type ProductT,
   type IntentAssessmentT,
   type IntentRecordT,
   type PriceFloorT,
@@ -106,12 +107,12 @@ import {
 } from "./types.ts";
 
 export const ACCOUNTS = {
-  contract: "aegis-swarm.testnet",
-  owner: "aegis-dao.sputnikv2.testnet",
+  contract: "phalanx-swarm.testnet",
+  owner: "phalanx-dao.sputnikv2.testnet",
   investor: "seed-fund.testnet",
   customer: "acme-robotics.testnet",
   operators: "ops-guild.testnet",
-  keeper: "aegis-keeper.testnet",
+  keeper: "phalanx-keeper.testnet",
   vendor: "gpu-vendor-a.testnet",
   /** A vendor the DAO has not allow-listed yet (the `hold` rule demo). */
   newVendor: "gpu-vendor-b.testnet",
@@ -184,8 +185,8 @@ const PERSONAS: Array<Omit<AgentHandle, "accountId" | "keyPair" | "signer">> = [
   },
   {
     persona: "sentinel",
-    displayName: "Aegis-Sentinel",
-    handle: "aegis-sentinel",
+    displayName: "Phalanx-Sentinel",
+    handle: "phalanx-sentinel",
     role: "sentinel",
     spawnMode: "sub_account",
     initialReputationBps: 5_000,
@@ -226,7 +227,7 @@ export interface RuntimeOptions {
   /** Server route that performs the NEAR AI gateway attestation (browser). */
   teeEndpoint?: string;
   teeTimeoutMs?: number;
-  /** Node DCAP verifier (`verifyTdxQuote` from `@aegis/agent-swarm-sdk/node`). */
+  /** Node DCAP verifier (`verifyTdxQuote` from `@phalanx/agent-swarm-sdk/node`). */
   teeQuoteVerifier?: QuoteVerifier;
   /** Preserved, previously verified gateway evidence used (labeled `cached`) only if a fresh fetch fails. */
   teeFallback?: () => AttestationResult | null;
@@ -290,10 +291,25 @@ export function defaultEvmChains(): EvmChainPolicyT[] {
  * Global policy with an explicit destination allow-list: the treasury's own Chain Signatures
  * addresses on each settlement chain, plus named vendors.
  */
+/** What the business sells: a confidential GPU procurement plan, delivered by a verified task. */
+export const PRODUCT_ID = "gpu-procurement-plan";
+
+export function procurementProduct(priceNear: number, deliverySec = 7_200): ProductT {
+  return {
+    product_id: PRODUCT_ID,
+    title: "Confidential GPU procurement plan",
+    price: near(priceNear).toString(),
+    delivery_sec: deliverySec,
+    // At most 80% of the price may be spent on the task, so every sale leaves a margin.
+    max_cost_bps: 8_000,
+  };
+}
+
 export function buildPolicy(opts: {
   treasuryAddresses: Record<string, string>;
   vendorNear: string[];
   vendorEvm: Array<{ chain: string; address: string }>;
+  products?: ProductT[];
 }): GlobalPolicyT {
   const recipients = [
     ...Object.entries(opts.treasuryAddresses).map(([chain, address]) => `${chain}:${address.toLowerCase()}`),
@@ -325,12 +341,18 @@ export function buildPolicy(opts: {
     task_prompt_hashes: [promptHash("procurement"), promptHash("strategy")],
     min_task_confidence_bps: 7_000,
     min_task_reputation_bps: 3_000,
+    // Every vendor payment and EVM transfer names its invoice, and no invoice is paid twice.
+    require_invoice_ref: true,
+    // Held payments wait for a DAO vote until the DAO opts into a challenge window.
+    hold_release_after_sec: 0,
+    hold_auto_release_max_yocto: "0",
+    products: opts.products ?? [procurementProduct(5)],
   };
 }
 
-/** The scenario policy for the AegisSim deployment (simulated MPC addresses). */
+/** The scenario policy for the PhalanxSim deployment (simulated MPC addresses). */
 export function defaultPolicy(mpc: SimulatedMpcSigner = new SimulatedMpcSigner()): GlobalPolicyT {
-  const treasuryAddresses = Object.fromEntries(["arb", "base", "eth", "sol"].map((c) => [c, mpc.addressFor(ACCOUNTS.contract, `aegis-treasury/${c}`)]));
+  const treasuryAddresses = Object.fromEntries(["arb", "base", "eth", "sol"].map((c) => [c, mpc.addressFor(ACCOUNTS.contract, `phalanx-treasury/${c}`)]));
   return buildPolicy({
     treasuryAddresses,
     vendorNear: [ACCOUNTS.vendor],
@@ -370,7 +392,7 @@ export function defaultSplits(): RevenueSplitT[] {
  * transaction carries the full spec, so it becomes public then.
  */
 export interface ProcurementSpec {
-  schema: "aegis.procurement-plan.v1";
+  schema: "phalanx.procurement-plan.v1";
   objective: string;
   gpu_hours: number;
   constraints: { require_tee: boolean; regions: string[]; max_usd_per_gpu_hour: number };
@@ -378,7 +400,7 @@ export interface ProcurementSpec {
 }
 
 export interface YieldSpec {
-  schema: "aegis.yield-route.v1";
+  schema: "phalanx.yield-route.v1";
   objective: string;
   amount_yocto: string;
   origin_asset: string;
@@ -506,7 +528,7 @@ export function clampBid(decision: BidDecisionT, ceiling: bigint, executionWindo
 
 export class SwarmRuntime {
   readonly vm: NearVm;
-  readonly contract: AegisContract;
+  readonly contract: PhalanxContract;
   readonly mpc: SimulatedMpcSigner;
   readonly intents: OneClickClient;
   readonly backend: CompletionBackend;
@@ -545,7 +567,7 @@ export class SwarmRuntime {
     this.teeFallback = opts.teeFallback;
     this.modelAttestationVerifier = opts.modelAttestationVerifier;
     this.fetchImpl = opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
-    this.contract = new AegisContract(vm, ACCOUNTS.contract);
+    this.contract = new PhalanxContract(vm, ACCOUNTS.contract);
     this.mpc = new SimulatedMpcSigner();
     const liveNearAi = this.mode !== "offline" && (opts.nearAiApiKey || opts.nearAiEndpoint);
     const liveGeneric = this.mode !== "offline" && !liveNearAi && Boolean(opts.llmApiKey || opts.llmBaseUrl);
@@ -574,7 +596,7 @@ export class SwarmRuntime {
       nowMs: () => Number(this.vm.timestampNs / 1_000_000n),
     });
     this.wasmSha256 = sha256Hex(opts.wasm);
-    const key = (label: string) => (this.keys[label] ??= keyPairFromSeed(`aegis-judge:${label}`));
+    const key = (label: string) => (this.keys[label] ??= keyPairFromSeed(`phalanx-judge:${label}`));
     const fa = (accountId: string): Signer => ({ accountId, publicKey: key(accountId).publicKeyString });
     this.owner = fa(ACCOUNTS.owner);
     this.investor = fa(ACCOUNTS.investor);
@@ -652,9 +674,9 @@ export class SwarmRuntime {
     return this.backend.source;
   }
 
-  /** Treasury-controlled EVM address on `chain` (Chain Signatures path `aegis-treasury/<chain>`). */
+  /** Treasury-controlled EVM address on `chain` (Chain Signatures path `phalanx-treasury/<chain>`). */
   treasuryAddress(chain: string): string {
-    return this.mpc.addressFor(ACCOUNTS.contract, `aegis-treasury/${chain}`);
+    return this.mpc.addressFor(ACCOUNTS.contract, `phalanx-treasury/${chain}`);
   }
 
   nextNonce(label: string): Uint8Array {
@@ -688,7 +710,7 @@ export class SwarmRuntime {
   async attestGateway(): Promise<AttestationResult> {
     let result: AttestationResult;
     if (this.teeMode === "offline") {
-      result = offlineAttestation("aegis-gateway:offline");
+      result = offlineAttestation("phalanx-gateway:offline");
     } else if (this.teeEndpoint) {
       const res = await this.fetchImpl(this.teeEndpoint, { cache: "no-store" } as RequestInit);
       if (!res.ok) throw new Error(`tee endpoint HTTP ${res.status}`);
@@ -725,7 +747,7 @@ export class SwarmRuntime {
     if (c.source === "standin") {
       args = {
         enclave_id: enclaveId,
-        measurement: sha256Hex("aegis-standin-model:v1"),
+        measurement: sha256Hex("phalanx-standin-model:v1"),
         signer_public_key: nearPublicKeyFromHex(c.signingAddress),
         vendor: "Offline stand-in (no TEE)",
         model_id: responseModel,
@@ -736,7 +758,7 @@ export class SwarmRuntime {
     } else if (c.source === "generic_llm") {
       args = {
         enclave_id: enclaveId,
-        measurement: sha256Hex(`aegis-generic-llm-model:${c.model}`),
+        measurement: sha256Hex(`phalanx-generic-llm-model:${c.model}`),
         signer_public_key: nearPublicKeyFromHex(c.signingAddress),
         vendor: "Live LLM (OpenAI/Gemini API, no TEE)",
         model_id: responseModel,
@@ -813,14 +835,14 @@ export class SwarmRuntime {
     return this.contract.call(this.keeper, "distribute_revenue", {}, DistributionRecord);
   }
 
-  /** SputnikDAO / Trezu `add_proposal` for a follow-up governance action on `aegis-core`. */
+  /** SputnikDAO / Trezu `add_proposal` for a follow-up governance action on `phalanx-core`. */
   daoProposal(method: string, args: Record<string, unknown>, description: string): SputnikAddProposal {
     return functionCallProposal({ daoId: ACCOUNTS.owner, contractId: ACCOUNTS.contract, method, args, description, proposer: "council-member.testnet" });
   }
 
   procurementSpec(q: string): ProcurementSpec {
     return {
-      schema: "aegis.procurement-plan.v1",
+      schema: "phalanx.procurement-plan.v1",
       objective: `2,000 GPU-hours of TEE-backed inference capacity for ${q} customer workloads`,
       gpu_hours: 2_000,
       constraints: { require_tee: true, regions: ["eu", "us"], max_usd_per_gpu_hour: 2.4 },
@@ -864,7 +886,7 @@ export class SwarmRuntime {
       summary: "Procure TEE GPU capacity by sealed bid; hire a strategist by reverse Dutch auction.",
     }));
     const pick = (category: "procurement" | "defi_strategy", fallback: number) =>
-      thought.output.rfps.find((r) => r.category === category) ?? {
+      thought.output.rfps.find((r) => r.category === category && r.budget_near > 0) ?? {
         title: category,
         budget_near: fallback,
         auction: category === "procurement" ? "sealed_bid" : "reverse_dutch",
@@ -875,7 +897,7 @@ export class SwarmRuntime {
     const strategyBudget = cap(near(strategyPick.budget_near));
     const procurementSpec = this.procurementSpec(q);
     const strategySpec: YieldSpec = {
-      schema: "aegis.yield-route.v1",
+      schema: "phalanx.yield-route.v1",
       objective: "Rank NEAR Intents routes for 12 NEAR of idle treasury into USDC under policy",
       amount_yocto: near(12).toString(),
       origin_asset: ASSETS.WNEAR,
@@ -1101,6 +1123,8 @@ export class SwarmRuntime {
       executionContract?: string;
       memo?: string;
       minAmountOut?: bigint;
+      /** The vendor's invoice number (vendor payments get a fresh one when omitted). */
+      invoiceRef?: string;
     },
   ): { request: CrossChainIntentRequestT; message: string; nep413Hash: string } {
     const binding = p.route.result ? toQuoteBinding(p.route.result) : null;
@@ -1118,6 +1142,7 @@ export class SwarmRuntime {
       quote: binding,
       nonce: "",
       memo: p.memo ?? null,
+      invoice_ref: p.invoiceRef ?? (p.kind === "vendor_payment" ? this.nextInvoiceRef() : null),
     });
   }
 
@@ -1127,6 +1152,7 @@ export class SwarmRuntime {
     recipient: string,
     amount: bigint,
     memo: string,
+    invoiceRef: string = this.nextInvoiceRef(),
   ): { request: CrossChainIntentRequestT; message: string; nep413Hash: string } {
     return this.signRequest(persona, {
       kind: "vendor_payment",
@@ -1142,6 +1168,7 @@ export class SwarmRuntime {
       quote: null,
       nonce: "",
       memo,
+      invoice_ref: invoiceRef,
     });
   }
 
@@ -1156,7 +1183,7 @@ export class SwarmRuntime {
   }
 
   /**
-   * Aegis-Sentinel audit. The contract builds the facts (`get_intent_audit_facts`): the request, the
+   * Phalanx-Sentinel audit. The contract builds the facts (`get_intent_audit_facts`): the request, the
    * recipient check and its own findings. The model judges exactly that document under the
    * DAO-pinned prompt, and the signed verdict is bound to the request's NEP-413 hash. The paying
    * agent writes neither the instructions nor the evidence.
@@ -1164,7 +1191,7 @@ export class SwarmRuntime {
   async auditIntent(persona: PersonaId, request: CrossChainIntentRequestT, nep413HashHex: string): Promise<SentinelAudit> {
     const agent = this.agents[persona];
     const facts = await this.contract.intentAuditFacts(agent.accountId, request);
-    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("aegis.intent-audit.v1"), `audit-${nep413HashHex.slice(0, 16)}`);
+    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("phalanx.intent-audit.v1"), `audit-${nep413HashHex.slice(0, 16)}`);
     const thought = await think(this.backend, "auditor", facts.facts, bindingMarkerFor(binding), () => standInAudit(facts.facts));
     const receipt = await this.proofFor(thought.completion, binding);
     const assessment = await this.contract.evaluateIntent(agent.accountId, { ...request, attestation: receipt });
@@ -1200,7 +1227,7 @@ export class SwarmRuntime {
     request: CrossChainIntentRequestT,
     nep413HashHex: string,
   ): Promise<{ receipt: ExecutionProofT; completion: SignedCompletion; signatureValid: boolean }> {
-    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("aegis.intent-audit.v1"), `forged-${nep413HashHex.slice(0, 16)}`);
+    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("phalanx.intent-audit.v1"), `forged-${nep413HashHex.slice(0, 16)}`);
     const marker = bindingMarkerFor(binding);
     const facts = {
       request: { kind: request.kind, chain: request.destination_chain, recipient: request.recipient, amount_near: formatNear(request.amount, 3) },
@@ -1241,7 +1268,7 @@ export class SwarmRuntime {
       recipient: { allow_listed: true, blocked_reason: null, verdict: "allow" },
       request: { ...doc.request, memo: coverMemo },
     });
-    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("aegis.intent-audit.v1"), `invented-${nep413HashHex.slice(0, 16)}`);
+    const binding = this.binding("intent", 0n, persona, nep413HashHex, sha256Hex("phalanx.intent-audit.v1"), `invented-${nep413HashHex.slice(0, 16)}`);
     const thought = await think(this.backend, "auditor", inventedFacts, bindingMarkerFor(binding), () => standInAudit(inventedFacts));
     const receipt = await this.proofFor(thought.completion, binding);
     return {
@@ -1277,6 +1304,7 @@ export class SwarmRuntime {
     maxFeePerGas?: bigint;
     maxPriorityFeePerGas?: bigint;
     memo?: string;
+    invoiceRef?: string;
   }): EvmTransferRequestT {
     return {
       chain: p.chain ?? EVM_CHAIN,
@@ -1289,7 +1317,16 @@ export class SwarmRuntime {
       max_priority_fee_per_gas: (p.maxPriorityFeePerGas ?? GWEI).toString(),
       memo: p.memo ?? null,
       attestation: null,
+      invoice_ref: p.invoiceRef ?? this.nextInvoiceRef(),
     };
+  }
+
+  private invoiceSeq = 0;
+
+  /** A fresh invoice number, unique within this runtime (`INV-0001`, ...). */
+  nextInvoiceRef(): string {
+    this.invoiceSeq += 1;
+    return `INV-${String(this.invoiceSeq).padStart(4, "0")}`;
   }
 
   previewEvmTransfer(request: EvmTransferRequestT) {
@@ -1300,7 +1337,7 @@ export class SwarmRuntime {
   async auditEvmTransfer(persona: PersonaId, request: EvmTransferRequestT): Promise<EvmAudit> {
     const preview = await this.previewEvmTransfer(request);
     const facts = await this.contract.evmAuditFacts(this.agents[persona].accountId, request);
-    const binding = this.binding("evm", 0n, persona, preview.signing_hash, sha256Hex("aegis.evm-audit.v1"), `evm-audit-${preview.signing_hash.slice(0, 16)}`);
+    const binding = this.binding("evm", 0n, persona, preview.signing_hash, sha256Hex("phalanx.evm-audit.v1"), `evm-audit-${preview.signing_hash.slice(0, 16)}`);
     const thought: Thought<"auditor"> = await think(this.backend, "auditor", facts.facts, bindingMarkerFor(binding), (): AuditResultT =>
       standInAudit(facts.facts),
     );
@@ -1349,6 +1386,7 @@ export class SwarmRuntime {
       max_priority_fee_per_gas: record.max_priority_fee_per_gas,
       memo: record.memo,
       attestation: null,
+      invoice_ref: record.invoice_ref,
     };
     const built = buildEvmTx(chain, request);
     const assembled = assembleSignedTx(built, record.signature);
@@ -1376,6 +1414,7 @@ export class SwarmRuntime {
       slippageBps: 5_000,
       executionContract: "drainer-router.near",
       memo: "urgent vendor invoice",
+      invoiceRef: "INV-URGENT-7741",
     });
   }
 
@@ -1446,7 +1485,8 @@ export class SwarmRuntime {
       score: 0,
     };
     const memo = `invoice ${(submitted.invoice_id || invoiceId).replace(/[^A-Za-z0-9 #-]/g, "").slice(0, 40)}`;
-    const built = this.buildIntent("mallory", { kind: "vendor_payment", route, amount, slippageBps: 50, memo });
+    const invoiceRef = (submitted.invoice_id || invoiceId).replace(/[^A-Za-z0-9#-]/g, "").slice(0, 40) || invoiceId;
+    const built = this.buildIntent("mallory", { kind: "vendor_payment", route, amount, slippageBps: 50, memo, invoiceRef });
     return { invoice, style, instruction, fooled, forced, submitted, completion: thought.completion, request: built.request, quoteSource: quote.source };
   }
 }

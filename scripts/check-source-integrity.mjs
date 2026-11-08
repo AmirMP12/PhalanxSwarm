@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sourceRoots = ["apps/web/src", "apps/web/scripts", "packages/agent-swarm-sdk/src", "scripts", "contracts/aegis-core/src"];
+const sourceRoots = ["apps/web/src", "apps/web/scripts", "packages/agent-swarm-sdk/src", "scripts", "contracts/phalanx-core/src"];
 const standaloneSourceFiles = ["apps/web/next.config.ts", "apps/web/postcss.config.mjs"];
 const sourceExtensions = new Set([".js", ".mjs", ".ts", ".tsx", ".rs"]);
 const excludedNames = new Set(["tests.rs", "check-source-integrity.mjs"]);

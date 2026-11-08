@@ -1,6 +1,6 @@
 /**
  * Byte-level primitives shared by every module. Each function mirrors a Rust helper in
- * `contracts/aegis-core/src/codec.rs` (or a borsh layout used by the contract) and is covered
+ * `contracts/phalanx-core/src/codec.rs` (or a borsh layout used by the contract) and is covered
  * by parity tests against the compiled WASM.
  */
 import { ed25519 } from "@noble/curves/ed25519.js";
@@ -245,5 +245,5 @@ export function formatNear(yocto: bigint | string, decimals = 4): string {
 
 /** Deterministic 32-byte value from a label (nonces, salts, seeds). */
 export function deterministicBytes(label: string): Uint8Array {
-  return sha256Bytes(`aegis-deterministic:${label}`);
+  return sha256Bytes(`phalanx-deterministic:${label}`);
 }

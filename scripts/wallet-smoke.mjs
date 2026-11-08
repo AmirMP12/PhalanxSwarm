@@ -7,7 +7,7 @@
  * NEAR testnet, and verifies the command-center UI observes pause + resume over RPC.
  *
  * Requires a running web app (default http://localhost:3100) and
- * AEGIS_TESTNET_CREDENTIAL=/absolute/path/to/disposable-testnet-key.json (outside this repo).
+ * PHALANX_TESTNET_CREDENTIAL=/absolute/path/to/disposable-testnet-key.json (outside this repo).
  * Writes artifacts/wallet-smoke.json with public evidence only. The private key never enters the
  * browser, page storage, logs, or repository: a Node-side exposed function is the wallet boundary.
  */
@@ -17,11 +17,11 @@ import { resolve } from "node:path";
 import { Account, actions, KeyPairSigner } from "near-api-js";
 import { chromium } from "playwright-core";
 
-const credentialPath = process.env.AEGIS_TESTNET_CREDENTIAL;
-if (!credentialPath) throw new Error("set AEGIS_TESTNET_CREDENTIAL to a disposable testnet credential JSON outside the repo");
+const credentialPath = process.env.PHALANX_TESTNET_CREDENTIAL;
+if (!credentialPath) throw new Error("set PHALANX_TESTNET_CREDENTIAL to a disposable testnet credential JSON outside the repo");
 const cred = JSON.parse(readFileSync(credentialPath, "utf8"));
 if (!cred.account_id?.endsWith(".testnet")) throw new Error("wallet smoke accepts .testnet credentials only");
-const APP = process.env.AEGIS_WEB_URL ?? "http://localhost:3100";
+const APP = process.env.PHALANX_WEB_URL ?? "http://localhost:3100";
 const RPC = "https://rpc.testnet.near.org";
 const browserPaths = [
   process.env.CHROME_BIN,
@@ -66,7 +66,7 @@ try {
   const page = await context.newPage();
   const browserErrors = [];
   page.on("pageerror", (e) => browserErrors.push(e.message));
-  await page.exposeFunction("__aegisRealWalletSign", async (params) => {
+  await page.exposeFunction("__phalanxRealWalletSign", async (params) => {
     const converted = params.actions.map((a) => {
       if (a.type === "FunctionCall") return actions.functionCall(a.params.methodName, a.params.args, BigInt(a.params.gas), BigInt(a.params.deposit));
       throw new Error(`wallet smoke does not permit action ${a.type}`);
@@ -100,9 +100,9 @@ try {
       let signedIn = false;
       const wallet = {
         manifest: {
-          id: "aegis-disposable-real-testnet",
+          id: "phalanx-disposable-real-testnet",
           platform: ["web"],
-          name: "Aegis Disposable Testnet Wallet",
+          name: "Phalanx Disposable Testnet Wallet",
           icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307090e'/%3E%3Cpath d='M12 20h40v28H12zM20 20v-6h30v6' fill='none' stroke='%2300ec97' stroke-width='4'/%3E%3C/svg%3E",
           description: "Disposable self-custodial wallet used by the PhalanxSwarm real-testnet smoke test",
           website: "https://near.org",
@@ -131,8 +131,8 @@ try {
           signedIn = false;
         },
         getAccounts: async () => (signedIn ? [{ accountId, publicKey }] : []),
-        signAndSendTransaction: (params) => window.__aegisRealWalletSign(params),
-        signAndSendTransactions: async ({ transactions, ...rest }) => Promise.all(transactions.map((tx) => window.__aegisRealWalletSign({ ...rest, ...tx }))),
+        signAndSendTransaction: (params) => window.__phalanxRealWalletSign(params),
+        signAndSendTransactions: async ({ transactions, ...rest }) => Promise.all(transactions.map((tx) => window.__phalanxRealWalletSign({ ...rest, ...tx }))),
         signMessage: async () => {
           throw new Error("not supported by this disposable smoke wallet");
         },
@@ -149,7 +149,7 @@ try {
   );
 
   await page.getByRole("button", { name: /Connect NEAR wallet/i }).click();
-  await page.locator('.connect-item[data-type="aegis-disposable-real-testnet"]').click({ timeout: 30_000 });
+  await page.locator('.connect-item[data-type="phalanx-disposable-real-testnet"]').click({ timeout: 30_000 });
   await page.getByRole("button", { name: "Disconnect wallet" }).waitFor({ timeout: 30_000 });
   console.log(`NEAR Connect login: ${cred.account_id}`);
 

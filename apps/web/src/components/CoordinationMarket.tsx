@@ -2,7 +2,7 @@
 
 import { Gavel, Inbox, Lock, LockOpen, ReceiptText, Store, TrendingDown, Trophy } from "lucide-react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import { Badge, Card, CardHeader, EmptyState, PersonaAvatar, SkeletonBlock, cx, nearFmt, short, usePersonaOf, type Tone } from "./ui";
 
@@ -10,7 +10,7 @@ const taskTone = (s: string): Tone =>
   s === "completed" ? "emerald" : s === "failed" || s === "expired" || s === "cancelled" ? "red" : s === "awarded" ? "violet" : "sky";
 
 export function CoordinationMarket() {
-  const { dashboard } = useAegis();
+  const { dashboard } = usePhalanx();
   const personaOf = usePersonaOf();
   return (
     <Card className="p-4 sm:p-5">

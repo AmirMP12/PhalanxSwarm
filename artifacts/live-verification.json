@@ -1,18 +1,18 @@
 {
   "passed": true,
-  "checked_at": "2026-11-06T20:48:33.914Z",
+  "checked_at": "2026-11-08T02:41:07.387Z",
   "checks": [
     {
       "section": "build",
       "name": "canonical WASM was built twice byte-identically",
       "passed": true,
-      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
+      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895"
     },
     {
       "section": "build",
-      "name": "artifacts/aegis_core.wasm is the canonical build",
+      "name": "artifacts/phalanx_core.wasm is the canonical build",
       "passed": true,
-      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
+      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895"
     },
     {
       "section": "nearai",
@@ -30,25 +30,31 @@
       "section": "1click",
       "name": "live quote answers with dry: true",
       "passed": true,
-      "detail": "735e8484-b619-4581-80a2-dd0630d20725"
+      "detail": "81c11e94-d2d5-450a-8359-0c9578df15ab"
     },
     {
       "section": "v2",
       "name": "deployed bytecode equals the canonical WASM",
       "passed": true,
-      "detail": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76"
+      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895"
     },
     {
       "section": "v2",
-      "name": "contract version is 2.x",
+      "name": "contract version matches recorded deployment",
       "passed": true,
-      "detail": "2.3.0"
+      "detail": "3.0.0"
     },
     {
       "section": "v2",
       "name": "owner is the SputnikDAO",
       "passed": true,
-      "detail": "aegis-69b4.sputnikv2.testnet"
+      "detail": "phalanx-v3d1.sputnikv2.testnet"
+    },
+    {
+      "section": "v2",
+      "name": "a DAO proposal needs at least two council votes",
+      "passed": true,
+      "detail": "2 of 3 council members"
     },
     {
       "section": "v2",
@@ -60,7 +66,7 @@
       "section": "v2",
       "name": "agent sub-accounts hold only FunctionCall keys scoped to the contract",
       "passed": true,
-      "detail": "4 scoped keys"
+      "detail": "6 scoped keys"
     },
     {
       "section": "v2",
@@ -78,19 +84,19 @@
       "section": "v2",
       "name": "the fraudulent agent's access key no longer exists on the contract account",
       "passed": true,
-      "detail": "ed25519:BfY5r69cRBs1mC4HU862vyNmm3Vsk6XJGgpkZabRdCnz"
+      "detail": "ed25519:GHBvjYZhnRXBnAbnTpWEevqpKBg4TEUe6jm73N9ZSqSA"
     },
     {
       "section": "v2",
       "name": "real NEAR vendor payment emitted vendor_paid",
       "passed": true,
-      "detail": "5X1ur1yA8dNcVMaXWp13v3LoicR7rRjdysAMfy31GjjH"
+      "detail": "8FRgbjsgaeKL2vvdPuwWPc577o3K2qLA9fcnwTsQNz4j"
     },
     {
       "section": "v2",
       "name": "signed model output released escrow (task_settled)",
       "passed": true,
-      "detail": "GUmXKNfFV3jWEw5XZxm82tNHQvqRJ8gb1B4X8uGGQvej"
+      "detail": "Vwhv6qitR25DQwPcqYAAJbTGpXbjyoTsA8xVrLaqEek"
     },
     {
       "section": "v2",
@@ -102,25 +108,49 @@
       "section": "v2",
       "name": "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
       "passed": true,
-      "detail": "A8LNdQN4LRNY6wUghJYJK73Wb58grrBPAUPEt2tMhPLv"
+      "detail": "2pNthGj4RVLNDosN5cPZQxQybyV1wsDeMPdGixjq8m1r"
     },
     {
       "section": "v2",
       "name": "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
       "passed": true,
-      "detail": "AVrtXFiAewSM9qfvhzj2HxrbvZJ8HHfZdKniUpfg6pRg"
+      "detail": "EToYFqH5w1NZdKLSSN3XJLZFrdPrsHHYp3Xt9ovTSvwd"
+    },
+    {
+      "section": "v3",
+      "name": "a small first payment to a new vendor cleared after the challenge window, released by the vendor without a vote",
+      "passed": true,
+      "detail": "CigemuA526mNZd5sNyHypcEsuivX2cKveDrewQZpD4rS"
+    },
+    {
+      "section": "v3",
+      "name": "a second payment of an already paid invoice was refused without a strike",
+      "passed": true,
+      "detail": "U8kweGgjhTBNW9AxjJXushdxDhdTpJoPHdou6Duf6Cq"
+    },
+    {
+      "section": "v3",
+      "name": "a customer's order was re-procured after a missed deadline and delivered by a verified task",
+      "passed": true,
+      "detail": "9qLBtKf7x9pBEjb7MoWq8wwUFubpxSHBEZkSfJrDMgWq"
+    },
+    {
+      "section": "v3",
+      "name": "auctions had competing bidders, and the winner that missed its deadline lost reputation",
+      "passed": true,
+      "detail": "3 auctions; orion-compute-worker.phalanx-v3d1.phalanxswarm.testnet at 4750 bps"
     },
     {
       "section": "v2",
       "name": "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
       "passed": true,
-      "detail": "HWfC8Gfh55mMz2KE1tQWStQuWpYPN8RF3gB8hQPHsjXB"
+      "detail": "8AnbNcMJjjb75n7WYQ4TCci1KKPQC23SkCMpFyt4TtQ"
     },
     {
       "section": "v2",
       "name": "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
       "passed": true,
-      "detail": "5WEGhAyNioZ22RqdC989aoRyw7Xz1KyaVyyscF2Xw59k"
+      "detail": "3f3sqRxZZRUXMqEDkHEyChaKucXWXKcjwC6Sj77WKAvw"
     },
     {
       "section": "v2",
@@ -138,13 +168,13 @@
       "section": "v2",
       "name": "an approval signed under the pinned prompt over facts the agent wrote itself was rejected (facts_mismatch)",
       "passed": true,
-      "detail": "8dd1Rj49YQB99dVb5ipTer28syZitXNTuyEJMCeYDVSL"
+      "detail": "CTKFj7iLyMzCbX2GERTirq57fBuXvvsoFrLqK31sYdmR"
     },
     {
       "section": "v2",
       "name": "MPC-signed basesepolia transaction is sent from the treasury's derived address",
       "passed": true,
-      "detail": "0xa767Bd611E029c90dAc700ff8f4C069191bfFc53"
+      "detail": "0x864f91617901e0764a5bE0a62c0E3B32f090eb63"
     },
     {
       "section": "v2",
@@ -156,7 +186,7 @@
       "section": "v2",
       "name": "Base Sepolia receipt shows success",
       "passed": true,
-      "detail": "0x6cb073510097e2f3e1c084b3dc486aaff6294992749b73d19c0ac029c5da606d"
+      "detail": "0xc8dd4918d1f0de8104626764682b4d92573b73e5ac704718d58e3ee82ebee580"
     },
     {
       "section": "v2",
@@ -166,21 +196,15 @@
     },
     {
       "section": "v1",
+      "name": "SDK key derivation equals the real MPC contract for current deployment",
+      "passed": true,
+      "detail": "secp256k1:4DvMgvC1RqDMjKRFiDPx7g3q26mMCEHdgwrpQNqPuoiqgKFUdTjTbR6h3aC7uW98VLndS9MqrmX5McQNfECQNLEX"
+    },
+    {
+      "section": "v1",
       "name": "v1 deployment runs the bytecode recorded in its evidence",
       "passed": true,
       "detail": "8e160aacc1a83f46f1052e0b3be8b0b89a2ba85aa6d5461f8601b37668452bb0"
-    },
-    {
-      "section": "v1",
-      "name": "SDK key derivation equals the real MPC contract",
-      "passed": true,
-      "detail": "secp256k1:4iQ94D8xQcFSbsM3UjLRHonU5KkkHgMTNbvg6i2RHuLk4BTAh33yUHBKSt5cqF5wu19K5UMJHCWZa59nb8JxRCPw"
-    },
-    {
-      "section": "v1",
-      "name": "real MPC signature ecrecovers to the derived treasury address",
-      "passed": true,
-      "detail": "0x8de75fFE4e73cb5A4afa2FEA390fE08f61fbA9F6"
     },
     {
       "section": "v1",
@@ -198,20 +222,18 @@
       "section": "economic",
       "name": "treasury funding succeeded on testnet (money entered the contract)",
       "passed": true,
-      "detail": "DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz · events=treasury_funded"
+      "detail": "7Kjn6iXsb6iZmkndddUVpdZpDxK1rJvMDwPuubpfjNSx · events=treasury_funded"
     },
     {
       "section": "economic",
-      "name": "intent reached settled on-chain (MPC-signed rehearsal closed)",
+      "name": "EVM transfer reached confirmed status on-chain",
       "passed": true,
-      "detail": "status=settled · tx 3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS"
+      "detail": "status=confirmed · tx 0xc8dd4918d1f0de8104626764682b4d92573b73e5ac704718d58e3ee82ebee580"
     }
   ],
   "skipped": [],
-  "notes": [
-    "the DAO council has 1 member(s) and one vote passes a proposal: a single key controls the owner role"
-  ],
-  "canonical_wasm_sha256": "4ed31569878971c9c27bebb4e81b9a3146758874ff8a10f8c64ab4a5a2876f76",
+  "notes": [],
+  "canonical_wasm_sha256": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895",
   "nearai": {
     "gateway_status": "UpToDate",
     "gateway_source": "live",
@@ -225,22 +247,14 @@
     ]
   },
   "oneclick": {
-    "correlation_id": "735e8484-b619-4581-80a2-dd0630d20725",
+    "correlation_id": "81c11e94-d2d5-450a-8359-0c9578df15ab",
     "dry": true
   },
   "v2": {
-    "contract_id": "aegis-69b4.phalanxswarm.testnet",
-    "dao_id": "aegis-69b4.sputnikv2.testnet"
+    "contract_id": "phalanx-v3d1.phalanxswarm.testnet",
+    "dao_id": "phalanx-v3d1.sputnikv2.testnet"
   },
   "v1": {
-    "contract_id": "aegisswarm-d49c65bf.testnet"
-  },
-  "economic": {
-    "contract_id": "aegisswarm-d49c65bf.testnet",
-    "fund_tx": "DuEcyK8YqmxmpAH8ABqaxHJF5Q6tFesp6bgdN4wg9pdz",
-    "intent_tx": "3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS",
-    "confirm_tx": "FGtNNeWTGVuvpDehT3PfnYx2kQ2aVjGCrGs9YmktvuFT",
-    "intent_status": "settled",
-    "note": "1Click quotes remain dry:true (Q-007). NEAR-side funding + MPC settlement prove a real economic loop without a 1Click deposit."
+    "contract_id": "phalanx-v3d1.phalanxswarm.testnet"
   }
 }

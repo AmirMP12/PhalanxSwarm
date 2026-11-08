@@ -2,7 +2,7 @@
  * SputnikDAO v2 / Trezu proposal export.
  *
  * Trezu treasuries run on SputnikDAO contracts, so one `add_proposal` payload works for both.
- * The governor (owner) of `aegis-core` is meant to be such a DAO: these payloads let the
+ * The governor (owner) of `phalanx-core` is meant to be such a DAO: these payloads let the
  * multisig approve governance actions (policy changes, revocations, DAO-gated intents) and
  * route revenue-split transfers through the same voting process.
  */
@@ -21,7 +21,7 @@ export type SputnikProposalKind =
   | { Transfer: { token_id: string; receiver_id: string; amount: string; msg?: string | null } };
 
 export interface SputnikAddProposal {
-  /** Target DAO contract, e.g. `aegis.sputnikv2.testnet`. */
+  /** Target DAO contract, e.g. `phalanx.sputnikv2.testnet`. */
   daoId: string;
   method: "add_proposal";
   args: { proposal: { description: string; kind: SputnikProposalKind } };
@@ -56,7 +56,7 @@ function cliFor(daoId: string, args: unknown, bond: bigint, signer: string): str
   ].join(" ");
 }
 
-/** A DAO proposal that calls a method of `aegis-core` (for example `revoke_agent`). */
+/** A DAO proposal that calls a method of `phalanx-core` (for example `revoke_agent`). */
 export function functionCallProposal(opts: {
   daoId: string;
   contractId: string;

@@ -1,10 +1,10 @@
 "use client";
 
-import type { AgentRecordT, PersonaId } from "@aegis/agent-swarm-sdk";
+import type { AgentRecordT, PersonaId } from "@phalanx/agent-swarm-sdk";
 import { Cpu, ShieldCheck, Skull, TrendingUp, Workflow, type LucideIcon } from "lucide-react";
 import { useCallback } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import { cx } from "./format";
 import type { Tone } from "./primitives";
@@ -23,7 +23,7 @@ export const PERSONA_META: Record<PersonaId, { hex: string; icon: LucideIcon; ro
 const HANDLE_PERSONA: Record<string, PersonaId> = {
   "nexus-orchestrator": "nexus",
   "rhea-yield-strategist": "rhea",
-  "aegis-sentinel": "sentinel",
+  "phalanx-sentinel": "sentinel",
   "cipher-compute-worker": "cipher",
   "mallory-ap-agent": "mallory",
 };
@@ -71,7 +71,7 @@ export function PersonaAvatar({ persona, size = 32, status, className }: { perso
 
 /** Maps an on-chain account id back to its persona (for avatars in tables and lists). */
 export function usePersonaOf(): (accountId: string | null | undefined) => PersonaId | undefined {
-  const { runtime } = useAegis();
+  const { runtime } = usePhalanx();
   return useCallback(
     (accountId) => {
       if (!runtime || !accountId) return undefined;

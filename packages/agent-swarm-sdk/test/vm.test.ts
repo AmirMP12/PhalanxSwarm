@@ -1,10 +1,10 @@
-/** AegisSim semantics: access-key enforcement, rollback, refunds, view restrictions, callbacks. */
+/** PhalanxSim semantics: access-key enforcement, rollback, refunds, view restrictions, callbacks. */
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { ACCOUNTS, ONE_NEAR, SwarmRuntime } from "../src/index.ts";
 import { loadContractWasm } from "../src/node.ts";
 
-describe("AegisSim NEAR VM", () => {
+describe("PhalanxSim NEAR VM", () => {
   let rt: SwarmRuntime;
 
   beforeAll(async () => {
@@ -47,7 +47,7 @@ describe("AegisSim NEAR VM", () => {
     const balance = rt.vm.balanceOf(ACCOUNTS.customer);
     const r = await rt.contract.call(rt.customer, "deposit_revenue", { customer_ref: "", memo: null }, null, { deposit: 3n * ONE_NEAR });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/AEGIS_E_INVALID_CUSTOMER_REF/);
+    expect(r.error).toMatch(/PHALANX_E_INVALID_CUSTOMER_REF/);
     expect((await rt.contract.treasury()).liquid).toBe(before.liquid);
     const fee = balance - rt.vm.balanceOf(ACCOUNTS.customer);
     expect(fee).toBeGreaterThan(0n);

@@ -1,6 +1,6 @@
 /**
- * AegisSim: a deterministic, in-process NEAR runtime that executes the *compiled* contract WASM
- * (`artifacts/aegis_core.wasm`) in Node or the browser.
+ * PhalanxSim: a deterministic, in-process NEAR runtime that executes the *compiled* contract WASM
+ * (`artifacts/phalanx_core.wasm`) in Node or the browser.
  *
  * What it models (the subset of nearcore semantics the contract depends on):
  * - the `env` host-function ABI (registers, storage, context, economics, sha256/keccak256,
@@ -337,7 +337,7 @@ export class NearVm {
     key.nonce += 1n;
     signer.balance -= deposits;
     this.txSeq += 1;
-    const transactionHash = toBase58(sha256Bytes(utf8(`aegis-sim-tx:${this.txSeq}:${tx.signerId}:${tx.publicKey}:${key.nonce}:${tx.receiverId}`)));
+    const transactionHash = toBase58(sha256Bytes(utf8(`phalanx-sim-tx:${this.txSeq}:${tx.signerId}:${tx.publicKey}:${key.nonce}:${tx.receiverId}`)));
 
     const first: PendingReceipt = {
       id: this.newReceiptId(),
@@ -411,7 +411,7 @@ export class NearVm {
 
   private newReceiptId(): string {
     this.receiptSeq += 1;
-    return toBase58(sha256Bytes(utf8(`aegis-sim-receipt:${this.receiptSeq}`)));
+    return toBase58(sha256Bytes(utf8(`phalanx-sim-receipt:${this.receiptSeq}`)));
   }
 
   private resolve(id: string, results: Map<string, ReceiptResult>): ReceiptResult {
@@ -624,7 +624,7 @@ export class NearVm {
       imports[imp.name] =
         env[imp.name] ??
         (() => {
-          throw new HostError(`host function ${imp.name} is not supported by the AegisSim VM`);
+          throw new HostError(`host function ${imp.name} is not supported by the PhalanxSim VM`);
         });
     }
     const instance = await WebAssembly.instantiate(code.module, { env: imports });
@@ -719,7 +719,7 @@ export class NearVm {
       });
     };
     const unsupported = (name: string) => () => {
-      throw new HostError(`${name} is not supported by the AegisSim VM`);
+      throw new HostError(`${name} is not supported by the PhalanxSim VM`);
     };
 
     return {
@@ -765,7 +765,7 @@ export class NearVm {
         prohibitedInView("used_gas");
         return RECEIPT_GAS_ESTIMATE;
       },
-      random_seed: (id) => setRegister(id, sha256Bytes(utf8(`aegis-sim-seed:${this.blockHeight}`))),
+      random_seed: (id) => setRegister(id, sha256Bytes(utf8(`phalanx-sim-seed:${this.blockHeight}`))),
       sha256: (len, ptr, id) => setRegister(id, sha256Bytes(read(ptr, len))),
       keccak256: (len, ptr, id) => setRegister(id, keccak256Bytes(read(ptr, len))),
       ed25519_verify: (sigLen, sigPtr, msgLen, msgPtr, pkLen, pkPtr) => {

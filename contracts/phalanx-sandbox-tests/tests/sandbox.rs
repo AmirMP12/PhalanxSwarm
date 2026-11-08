@@ -1,4 +1,4 @@
-//! near-workspaces integration suite: the compiled `artifacts/aegis_core.wasm` deployed to a
+//! near-workspaces integration suite: the compiled `artifacts/phalanx_core.wasm` deployed to a
 //! local nearcore sandbox node (near-sandbox 2.14.0, protocol 88).
 //!
 //! These tests cover what only a real node can prove: sub-account creation, FunctionCall key
@@ -13,10 +13,10 @@
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use aegis_sandbox_tests::*;
 use near_workspaces::network::Sandbox;
 use near_workspaces::types::{AccessKeyPermission, Gas, NearToken, SecretKey};
 use near_workspaces::{Account, AccountId, Contract, Worker};
+use phalanx_sandbox_tests::*;
 use serde_json::{json, Value};
 
 /// 300 Tgas: the sandbox gas price makes 1 PGas (`max_gas`) cost ~1 NEAR, more than a FunctionCall allowance.
@@ -60,7 +60,7 @@ async fn setup() -> anyhow::Result<Env> {
     let wasm = read_wasm()?;
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
-    let contract_account = root.create_subaccount("aegis").initial_balance(near(60)).transact().await?.into_result()?;
+    let contract_account = root.create_subaccount("phalanx").initial_balance(near(60)).transact().await?.into_result()?;
     let contract = contract_account.deploy(&wasm).await?.into_result()?;
     let owner = root.create_subaccount("owner").initial_balance(near(100)).transact().await?.into_result()?;
     let init = contract
@@ -122,13 +122,13 @@ async fn allow(env: &Env, recipients: &[String], evm_chains: Option<Value>) -> a
 /// Registers a self-hosted receipt signer; returns its key and measurement.
 async fn register_enclave(env: &Env) -> anyhow::Result<(ed25519_dalek::SigningKey, String)> {
     let enclave = signing_key("sandbox:enclave");
-    let measurement = hex(&sha256(b"aegis-enclave-image:sandbox"));
+    let measurement = hex(&sha256(b"phalanx-enclave-image:sandbox"));
     let res = env
         .owner
         .call(env.contract.id(), "register_enclave")
         .args_json(json!({
             "enclave_id": ENCLAVE_ID, "measurement": measurement, "signer_public_key": near_public_key(&enclave),
-            "vendor": "sandbox", "model_id": "aegis/test", "tee_type": "none", "kind": "receipt_signer",
+            "vendor": "sandbox", "model_id": "phalanx/test", "tee_type": "none", "kind": "receipt_signer",
             "attestation_ref": "sandbox test key",
         }))
         .gas(TX_GAS)
@@ -196,10 +196,13 @@ fn build_intent(env: &Env, i: &Intent) -> (Value, String) {
     let deadline = now_ns() + 900 * NS;
     let (nonce_b64, nonce) = nonce_b64(i.nonce_label);
     let quote_hash = i.quote.get("quote_hash").and_then(Value::as_str).unwrap_or("");
+    // Every request names its own invoice, so no two sandbox payments share one.
+    let invoice = format!("INV-{}", i.nonce_label);
     let fields = IntentFields {
         signer_id: i.agent.as_str(),
         chain: i.chain,
         contract: i.execution_contract,
+        invoice: &invoice,
         kind: i.kind,
         memo: "",
         quote_hash,
@@ -216,7 +219,7 @@ fn build_intent(env: &Env, i: &Intent) -> (Value, String) {
         "amount": i.amount.to_string(), "min_amount_out": i.min_amount_out.to_string(), "recipient": i.recipient,
         "execution_contract": i.execution_contract, "slippage_bps": if i.chain == "near" { 0 } else { 50 },
         "deadline_ns": deadline.to_string(), "quote": i.quote, "nonce": nonce_b64, "signature": sign(i.key, &hash),
-        "attestation": null, "memo": null,
+        "attestation": null, "memo": null, "invoice_ref": invoice,
     });
     (request, hex(&hash))
 }
@@ -230,7 +233,7 @@ fn approval(
     input_hash: &str,
     nonce: &str,
 ) -> Value {
-    let schema_hash = hex(&sha256(b"aegis.intent-audit.v1"));
+    let schema_hash = hex(&sha256(b"phalanx.intent-audit.v1"));
     let output_hash = hex(&sha256(b"approve"));
     let r = ReceiptFields {
         subject_kind,
@@ -238,7 +241,7 @@ fn approval(
         agent_id: agent.as_str(),
         enclave_id: ENCLAVE_ID,
         measurement,
-        model_id: "aegis/test",
+        model_id: "phalanx/test",
         input_hash,
         output_hash: &output_hash,
         schema_hash: &schema_hash,
@@ -407,7 +410,7 @@ async fn near_ai_proof_releases_escrow_into_earnings_and_withdrawal_is_a_real_tr
 
     // Nexus posts a reverse-Dutch task; Rhea accepts it at the current price with a binding latency.
     let spec_hash = hex(&sha256(b"sandbox-spec"));
-    let schema_hash = hex(&sha256(b"aegis.yield-route.v1"));
+    let schema_hash = hex(&sha256(b"phalanx.yield-route.v1"));
     let posted = nexus
         .call(&contract_id, "post_task_rfp")
         .args_json(json!({ "rfp": {
@@ -415,7 +418,7 @@ async fn near_ai_proof_releases_escrow_into_earnings_and_withdrawal_is_a_real_tr
             "budget_ceiling": (3 * ONE_NEAR).to_string(), "auction": "reverse_dutch", "dutch_start_price": ONE_NEAR.to_string(),
             "bidding_window_sec": 600, "reveal_window_sec": null, "execution_window_sec": 1800, "deadline_epochs": 2,
             "max_bidders": 3, "verification": {
-                "schema_id": "aegis.yield-route.v1", "schema_hash": schema_hash, "min_confidence_bps": 8000, "min_reputation_bps": 4000,
+                "schema_id": "phalanx.yield-route.v1", "schema_hash": schema_hash, "min_confidence_bps": 8000, "min_reputation_bps": 4000,
                 "prompt_hash": prompt_hash, "input_pinned": false,
             },
         }}))
@@ -746,7 +749,7 @@ async fn failed_mpc_sign_releases_the_rehearsal_reservation_and_evm_spend() -> a
     let transfer = json!({
         "chain": "basesepolia", "to": VENDOR_EVM, "asset": "native", "amount": "1000000000000000", "nonce": "0",
         "gas_limit": "21000", "max_fee_per_gas": "2000000000", "max_priority_fee_per_gas": "1000000000", "memo": null,
-        "attestation": null,
+        "attestation": null, "invoice_ref": "SANDBOX-EVM-1",
     });
     let preview = view(&env, "preview_evm_transfer", json!({ "request": transfer })).await?;
     let signing_hash = preview["signing_hash"].as_str().unwrap().to_string();
@@ -875,7 +878,7 @@ async fn a_near_ai_audit_counts_only_over_the_contracts_own_facts() -> anyhow::R
         let c = signed_completion_with(&model_key, MODEL, SANDBOX_AUDIT_PROMPT, &marker, user, &approve);
         json!({
             "kind": "near_ai", "enclave_id": "sandbox-audit-model", "chat_id": c.chat_id, "subject_kind": "intent", "subject_id": "0",
-            "agent_id": nexus_id, "input_hash": hash, "schema_hash": hex(&sha256(b"aegis.intent-audit.v1")), "nonce": nonce,
+            "agent_id": nexus_id, "input_hash": hash, "schema_hash": hex(&sha256(b"phalanx.intent-audit.v1")), "nonce": nonce,
             "issued_at_ns": issued.to_string(), "request_body": c.request_body, "response_body": c.response_body,
             "signed_text": c.signed_text, "signature": c.signature,
         })

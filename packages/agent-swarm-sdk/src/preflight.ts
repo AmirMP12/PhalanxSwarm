@@ -20,7 +20,7 @@
  * account history, Ethereum JSON-RPC for EVM addresses, and the contract's own settlement records
  * for prior payments.
  */
-import type { AegisViews } from "./contract-client.ts";
+import type { PhalanxViews } from "./contract-client.ts";
 import { EVM_CHAINS } from "./evm.ts";
 import type { RecipientCheckT } from "./types.ts";
 
@@ -98,7 +98,7 @@ export function decidePreflight(check: RecipientCheckT, signals: HistorySignal[]
 }
 
 /** Settled payments from this treasury to the recipient, from the contract's recent records. */
-export async function priorPaymentSignal(views: AegisViews, chain: string, recipient: string): Promise<HistorySignal> {
+export async function priorPaymentSignal(views: PhalanxViews, chain: string, recipient: string): Promise<HistorySignal> {
   const target = recipient.toLowerCase();
   try {
     const [intents, evm] = await Promise.all([views.recentIntents(50), views.recentEvmTxs(50)]);
@@ -116,7 +116,7 @@ export async function priorPaymentSignal(views: AegisViews, chain: string, recip
 }
 
 /** Asks the contract (`check_recipient`), optionally checks the recipient's history, and decides what the agent may do. */
-export async function preflightRecipient(views: AegisViews, chain: string, recipient: string, opts: PreflightOptions = {}): Promise<PreflightDecision> {
+export async function preflightRecipient(views: PhalanxViews, chain: string, recipient: string, opts: PreflightOptions = {}): Promise<PreflightDecision> {
   const check = await views.checkRecipient(chain, recipient);
   const signals: HistorySignal[] = [];
   if (opts.history && check.verdict !== "block") {
@@ -176,7 +176,7 @@ export function nearHistorySource(opts: NearHistoryOptions): HistorySource {
     return (await res.json()) as T;
   };
   const rpc = async <T>(url: string, method: string, params: unknown): Promise<T> => {
-    const body = await post<{ result?: T; error?: { cause?: { name?: string }; message?: string } }>(url, { jsonrpc: "2.0", id: "aegis", method, params });
+    const body = await post<{ result?: T; error?: { cause?: { name?: string }; message?: string } }>(url, { jsonrpc: "2.0", id: "phalanx", method, params });
     if (body.error) throw Object.assign(new Error(body.error.cause?.name ?? body.error.message ?? "RPC error"), { cause: body.error.cause?.name });
     return body.result as T;
   };

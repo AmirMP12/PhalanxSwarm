@@ -1,10 +1,10 @@
 /**
  * Swarm market simulation (`pnpm market`): 20 scripted worker agents compete for procurement tasks
- * in sealed-bid auctions on the compiled contract (AegisSim), round after round.
+ * in sealed-bid auctions on the compiled contract (PhalanxSim), round after round.
  *
  * Every rule the report shows is the contract's, not this script's:
- * - an auction takes at most 16 sealed bids (`max_bidders`); later commits fail (AEGIS_E_AUCTION_FULL);
- * - the RFP's reputation floor (40% here) keeps agents below it out (AEGIS_E_REPUTATION_BELOW_SCHEMA);
+ * - an auction takes at most 16 sealed bids (`max_bidders`); later commits fail (PHALANX_E_AUCTION_FULL);
+ * - the RFP's reputation floor (40% here) keeps agents below it out (PHALANX_E_REPUTATION_BELOW_SCHEMA);
  * - the best score wins: price 50%, promised latency 20%, reputation 30%;
  * - escrow is paid only for a signed completion that verifies; a winner that misses its deadline is
  *   failed by anyone (`expire_task`), the escrow returns to the treasury, and the winner loses 5%
@@ -23,7 +23,7 @@ import { bidCommitment } from "./protocol.ts";
 import { ACCOUNTS, planProcurement, SwarmRuntime, type ProcurementSpec, type RuntimeOptions } from "./swarm-orchestrator.ts";
 import { AgentBid, AgentRecord, TaskExecutionOutcome, TaskPostOutcome, TaskRfp, type TaskRfpInputT, type TaskRfpT } from "./types.ts";
 
-export const MARKET_SIM_SCHEMA = "aegis.market-sim.v1";
+export const MARKET_SIM_SCHEMA = "phalanx.market-sim.v1";
 
 /**
  * - `cost_plus`: bids its cost plus its margin and always delivers.
@@ -198,13 +198,13 @@ function rfpFor(round: number, spec: ProcurementSpec): TaskRfpInputT {
 
 /**
  * Why a commit failed. The 16th commit moves the task to `revealing`, so a later commit inside the
- * bidding window fails with AEGIS_E_COMMIT_PHASE_CLOSED: here that always means the auction is full.
+ * bidding window fails with PHALANX_E_COMMIT_PHASE_CLOSED: here that always means the auction is full.
  */
 function commitError(error: string | null): string {
   if (!error) return "failed";
-  if (error.includes("AEGIS_E_AUCTION_FULL") || error.includes("AEGIS_E_COMMIT_PHASE_CLOSED")) return "auction_full";
-  if (error.includes("AEGIS_E_REPUTATION_BELOW_SCHEMA")) return "reputation_below_floor";
-  return /AEGIS_E_[A-Z_]+/.exec(error)?.[0] ?? error.slice(0, 80);
+  if (error.includes("PHALANX_E_AUCTION_FULL") || error.includes("PHALANX_E_COMMIT_PHASE_CLOSED")) return "auction_full";
+  if (error.includes("PHALANX_E_REPUTATION_BELOW_SCHEMA")) return "reputation_below_floor";
+  return /PHALANX_E_[A-Z_]+/.exec(error)?.[0] ?? error.slice(0, 80);
 }
 
 const median = (xs: number[]) => {
@@ -229,7 +229,7 @@ export async function runMarketSim(opts: MarketSimOptions): Promise<MarketSimRep
   const profiles = marketProfiles(seed);
   const bidders: Bidder[] = [];
   for (const p of profiles) {
-    const keyPair = keyPairFromSeed(`aegis-market:${seed}:${p.handle}`);
+    const keyPair = keyPairFromSeed(`phalanx-market:${seed}:${p.handle}`);
     const accountId = `${p.handle}.${ACCOUNTS.contract}`;
     const subAccount = p.initialReputationBps >= 5_000;
     must(

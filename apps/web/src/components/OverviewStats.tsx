@@ -3,7 +3,7 @@
 import { ArrowUpRight, Coins, Landmark, ShieldAlert, ShieldCheck, UsersRound, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { useAegis } from "@/lib/aegis-context";
+import { usePhalanx } from "@/lib/phalanx-context";
 
 import { AnimatedNumber, Badge, PERSONAS, PersonaAvatar, Skeleton, Sparkline, StatusDot, cx, nearFmt, toNear, type ChartTone } from "./ui";
 
@@ -14,7 +14,7 @@ interface Point {
 
 /** Treasury values sampled on every dashboard refresh in this session (reset with the runtime). */
 function useSessionHistory(): Point[] {
-  const { dashboard, runtime } = useAegis();
+  const { dashboard, runtime } = usePhalanx();
   const [hist, setHist] = useState<Point[]>([]);
   const rt = useRef(runtime);
   useEffect(() => {
@@ -81,7 +81,7 @@ function Tile({
 }
 
 export function OverviewStats() {
-  const { dashboard, runtime } = useAegis();
+  const { dashboard, runtime } = usePhalanx();
   const hist = useSessionHistory();
 
   if (!dashboard || !runtime) {

@@ -3,7 +3,7 @@
 import { MotionConfig } from "framer-motion";
 import { ArrowRightLeft, Compass, Cpu, Landmark, Network, RadioTower, ScrollText, ShieldCheck } from "lucide-react";
 
-import { AegisProvider, useAegis } from "@/lib/aegis-context";
+import { PhalanxProvider, usePhalanx } from "@/lib/phalanx-context";
 import { useLiveDeployment } from "@/lib/live-deployment";
 
 import { ActivityFeed } from "./ActivityFeed";
@@ -22,7 +22,7 @@ import { DaoExport, TreasuryVault } from "./TreasuryVault";
 import { Badge, Label, Section, Toaster, Tooltip } from "./ui";
 
 function SwarmMeta() {
-  const { dashboard } = useAegis();
+  const { dashboard } = usePhalanx();
   if (!dashboard) return null;
   const active = dashboard.agents.filter((a) => a.status.kind === "active").length;
   return (
@@ -194,12 +194,12 @@ function Page() {
 
 export function CommandCenter() {
   return (
-    <AegisProvider>
+    <PhalanxProvider>
       <MotionConfig reducedMotion="user">
         <Page />
         <CommandPalette />
         <Toaster />
       </MotionConfig>
-    </AegisProvider>
+    </PhalanxProvider>
   );
 }
