@@ -161,14 +161,16 @@ async function readDao(owner: string): Promise<DaoState | null> {
 async function readDeployment(contractId: string): Promise<LiveSnapshot> {
   const info = await viewFunction<{ version?: unknown } | null>(contractId, "contract_info");
   const version = typeof info?.version === "string" ? info.version : "unknown";
-  if (!version.startsWith("2.")) throw new Error(`${contractId} runs PhalanxCore ${version}; this page reads v2.2. Deploy v2.2 with pnpm testnet:swarm.`);
+  if (!version.startsWith("3.") && !version.startsWith("2.")) {
+    throw new Error(`${contractId} runs PhalanxCore ${version}; this page reads v3.0. Deploy with pnpm testnet:swarm.`);
+  }
   const views = new PhalanxViews(new FallbackRpcTransport(contractId));
   const [dashboard, account, keys] = await Promise.all([
     views.dashboard().catch((e: unknown) => {
       const issue = (e as { name?: string; issues?: Array<{ path?: unknown[]; message?: string }> }) ?? {};
       if (issue.name === "ZodError" && issue.issues?.[0]) {
         throw new Error(
-          `get_dashboard of v${version} does not match the v2.2 schema this page reads (${issue.issues[0].path?.join(".")}: ${issue.issues[0].message})`,
+          `get_dashboard of v${version} does not match the schema this page reads (${issue.issues[0].path?.join(".")}: ${issue.issues[0].message})`,
         );
       }
       throw e;

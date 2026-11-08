@@ -1293,7 +1293,7 @@ export function LiveDeployment() {
             <SkeletonBlock rows={6} />
           ) : (
             <p className="text-[12.5px] text-slate-400">
-              Enter an PhalanxCore v2.2 account below, or deploy one with <span className="num text-slate-300">pnpm testnet:swarm</span>.
+              Enter a PhalanxCore v3.0 account below, or deploy one with <span className="num text-slate-300">pnpm testnet:swarm</span>.
             </p>
           )}
           <ContractPicker current={live.contractId} loading={loading} />
