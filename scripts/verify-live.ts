@@ -338,284 +338,290 @@ async function main() {
   if (!swarm) {
     skipped.push({ section: "v2", reason: "artifacts/testnet-swarm.json not recorded yet (pnpm testnet:swarm)" });
   } else {
-    await section("v2", async () => {
-      const id = swarm.contract_id;
-      const code = sha256Hex(await codeHash(cfg.rpc, id));
-      check("v2", "deployed bytecode equals the canonical WASM", repro !== null && code === repro.wasm_sha256, code);
-      const info = await view<{ version: string }>(cfg.rpc, id, "contract_info");
-      check("v2", "contract version matches recorded deployment", info.version.startsWith("2.") || info.version.startsWith("3."), info.version);
-      const owner = await view<string>(cfg.rpc, id, "get_owner");
-      const daoPolicy = await view<DaoPolicy>(cfg.rpc, swarm.dao_id, "get_policy");
-      check("v2", "owner is the SputnikDAO", owner === swarm.dao_id && Array.isArray(daoPolicy.roles), owner);
-      const council = councilVotes(daoPolicy);
-      if (council.votesNeeded >= 2) {
-        check("v2", "a DAO proposal needs at least two council votes", true, `${council.votesNeeded} of ${council.members} council members`);
-      } else {
-        notes.push(`the DAO council has ${council.members} member(s) and one vote passes a proposal: a single key controls the owner role`);
-      }
-      const keys = await accessKeys(cfg.rpc, id);
-      check(
-        "v2",
-        "contract account has no FullAccess key (only the DAO can change the code, via upgrade_contract)",
-        keys.every((k) => k.access_key.permission !== "FullAccess"),
-        `${keys.length} FunctionCall keys`,
-      );
-      const dash = await view<DashboardT>(cfg.rpc, id, "get_dashboard");
-      let scoped = 0;
-      let bad = 0;
-      for (const a of dash.agents.filter((x) => x.spawn_mode === "sub_account")) {
-        for (const k of await accessKeys(cfg.rpc, a.agent_id)) {
-          const p = k.access_key.permission;
-          if (p !== "FullAccess" && p.FunctionCall.receiver_id === id) scoped++;
-          else bad++;
-        }
-      }
-      check("v2", "agent sub-accounts hold only FunctionCall keys scoped to the contract", bad === 0 && scoped > 0, `${scoped} scoped keys`);
-      check(
-        "v2",
-        "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",
-        dash.policy.audit_prompt_hash === promptHash("auditor"),
-        dash.policy.audit_prompt_hash ?? "not pinned",
-      );
-      if (swarm.task) {
-        const task = dash.tasks.find((t) => t.task.task_id === swarm.task!.task_id)?.task;
-        check(
-          "v2",
-          "the procurement task pins Cipher's prompt and its exact spec",
-          task?.verification.prompt_hash === promptHash("procurement") && task.verification.input_pinned,
-          task?.verification.prompt_hash ?? "task not found",
-        );
-      }
-      const mallory = dash.agents.find((a) => a.handle === "mallory-ap-agent");
-      if (mallory) {
-        check(
-          "v2",
-          "the fraudulent agent's access key no longer exists on the contract account",
-          !keys.some((k) => k.public_key === mallory.public_key),
-          mallory.public_key,
-        );
-      }
-      const tx = (name: string) => swarm.transactions[name]?.hash;
-      const signerOf = (name: string, fallback: string) => swarm.transactions[name]?.signer ?? fallback;
-      if (tx("vendor_payment")) {
-        check(
-          "v2",
-          "real NEAR vendor payment emitted vendor_paid",
-          await hasEvent(tx("vendor_payment")!, `nexus-orchestrator.${id}`, "vendor_paid"),
-          tx("vendor_payment")!,
-        );
-      }
-      if (tx("execute_verified_task")) {
-        check(
-          "v2",
-          "signed model output released escrow (task_settled)",
-          await hasEvent(tx("execute_verified_task")!, signerOf("execute_verified_task", `cipher-compute-worker.${id}`), "task_settled"),
-          tx("execute_verified_task")!,
-        );
-      }
-      if (swarm.inference === "nearai" && swarm.task) {
-        // The escrow-releasing proof must be signed by a key this run just DCAP-verified, not the stand-in.
-        const proofRecord = dash.attestations.find((a) => a.receipt.subject_kind === "task" && a.receipt.subject_id === swarm.task!.task_id);
-        const enclave = dash.enclaves.find((e) => e.enclave_id === proofRecord?.receipt.enclave_id);
-        const keyHex = enclave ? toHex(fromBase58(enclave.signer_public_key.replace("ed25519:", ""))) : "";
-        check(
-          "v2",
-          "the escrow-releasing proof is a NEAR AI TEE signature by a model key DCAP-verified in this run",
-          proofRecord?.proof_kind === "near_ai" && enclave?.kind === "near_ai_model" && verifiedModelKeys.has(keyHex),
-          keyHex ? `${keyHex.slice(0, 16)}… (${enclave?.vendor})` : "no task proof recorded",
-        );
-      }
-      if (swarm.blocklist && tx("block_recipient")) {
-        const blocked = await view<{ verdict: string }>(cfg.rpc, id, "check_recipient", {
-          chain: "arb",
-          recipient: swarm.blocklist.recipient.replace(/^arb:/, ""),
-        });
-        check(
-          "v2",
-          "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
-          blocked.verdict === "block" && (await hasEvent(tx("block_recipient")!, `phalanx-sentinel.${id}`, "recipient_blocked")),
-          tx("block_recipient")!,
-        );
-      }
-      if (swarm.hold && tx("held_payment") && tx("held_payment_approved")) {
-        const held = await view<{ status: string; decision: { approval_reasons?: string[] } }>(cfg.rpc, id, "get_intent", { intent_id: swarm.hold.intent_id });
-        check(
-          "v2",
-          "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
-          held.status === "settled" &&
-            (held.decision.approval_reasons ?? []).includes("recipient_needs_approval") &&
-            (await hasEvent(tx("held_payment_approved")!, signerOf("held_payment_approved", swarm.funder_id), "vendor_paid")),
-          tx("held_payment_approved")!,
-        );
-      }
-      if (swarm.hold_window && tx("held_small_released")) {
-        const released = await view<{ status: string; hold_release_at_ns: string | null }>(cfg.rpc, id, "get_intent", {
-          intent_id: swarm.hold_window.intent_id,
-        });
-        check(
-          "v3",
-          "a small first payment to a new vendor cleared after the challenge window, released by the vendor without a vote",
-          released.status === "settled" &&
-            released.hold_release_at_ns !== null &&
-            (await hasEvent(tx("held_small_released")!, signerOf("held_small_released", swarm.funder_id), "held_intent_released")),
-          tx("held_small_released")!,
-        );
-      }
-      if (swarm.duplicate_invoice && swarm.vendor_payment && tx("duplicate_invoice_refused")) {
-        const paid = await view<{ subject_id: string } | null>(cfg.rpc, id, "get_invoice_payment", {
-          chain: "near",
-          recipient: swarm.vendor_payment.recipient,
-          invoice_ref: swarm.duplicate_invoice.invoice_ref,
-        });
-        check(
-          "v3",
-          "a second payment of an already paid invoice was refused without a strike",
-          paid?.subject_id === swarm.duplicate_invoice.first_intent &&
-            (await hasEvent(tx("duplicate_invoice_refused")!, signerOf("duplicate_invoice_refused", `nexus-orchestrator.${id}`), "intent_rejected", (data) =>
-              JSON.stringify(data.violation_codes ?? "").includes("invoice_already_paid"),
-            )),
-          tx("duplicate_invoice_refused")!,
-        );
-      }
-      if (swarm.order && tx("rfp3_delivery")) {
-        const order = await view<{ status: string; result_hash: string | null; failed_tasks: string[] }>(cfg.rpc, id, "get_order", {
-          order_id: swarm.order.order_id,
-        });
-        check(
-          "v3",
-          "a customer's order was re-procured after a missed deadline and delivered by a verified task",
-          order.status === "delivered" &&
-            order.result_hash === swarm.order.result_hash &&
-            order.failed_tasks.length > 0 &&
-            (await hasEvent(tx("rfp3_delivery")!, signerOf("rfp3_delivery", swarm.funder_id), "order_delivered")),
-          tx("rfp3_delivery")!,
-        );
-      }
-      if (swarm.market) {
-        const failed = swarm.market.rfps.find((r) => r.label === "rfp2")?.winner;
-        const loser = dash.agents.find((a) => a.agent_id === failed);
-        check(
-          "v3",
-          "auctions had competing bidders, and the winner that missed its deadline lost reputation",
-          swarm.market.rfps.some((r) => r.bids.length >= 3) && loser !== undefined && loser.tasks_failed > 0 && loser.reputation_bps < 5_000,
-          `${swarm.market.rfps.length} auctions; ${failed ?? "?"} at ${loser?.reputation_bps ?? "?"} bps`,
-        );
-      }
-      if (swarm.forgery && tx("forged_audit_attempt")) {
-        const rhea = dash.agents.find((a) => a.handle === "rhea-yield-strategist");
-        check(
-          "v2",
-          "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
-          (await hasEvent(tx("forged_audit_attempt")!, `rhea-yield-strategist.${id}`, "policy_violation", (data) =>
-            JSON.stringify(data.violations ?? "").includes("prompt_mismatch"),
-          )) && rhea?.status.kind === "quarantined",
-          tx("forged_audit_attempt")!,
-        );
-      }
-      if (tx("invoice_fraud_attempt")) {
-        check(
-          "v2",
-          "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
-          await hasEvent(tx("invoice_fraud_attempt")!, id, "agent_quarantined", (data) => data.key_revoked === true),
-          tx("invoice_fraud_attempt")!,
-        );
-      }
-      const v23 = versionAtLeast(info.version, 2, 3);
-      if (!v23) {
-        skipped.push({ section: "v2", reason: `contract ${info.version} predates the v2.3 checks (audit facts, task-prompt registry, EVM nonce tracking)` });
-      } else {
-        check(
-          "v2",
-          "the DAO's task-prompt registry approves Cipher's procurement prompt and sets a confidence floor",
-          dash.policy.task_prompt_hashes.includes(promptHash("procurement")) && dash.policy.min_task_confidence_bps > 0,
-          `${dash.policy.task_prompt_hashes.length} approved prompt(s); floors ${dash.policy.min_task_confidence_bps} / ${dash.policy.min_task_reputation_bps} bps`,
-        );
-        const policyVersion = String(await view<string>(cfg.rpc, id, "get_policy_version"));
-        check("v2", "policy changes carry a version number", /^\d+$/.test(policyVersion) && policyVersion === String(dash.policy_version), policyVersion);
-        if (swarm.facts_forgery && tx("invented_facts_audit_attempt")) {
-          check(
-            "v2",
-            "an approval signed under the pinned prompt over facts the agent wrote itself was rejected (facts_mismatch)",
-            await hasEvent(
-              tx("invented_facts_audit_attempt")!,
-              signerOf("invented_facts_audit_attempt", `cipher-compute-worker.${id}`),
-              "policy_violation",
-              (data) => JSON.stringify(data.violations ?? "").includes("facts_mismatch"),
-            ),
-            tx("invented_facts_audit_attempt")!,
-          );
-        }
-      }
-      if (swarm.evm) {
-        const record = await view<EvmTxRecordT | null>(cfg.rpc, id, "get_evm_tx", { tx_id: swarm.evm.tx_id });
-        const { address } = await derivedAddress(id, `phalanx-treasury/${swarm.evm.chain}`);
-        const sender = record?.signature ? recoverTxSender(fromHex(record.signing_hash), record.signature) : "unsigned";
-        check(
-          "v2",
-          `MPC-signed ${swarm.evm.chain} transaction is sent from the treasury's derived address`,
-          sender.toLowerCase() === address.toLowerCase(),
-          sender,
-        );
-        if (v23 && record) {
-          const state = await view<{ next_nonce: string; outstanding_tx: string | null }>(cfg.rpc, id, "get_evm_nonce", { chain: swarm.evm.chain });
-          const consistent =
-            record.status === "signed"
-              ? state.outstanding_tx === record.tx_id
-              : record.status === "confirmed"
-                ? state.outstanding_tx === null && BigInt(state.next_nonce) > BigInt(record.nonce)
-                : state.outstanding_tx !== record.tx_id;
-          check(
-            "v2",
-            "the contract tracks the treasury's EVM nonce: a signed transfer holds it until confirmed or cancelled",
-            consistent,
-            `transfer #${record.tx_id} ${record.status} at nonce ${record.nonce}; next nonce ${state.next_nonce}, outstanding ${state.outstanding_tx ?? "none"}`,
-          );
-        }
-        const chain = EVM_CHAINS[swarm.evm.chain];
-        if (record?.tx_hash && chain && ["mined", "confirmed"].includes(swarm.evm.status)) {
-          const receipt = await new EvmRpc(chain.rpc).receipt(record.tx_hash);
-          check("v2", `${chain.label} receipt shows success`, receipt?.status === "0x1", record.tx_hash);
+    await section(
+      "v2",
+      async () => {
+        const id = swarm.contract_id;
+        const code = sha256Hex(await codeHash(cfg.rpc, id));
+        check("v2", "deployed bytecode equals the canonical WASM", repro !== null && code === repro.wasm_sha256, code);
+        const info = await view<{ version: string }>(cfg.rpc, id, "contract_info");
+        check("v2", "contract version matches recorded deployment", info.version.startsWith("2.") || info.version.startsWith("3."), info.version);
+        const owner = await view<string>(cfg.rpc, id, "get_owner");
+        const daoPolicy = await view<DaoPolicy>(cfg.rpc, swarm.dao_id, "get_policy");
+        check("v2", "owner is the SputnikDAO", owner === swarm.dao_id && Array.isArray(daoPolicy.roles), owner);
+        const council = councilVotes(daoPolicy);
+        if (council.votesNeeded >= 2) {
+          check("v2", "a DAO proposal needs at least two council votes", true, `${council.votesNeeded} of ${council.members} council members`);
         } else {
-          skipped.push({ section: "v2", reason: `EVM transfer #${swarm.evm.tx_id} is ${swarm.evm.status}: not broadcast yet (pnpm evm:relay)` });
+          notes.push(`the DAO council has ${council.members} member(s) and one vote passes a proposal: a single key controls the owner role`);
         }
-      }
-      if (swarm.governance) {
+        const keys = await accessKeys(cfg.rpc, id);
         check(
           "v2",
-          "DAO proposal revoked the fraudulent agent",
-          mallory?.status.kind === "revoked",
-          `proposal ${swarm.governance.proposal_id}: ${mallory?.status.kind}`,
+          "contract account has no FullAccess key (only the DAO can change the code, via upgrade_contract)",
+          keys.every((k) => k.access_key.permission !== "FullAccess"),
+          `${keys.length} FunctionCall keys`,
         );
-      }
-      summary.v2 = { contract_id: id, dao_id: swarm.dao_id };
-    }, async (err) => {
-      if (!isNetworkError(err)) throw err;
-      if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
-        throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
-      }
-      const localWasm = sha256Hex(new Uint8Array(readFileSync(artifact("phalanx_core.wasm"))));
-      if (repro && localWasm !== repro.wasm_sha256) {
-        throw new Error(`local WASM sha256 ${localWasm} does not match reproducible build ${repro.wasm_sha256}`);
-      }
-      if (savedLive.canonical_wasm_sha256 && localWasm !== savedLive.canonical_wasm_sha256) {
-        throw new Error(`local WASM sha256 does not match saved evidence ${savedLive.canonical_wasm_sha256}`);
-      }
-      const auditor = promptHash("auditor");
-      const procurement = promptHash("procurement");
-      if (!auditor || !procurement) {
-        throw new Error("failed to compute local prompt hashes for auditor/procurement");
-      }
+        const dash = await view<DashboardT>(cfg.rpc, id, "get_dashboard");
+        let scoped = 0;
+        let bad = 0;
+        for (const a of dash.agents.filter((x) => x.spawn_mode === "sub_account")) {
+          for (const k of await accessKeys(cfg.rpc, a.agent_id)) {
+            const p = k.access_key.permission;
+            if (p !== "FullAccess" && p.FunctionCall.receiver_id === id) scoped++;
+            else bad++;
+          }
+        }
+        check("v2", "agent sub-accounts hold only FunctionCall keys scoped to the contract", bad === 0 && scoped > 0, `${scoped} scoped keys`);
+        check(
+          "v2",
+          "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",
+          dash.policy.audit_prompt_hash === promptHash("auditor"),
+          dash.policy.audit_prompt_hash ?? "not pinned",
+        );
+        if (swarm.task) {
+          const task = dash.tasks.find((t) => t.task.task_id === swarm.task!.task_id)?.task;
+          check(
+            "v2",
+            "the procurement task pins Cipher's prompt and its exact spec",
+            task?.verification.prompt_hash === promptHash("procurement") && task.verification.input_pinned,
+            task?.verification.prompt_hash ?? "task not found",
+          );
+        }
+        const mallory = dash.agents.find((a) => a.handle === "mallory-ap-agent");
+        if (mallory) {
+          check(
+            "v2",
+            "the fraudulent agent's access key no longer exists on the contract account",
+            !keys.some((k) => k.public_key === mallory.public_key),
+            mallory.public_key,
+          );
+        }
+        const tx = (name: string) => swarm.transactions[name]?.hash;
+        const signerOf = (name: string, fallback: string) => swarm.transactions[name]?.signer ?? fallback;
+        if (tx("vendor_payment")) {
+          check(
+            "v2",
+            "real NEAR vendor payment emitted vendor_paid",
+            await hasEvent(tx("vendor_payment")!, `nexus-orchestrator.${id}`, "vendor_paid"),
+            tx("vendor_payment")!,
+          );
+        }
+        if (tx("execute_verified_task")) {
+          check(
+            "v2",
+            "signed model output released escrow (task_settled)",
+            await hasEvent(tx("execute_verified_task")!, signerOf("execute_verified_task", `cipher-compute-worker.${id}`), "task_settled"),
+            tx("execute_verified_task")!,
+          );
+        }
+        if (swarm.inference === "nearai" && swarm.task) {
+          // The escrow-releasing proof must be signed by a key this run just DCAP-verified, not the stand-in.
+          const proofRecord = dash.attestations.find((a) => a.receipt.subject_kind === "task" && a.receipt.subject_id === swarm.task!.task_id);
+          const enclave = dash.enclaves.find((e) => e.enclave_id === proofRecord?.receipt.enclave_id);
+          const keyHex = enclave ? toHex(fromBase58(enclave.signer_public_key.replace("ed25519:", ""))) : "";
+          check(
+            "v2",
+            "the escrow-releasing proof is a NEAR AI TEE signature by a model key DCAP-verified in this run",
+            proofRecord?.proof_kind === "near_ai" && enclave?.kind === "near_ai_model" && verifiedModelKeys.has(keyHex),
+            keyHex ? `${keyHex.slice(0, 16)}… (${enclave?.vendor})` : "no task proof recorded",
+          );
+        }
+        if (swarm.blocklist && tx("block_recipient")) {
+          const blocked = await view<{ verdict: string }>(cfg.rpc, id, "check_recipient", {
+            chain: "arb",
+            recipient: swarm.blocklist.recipient.replace(/^arb:/, ""),
+          });
+          check(
+            "v2",
+            "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
+            blocked.verdict === "block" && (await hasEvent(tx("block_recipient")!, `phalanx-sentinel.${id}`, "recipient_blocked")),
+            tx("block_recipient")!,
+          );
+        }
+        if (swarm.hold && tx("held_payment") && tx("held_payment_approved")) {
+          const held = await view<{ status: string; decision: { approval_reasons?: string[] } }>(cfg.rpc, id, "get_intent", {
+            intent_id: swarm.hold.intent_id,
+          });
+          check(
+            "v2",
+            "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
+            held.status === "settled" &&
+              (held.decision.approval_reasons ?? []).includes("recipient_needs_approval") &&
+              (await hasEvent(tx("held_payment_approved")!, signerOf("held_payment_approved", swarm.funder_id), "vendor_paid")),
+            tx("held_payment_approved")!,
+          );
+        }
+        if (swarm.hold_window && tx("held_small_released")) {
+          const released = await view<{ status: string; hold_release_at_ns: string | null }>(cfg.rpc, id, "get_intent", {
+            intent_id: swarm.hold_window.intent_id,
+          });
+          check(
+            "v3",
+            "a small first payment to a new vendor cleared after the challenge window, released by the vendor without a vote",
+            released.status === "settled" &&
+              released.hold_release_at_ns !== null &&
+              (await hasEvent(tx("held_small_released")!, signerOf("held_small_released", swarm.funder_id), "held_intent_released")),
+            tx("held_small_released")!,
+          );
+        }
+        if (swarm.duplicate_invoice && swarm.vendor_payment && tx("duplicate_invoice_refused")) {
+          const paid = await view<{ subject_id: string } | null>(cfg.rpc, id, "get_invoice_payment", {
+            chain: "near",
+            recipient: swarm.vendor_payment.recipient,
+            invoice_ref: swarm.duplicate_invoice.invoice_ref,
+          });
+          check(
+            "v3",
+            "a second payment of an already paid invoice was refused without a strike",
+            paid?.subject_id === swarm.duplicate_invoice.first_intent &&
+              (await hasEvent(tx("duplicate_invoice_refused")!, signerOf("duplicate_invoice_refused", `nexus-orchestrator.${id}`), "intent_rejected", (data) =>
+                JSON.stringify(data.violation_codes ?? "").includes("invoice_already_paid"),
+              )),
+            tx("duplicate_invoice_refused")!,
+          );
+        }
+        if (swarm.order && tx("rfp3_delivery")) {
+          const order = await view<{ status: string; result_hash: string | null; failed_tasks: string[] }>(cfg.rpc, id, "get_order", {
+            order_id: swarm.order.order_id,
+          });
+          check(
+            "v3",
+            "a customer's order was re-procured after a missed deadline and delivered by a verified task",
+            order.status === "delivered" &&
+              order.result_hash === swarm.order.result_hash &&
+              order.failed_tasks.length > 0 &&
+              (await hasEvent(tx("rfp3_delivery")!, signerOf("rfp3_delivery", swarm.funder_id), "order_delivered")),
+            tx("rfp3_delivery")!,
+          );
+        }
+        if (swarm.market) {
+          const failed = swarm.market.rfps.find((r) => r.label === "rfp2")?.winner;
+          const loser = dash.agents.find((a) => a.agent_id === failed);
+          check(
+            "v3",
+            "auctions had competing bidders, and the winner that missed its deadline lost reputation",
+            swarm.market.rfps.some((r) => r.bids.length >= 3) && loser !== undefined && loser.tasks_failed > 0 && loser.reputation_bps < 5_000,
+            `${swarm.market.rfps.length} auctions; ${failed ?? "?"} at ${loser?.reputation_bps ?? "?"} bps`,
+          );
+        }
+        if (swarm.forgery && tx("forged_audit_attempt")) {
+          const rhea = dash.agents.find((a) => a.handle === "rhea-yield-strategist");
+          check(
+            "v2",
+            "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
+            (await hasEvent(tx("forged_audit_attempt")!, `rhea-yield-strategist.${id}`, "policy_violation", (data) =>
+              JSON.stringify(data.violations ?? "").includes("prompt_mismatch"),
+            )) && rhea?.status.kind === "quarantined",
+            tx("forged_audit_attempt")!,
+          );
+        }
+        if (tx("invoice_fraud_attempt")) {
+          check(
+            "v2",
+            "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
+            await hasEvent(tx("invoice_fraud_attempt")!, id, "agent_quarantined", (data) => data.key_revoked === true),
+            tx("invoice_fraud_attempt")!,
+          );
+        }
+        const v23 = versionAtLeast(info.version, 2, 3);
+        if (!v23) {
+          skipped.push({ section: "v2", reason: `contract ${info.version} predates the v2.3 checks (audit facts, task-prompt registry, EVM nonce tracking)` });
+        } else {
+          check(
+            "v2",
+            "the DAO's task-prompt registry approves Cipher's procurement prompt and sets a confidence floor",
+            dash.policy.task_prompt_hashes.includes(promptHash("procurement")) && dash.policy.min_task_confidence_bps > 0,
+            `${dash.policy.task_prompt_hashes.length} approved prompt(s); floors ${dash.policy.min_task_confidence_bps} / ${dash.policy.min_task_reputation_bps} bps`,
+          );
+          const policyVersion = String(await view<string>(cfg.rpc, id, "get_policy_version"));
+          check("v2", "policy changes carry a version number", /^\d+$/.test(policyVersion) && policyVersion === String(dash.policy_version), policyVersion);
+          if (swarm.facts_forgery && tx("invented_facts_audit_attempt")) {
+            check(
+              "v2",
+              "an approval signed under the pinned prompt over facts the agent wrote itself was rejected (facts_mismatch)",
+              await hasEvent(
+                tx("invented_facts_audit_attempt")!,
+                signerOf("invented_facts_audit_attempt", `cipher-compute-worker.${id}`),
+                "policy_violation",
+                (data) => JSON.stringify(data.violations ?? "").includes("facts_mismatch"),
+              ),
+              tx("invented_facts_audit_attempt")!,
+            );
+          }
+        }
+        if (swarm.evm) {
+          const record = await view<EvmTxRecordT | null>(cfg.rpc, id, "get_evm_tx", { tx_id: swarm.evm.tx_id });
+          const { address } = await derivedAddress(id, `phalanx-treasury/${swarm.evm.chain}`);
+          const sender = record?.signature ? recoverTxSender(fromHex(record.signing_hash), record.signature) : "unsigned";
+          check(
+            "v2",
+            `MPC-signed ${swarm.evm.chain} transaction is sent from the treasury's derived address`,
+            sender.toLowerCase() === address.toLowerCase(),
+            sender,
+          );
+          if (v23 && record) {
+            const state = await view<{ next_nonce: string; outstanding_tx: string | null }>(cfg.rpc, id, "get_evm_nonce", { chain: swarm.evm.chain });
+            const consistent =
+              record.status === "signed"
+                ? state.outstanding_tx === record.tx_id
+                : record.status === "confirmed"
+                  ? state.outstanding_tx === null && BigInt(state.next_nonce) > BigInt(record.nonce)
+                  : state.outstanding_tx !== record.tx_id;
+            check(
+              "v2",
+              "the contract tracks the treasury's EVM nonce: a signed transfer holds it until confirmed or cancelled",
+              consistent,
+              `transfer #${record.tx_id} ${record.status} at nonce ${record.nonce}; next nonce ${state.next_nonce}, outstanding ${state.outstanding_tx ?? "none"}`,
+            );
+          }
+          const chain = EVM_CHAINS[swarm.evm.chain];
+          if (record?.tx_hash && chain && ["mined", "confirmed"].includes(swarm.evm.status)) {
+            const receipt = await new EvmRpc(chain.rpc).receipt(record.tx_hash);
+            check("v2", `${chain.label} receipt shows success`, receipt?.status === "0x1", record.tx_hash);
+          } else {
+            skipped.push({ section: "v2", reason: `EVM transfer #${swarm.evm.tx_id} is ${swarm.evm.status}: not broadcast yet (pnpm evm:relay)` });
+          }
+        }
+        if (swarm.governance) {
+          check(
+            "v2",
+            "DAO proposal revoked the fraudulent agent",
+            mallory?.status.kind === "revoked",
+            `proposal ${swarm.governance.proposal_id}: ${mallory?.status.kind}`,
+          );
+        }
+        summary.v2 = { contract_id: id, dao_id: swarm.dao_id };
+      },
+      async (err) => {
+        if (!isNetworkError(err)) throw err;
+        if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
+          throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
+        }
+        const localWasm = sha256Hex(new Uint8Array(readFileSync(artifact("phalanx_core.wasm"))));
+        if (repro && localWasm !== repro.wasm_sha256) {
+          throw new Error(`local WASM sha256 ${localWasm} does not match reproducible build ${repro.wasm_sha256}`);
+        }
+        if (savedLive.canonical_wasm_sha256 && localWasm !== savedLive.canonical_wasm_sha256) {
+          throw new Error(`local WASM sha256 does not match saved evidence ${savedLive.canonical_wasm_sha256}`);
+        }
+        const auditor = promptHash("auditor");
+        const procurement = promptHash("procurement");
+        if (!auditor || !procurement) {
+          throw new Error("failed to compute local prompt hashes for auditor/procurement");
+        }
 
-      const v2Checks = savedLive.checks.filter((c) => c.section === "v2" || c.section === "v3");
-      if (v2Checks.length === 0 || !v2Checks.every((c) => c.passed)) {
-        throw new Error("saved testnet v2/v3 evidence contains failed checks");
-      }
-      for (const c of v2Checks) {
-        check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
-      }
-      notes.push("v2/v3 checks validated from preserved testnet deployment evidence (RPC offline)");
-      summary.v2 = { contract_id: swarm.contract_id, dao_id: swarm.dao_id, source: "cached" };
-    });
+        const v2Checks = savedLive.checks.filter((c) => c.section === "v2" || c.section === "v3");
+        if (v2Checks.length === 0 || !v2Checks.every((c) => c.passed)) {
+          throw new Error("saved testnet v2/v3 evidence contains failed checks");
+        }
+        for (const c of v2Checks) {
+          check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
+        }
+        notes.push("v2/v3 checks validated from preserved testnet deployment evidence (RPC offline)");
+        summary.v2 = { contract_id: swarm.contract_id, dao_id: swarm.dao_id, source: "cached" };
+      },
+    );
   }
 
   const v1 = readJson<V1Smoke>("testnet-smoke.json");
@@ -624,73 +630,77 @@ async function main() {
   // Check current deployment's MPC functionality (v3)
   if (swarm && swarm.evm) {
     const evm = swarm.evm;
-    await section("v1", async () => {
-      const currentId = swarm.contract_id;
-      const chain = evm.chain;
-      const d = await derivedAddress(currentId, `phalanx-treasury/${chain}`);
-      check("v1", "SDK key derivation equals the real MPC contract for current deployment", d.sdk === d.derived, d.derived);
+    await section(
+      "v1",
+      async () => {
+        const currentId = swarm.contract_id;
+        const chain = evm.chain;
+        const d = await derivedAddress(currentId, `phalanx-treasury/${chain}`);
+        check("v1", "SDK key derivation equals the real MPC contract for current deployment", d.sdk === d.derived, d.derived);
 
-      // Check current deployment's MPC signature
-      try {
-        const evmRecord = await view<EvmTxRecordT>(cfg.rpc, currentId, "get_evm_tx", { tx_id: evm.tx_id });
-        if (evmRecord && evmRecord.signature) {
-          const recovered = recoverEvmAddress(fromHex(evmRecord.signing_hash), evmRecord.signature);
-          check("v1", "real MPC signature ecrecovers to the derived treasury address", recovered.toLowerCase() === d.address.toLowerCase(), recovered);
-        }
-      } catch (err) {
-        // Ignore error if EVM record not found
-      }
-
-      // Check archival transactions if v1 evidence exists
-      if (v1 && v1.contract_id && v1.wasm_sha256) {
+        // Check current deployment's MPC signature
         try {
-          const code = sha256Hex(await codeHash(cfg.rpc, v1.contract_id));
-          check("v1", "v1 deployment runs the bytecode recorded in its evidence", code === v1.wasm_sha256, code);
-
-          const intentTx = v1.transactions?.intent?.hash;
-          if (intentTx && v1.contract_id) {
-            check(
-              "v1",
-              "intent transaction contains the successful MPC callback (archival RPC)",
-              await hasEvent(intentTx, v1.contract_id, "mpc_signature_resolved", (data) => data.ok === true),
-              intentTx,
-            );
+          const evmRecord = await view<EvmTxRecordT>(cfg.rpc, currentId, "get_evm_tx", { tx_id: evm.tx_id });
+          if (evmRecord && evmRecord.signature) {
+            const recovered = recoverEvmAddress(fromHex(evmRecord.signing_hash), evmRecord.signature);
+            check("v1", "real MPC signature ecrecovers to the derived treasury address", recovered.toLowerCase() === d.address.toLowerCase(), recovered);
           }
         } catch (err) {
-          // Archival RPC errors are OK (transactions may be too old)
+          // Ignore error if EVM record not found
         }
-      }
 
-      if (wallet && wallet.account_id && wallet.transactions && wallet.transactions.length >= 2) {
-        try {
-          const pause = await hasEvent(wallet.transactions[0]!.hash, wallet.account_id, "protocol_paused", (data) => data.paused === true);
-          const resume = await hasEvent(wallet.transactions[1]!.hash, wallet.account_id, "protocol_paused", (data) => data.paused === false);
-          check(
-            "v1",
-            "NEAR Connect wallet signed pause and resume (archival RPC)",
-            pause && resume,
-            `${wallet.transactions[0]!.hash.slice(0, 8)}… / ${wallet.transactions[1]!.hash.slice(0, 8)}…`,
-          );
-        } catch (err) {
-          // Archival RPC errors are OK
+        // Check archival transactions if v1 evidence exists
+        if (v1 && v1.contract_id && v1.wasm_sha256) {
+          try {
+            const code = sha256Hex(await codeHash(cfg.rpc, v1.contract_id));
+            check("v1", "v1 deployment runs the bytecode recorded in its evidence", code === v1.wasm_sha256, code);
+
+            const intentTx = v1.transactions?.intent?.hash;
+            if (intentTx && v1.contract_id) {
+              check(
+                "v1",
+                "intent transaction contains the successful MPC callback (archival RPC)",
+                await hasEvent(intentTx, v1.contract_id, "mpc_signature_resolved", (data) => data.ok === true),
+                intentTx,
+              );
+            }
+          } catch (err) {
+            // Archival RPC errors are OK (transactions may be too old)
+          }
         }
-      }
-      summary.v1 = { contract_id: currentId };
-    }, async (err) => {
-      if (!isNetworkError(err)) throw err;
-      if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
-        throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
-      }
-      const v1Checks = savedLive.checks.filter((c) => c.section === "v1");
-      if (v1Checks.length === 0 || !v1Checks.every((c) => c.passed)) {
-        throw new Error("saved testnet v1 evidence contains failed checks");
-      }
-      for (const c of v1Checks) {
-        check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
-      }
-      notes.push("v1 checks validated from preserved testnet deployment evidence (RPC offline)");
-      summary.v1 = { contract_id: swarm ? swarm.contract_id : v1?.contract_id, source: "cached" };
-    });
+
+        if (wallet && wallet.account_id && wallet.transactions && wallet.transactions.length >= 2) {
+          try {
+            const pause = await hasEvent(wallet.transactions[0]!.hash, wallet.account_id, "protocol_paused", (data) => data.paused === true);
+            const resume = await hasEvent(wallet.transactions[1]!.hash, wallet.account_id, "protocol_paused", (data) => data.paused === false);
+            check(
+              "v1",
+              "NEAR Connect wallet signed pause and resume (archival RPC)",
+              pause && resume,
+              `${wallet.transactions[0]!.hash.slice(0, 8)}… / ${wallet.transactions[1]!.hash.slice(0, 8)}…`,
+            );
+          } catch (err) {
+            // Archival RPC errors are OK
+          }
+        }
+        summary.v1 = { contract_id: currentId };
+      },
+      async (err) => {
+        if (!isNetworkError(err)) throw err;
+        if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
+          throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
+        }
+        const v1Checks = savedLive.checks.filter((c) => c.section === "v1");
+        if (v1Checks.length === 0 || !v1Checks.every((c) => c.passed)) {
+          throw new Error("saved testnet v1 evidence contains failed checks");
+        }
+        for (const c of v1Checks) {
+          check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
+        }
+        notes.push("v1 checks validated from preserved testnet deployment evidence (RPC offline)");
+        summary.v1 = { contract_id: swarm ? swarm.contract_id : v1?.contract_id, source: "cached" };
+      },
+    );
   } else if (!v1) {
     skipped.push({ section: "v1", reason: "artifacts/testnet-smoke.json missing and no current EVM deployment" });
   }
@@ -698,19 +708,54 @@ async function main() {
   // Economic checks use current deployment (swarm) if available, otherwise fall back to v1
   const economicSource = swarm ?? v1;
   if (economicSource) {
-    await section("economic", async () => {
-      const isSwarm = economicSource === swarm;
-      const contractId = isSwarm ? swarm!.contract_id : v1!.contract_id;
-      const funderId = isSwarm ? swarm!.funder_id : ((v1 as V1Smoke & { funder_id?: string }).funder_id ?? v1!.contract_id);
+    await section(
+      "economic",
+      async () => {
+        const isSwarm = economicSource === swarm;
+        const contractId = isSwarm ? swarm!.contract_id : v1!.contract_id;
+        const funderId = isSwarm ? swarm!.funder_id : ((v1 as V1Smoke & { funder_id?: string }).funder_id ?? v1!.contract_id);
 
-      if (isSwarm) {
-        // For swarm deployment, check the deposit_revenue transaction
-        const fundHash = swarm!.transactions.deposit_revenue?.hash;
-        if (fundHash) {
+        if (isSwarm) {
+          // For swarm deployment, check the deposit_revenue transaction
+          const fundHash = swarm!.transactions.deposit_revenue?.hash;
+          if (fundHash) {
+            const txSucceeded = (tx: Awaited<ReturnType<typeof txStatus>>) => {
+              const keys = Object.keys(tx.status ?? {});
+              return keys.some((k) => k.startsWith("Success")) && !keys.includes("Failure");
+            };
+            const fundTx = await txStatus(cfg, fundHash, funderId);
+            const fundEvents = eventsOf(fundTx);
+            check(
+              "economic",
+              "treasury funding succeeded on testnet (money entered the contract)",
+              txSucceeded(fundTx) && fundEvents.some((e) => e.event === "treasury_funded"),
+              `${fundHash} · events=${fundEvents.map((e) => e.event).join(",") || "none"}`,
+            );
+          }
+
+          // Check EVM transfer status
+          if (swarm!.evm) {
+            const evmTx = await view<EvmTxRecordT>(cfg.rpc, contractId, "get_evm_tx", { tx_id: swarm!.evm.tx_id });
+            if (evmTx) {
+              check(
+                "economic",
+                "EVM transfer reached confirmed status on-chain",
+                evmTx.status === "confirmed",
+                `status=${evmTx.status} · tx ${swarm!.evm.tx_hash || "(not broadcast)"}`,
+              );
+            }
+          }
+        } else {
+          // For v1 deployment, use original checks
+          const fundHash = v1!.transactions.fund?.hash;
+          const intentHash = v1!.transactions.intent?.hash;
+          if (!fundHash || !intentHash) throw new Error("v1 smoke is missing fund/intent hashes");
+
           const txSucceeded = (tx: Awaited<ReturnType<typeof txStatus>>) => {
             const keys = Object.keys(tx.status ?? {});
             return keys.some((k) => k.startsWith("Success")) && !keys.includes("Failure");
           };
+
           const fundTx = await txStatus(cfg, fundHash, funderId);
           const fundEvents = eventsOf(fundTx);
           check(
@@ -719,71 +764,40 @@ async function main() {
             txSucceeded(fundTx) && fundEvents.some((e) => e.event === "treasury_funded"),
             `${fundHash} · events=${fundEvents.map((e) => e.event).join(",") || "none"}`,
           );
+
+          // Read from chain only: the recorded evidence does not count as proof of its own claim.
+          const intent = await view<{ status: string }>(cfg.rpc, v1!.contract_id, "get_intent", { intent_id: v1!.intent_id });
+          check(
+            "economic",
+            "intent reached settled on-chain (MPC-signed rehearsal closed)",
+            intent.status === "settled",
+            `status=${intent.status} · tx ${intentHash}`,
+          );
+          summary.economic = {
+            contract_id: v1!.contract_id,
+            fund_tx: fundHash,
+            intent_tx: intentHash,
+            intent_status: intent.status,
+            note: "1Click quotes remain dry:true (Q-007). NEAR-side funding + MPC settlement prove a real economic loop without a 1Click deposit.",
+          };
         }
-
-        // Check EVM transfer status
-        if (swarm!.evm) {
-          const evmTx = await view<EvmTxRecordT>(cfg.rpc, contractId, "get_evm_tx", { tx_id: swarm!.evm.tx_id });
-          if (evmTx) {
-            check(
-              "economic",
-              "EVM transfer reached confirmed status on-chain",
-              evmTx.status === "confirmed",
-              `status=${evmTx.status} · tx ${swarm!.evm.tx_hash || "(not broadcast)"}`,
-            );
-          }
+      },
+      async (err) => {
+        if (!isNetworkError(err)) throw err;
+        if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
+          throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
         }
-      } else {
-        // For v1 deployment, use original checks
-        const fundHash = v1!.transactions.fund?.hash;
-        const intentHash = v1!.transactions.intent?.hash;
-        if (!fundHash || !intentHash) throw new Error("v1 smoke is missing fund/intent hashes");
-
-        const txSucceeded = (tx: Awaited<ReturnType<typeof txStatus>>) => {
-          const keys = Object.keys(tx.status ?? {});
-          return keys.some((k) => k.startsWith("Success")) && !keys.includes("Failure");
-        };
-
-        const fundTx = await txStatus(cfg, fundHash, funderId);
-        const fundEvents = eventsOf(fundTx);
-        check(
-          "economic",
-          "treasury funding succeeded on testnet (money entered the contract)",
-          txSucceeded(fundTx) && fundEvents.some((e) => e.event === "treasury_funded"),
-          `${fundHash} · events=${fundEvents.map((e) => e.event).join(",") || "none"}`,
-        );
-
-        // Read from chain only: the recorded evidence does not count as proof of its own claim.
-        const intent = await view<{ status: string }>(cfg.rpc, v1!.contract_id, "get_intent", { intent_id: v1!.intent_id });
-        check(
-          "economic",
-          "intent reached settled on-chain (MPC-signed rehearsal closed)",
-          intent.status === "settled",
-          `status=${intent.status} · tx ${intentHash}`,
-        );
-        summary.economic = {
-          contract_id: v1!.contract_id,
-          fund_tx: fundHash,
-          intent_tx: intentHash,
-          intent_status: intent.status,
-          note: "1Click quotes remain dry:true (Q-007). NEAR-side funding + MPC settlement prove a real economic loop without a 1Click deposit.",
-        };
-      }
-    }, async (err) => {
-      if (!isNetworkError(err)) throw err;
-      if (!savedLive || !savedLive.passed || !Array.isArray(savedLive.checks)) {
-        throw new Error(`offline fallback unavailable: artifacts/live-verification.json missing or invalid (${err.message})`);
-      }
-      const econChecks = savedLive.checks.filter((c) => c.section === "economic");
-      if (econChecks.length === 0 || !econChecks.every((c) => c.passed)) {
-        throw new Error("saved economic evidence contains failed checks");
-      }
-      for (const c of econChecks) {
-        check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
-      }
-      notes.push("economic checks validated from preserved testnet deployment evidence (RPC offline)");
-      summary.economic = { contract_id: swarm ? swarm.contract_id : v1?.contract_id, source: "cached" };
-    });
+        const econChecks = savedLive.checks.filter((c) => c.section === "economic");
+        if (econChecks.length === 0 || !econChecks.every((c) => c.passed)) {
+          throw new Error("saved economic evidence contains failed checks");
+        }
+        for (const c of econChecks) {
+          check(c.section, c.name, true, `${c.detail} (preserved on-chain proof; testnet RPC offline)`);
+        }
+        notes.push("economic checks validated from preserved testnet deployment evidence (RPC offline)");
+        summary.economic = { contract_id: swarm ? swarm.contract_id : v1?.contract_id, source: "cached" };
+      },
+    );
   }
 
   const passed = checks.length > 0 && checks.every((c) => c.passed);

@@ -973,9 +973,7 @@ function Treasury({ s }: { s: LiveSnapshot }) {
           <span className="text-[11.5px] font-medium text-slate-300">Enterprise Accounting Export</span>
           <Badge tone="slate">QuickBooks & CSV</Badge>
         </div>
-        <p className="mt-1 text-[11px] text-slate-500">
-          Reconciled double-entry ledger entries and trial balance from testnet deployment.
-        </p>
+        <p className="mt-1 text-[11px] text-slate-500">Reconciled double-entry ledger entries and trial balance from testnet deployment.</p>
         <div className="mt-2.5 flex flex-wrap gap-2">
           <a
             href="/api/accounting/export?format=csv"
