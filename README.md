@@ -35,6 +35,10 @@ Built at [NEAR HACKATHON](https://nearhackathon.com). Primary track: `security` 
 | Owner (SputnikDAO, 2 of 3)      | [`phalanx-v3d1.sputnikv2.testnet`](https://testnet.nearblocks.io/address/phalanx-v3d1.sputnikv2.testnet)                                                        |
 | Deployed code                   | sha256 `7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895`, the reproducible build in [`artifacts/phalanx_core.wasm`](artifacts/phalanx_core.wasm) |
 | Source                          | https://github.com/AmirMP12/PhalanxSwarm                                                                                                                        |
+| Quick start                     | [Deploy in 10 minutes](docs/QUICKSTART.md)                                                                                                                      |
+| Architecture                    | [Technical Specification](docs/ARCHITECTURE.md)                                                                                                                 |
+| Business model                  | [Institutional Economics](docs/BUSINESS_MODEL.md)                                                                                                               |
+| Agent examples                  | [3 Production Swarms](packages/agent-swarm-sdk/src/examples/README.md)                                                                                           |
 | Hackathon rules                 | https://nearhackathon.com/HACKATHON.md ([how this repository follows them](#near-hackathon-rules))                                                              |
 | License                         | [MIT](LICENSE)                                                                                                                                                  |
 
@@ -494,6 +498,11 @@ On Vercel, either set the Root Directory to `apps/web` (settings in `apps/web/ve
 ## Repository layout
 
 ```text
+docs/
+  ARCHITECTURE.md              comprehensive technical architecture and module designs
+  BUSINESS_MODEL.md            institutional unit economics, pricing tiers, and GTM
+  QUICKSTART.md                10-minute deployment guide for testnet
+  HACKATHON.md                 NEAR Hackathon rules and submission specification
 contracts/
   phalanx-core/                  the contract (Rust, near-sdk 5.30): 14 source files and tests.rs
   phalanx-sandbox-tests/         near-workspaces suite against a nearcore 2.14.0 sandbox node (9 tests)
@@ -515,6 +524,7 @@ packages/agent-swarm-sdk/      TypeScript SDK and runtime
   src/market-sim.ts, market-cli.ts         pnpm market
   src/mcp.ts, mcp-cli.ts                   pnpm mcp
   src/dao-export.ts            SputnikDAO / Trezu proposal payloads
+  src/examples/                yield-strategist, procurement-agent, grant-distributor
   test/                        13 Vitest files
 apps/web/                      Next.js 15 command center
   src/app/api/                 agents/complete, intents/quote, tee/attest

@@ -95,7 +95,7 @@ near view YOUR_ACCOUNT.testnet get_dashboard '{}'
 You should see:
 - Treasury balance: ~10 NEAR
 - 1 registered agent (sentinel)
-- Contract version: 0.1.0
+- Contract version: 3.0.0
 
 ## Next Steps
 
@@ -214,10 +214,12 @@ Before deploying to mainnet with real funds:
 
 ## Help & Support
 
-- **Documentation:** [README.md](README.md)
-- **Full Architecture:** [BUSINESS_MODEL.md](BUSINESS_MODEL.md)
-- **Issues:** https://github.com/AmirMP12/PhalanxSwarm/issues
-- **Discord:** (Add your Discord link)
+- **Documentation:** [README.md](../README.md)
+- **Technical Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Institutional Business Model:** [BUSINESS_MODEL.md](BUSINESS_MODEL.md)
+- **Production Agent Examples:** [Examples README](../packages/agent-swarm-sdk/src/examples/README.md)
+- **Issues & Discussions:** https://github.com/AmirMP12/PhalanxSwarm/issues
+- **NEAR Developer Community:** https://nearbuilders.org/build and https://discord.gg/nearprotocol
 
 ## What You Just Built
 

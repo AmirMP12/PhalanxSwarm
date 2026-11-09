@@ -70,11 +70,11 @@ The economic model is directly enforced by the Rust smart contract (`contracts/p
 
 | Contract Module | Economic Primitive | Implementation Mechanism | Protocol Value Capture |
 | :--- | :--- | :--- | :--- |
-| [`orders.rs`](contracts/phalanx-core/src/orders.rs) | **Product Order Engine** | Enforces `max_cost_bps` ceiling against customer deposit; computes `margin = price - total_cost` | Captures 20–30% gross margin; executes `distribute_revenue` split (50/20/30) |
-| [`swarm_market.rs`](contracts/phalanx-core/src/swarm_market.rs) | **Decentralized RFP Auctions** | Sealed-bid commit-reveal and reverse-Dutch auctions with escrow locking and reputation floors | 2.5% protocol take-rate on successful TEE-verified claim payouts |
-| [`settlement.rs`](contracts/phalanx-core/src/settlement.rs) | **Multichain Settlement** | Manages EVM EIP-1559 nonce tracking, gas fee ceilings, and replacement cancel transactions | 20 bps volume fee on cross-chain outlays |
-| [`policy.rs`](contracts/phalanx-core/src/policy.rs) | **Fiduciary Policy Gate** | Per-agent spending caps, rolling window velocity limits, and automated key deletion (`Promise::delete_key`) | Secures enterprise capital, justifying premium SaaS retention |
-| [`recipients.rs`](contracts/phalanx-core/src/recipients.rs) | **Shared Threat Intelligence** | Global decentralized scam/phishing blocklist (128 entries max) with dynamic challenge windows | Network effect moat: value increases with each protected treasury |
+| [`orders.rs`](../contracts/phalanx-core/src/orders.rs) | **Product Order Engine** | Enforces `max_cost_bps` ceiling against customer deposit; computes `margin = price - total_cost` | Captures 20–30% gross margin; executes `distribute_revenue` split (50/20/30) |
+| [`swarm_market.rs`](../contracts/phalanx-core/src/swarm_market.rs) | **Decentralized RFP Auctions** | Sealed-bid commit-reveal and reverse-Dutch auctions with escrow locking and reputation floors | 2.5% protocol take-rate on successful TEE-verified claim payouts |
+| [`settlement.rs`](../contracts/phalanx-core/src/settlement.rs) | **Multichain Settlement** | Manages EVM EIP-1559 nonce tracking, gas fee ceilings, and replacement cancel transactions | 20 bps volume fee on cross-chain outlays |
+| [`policy.rs`](../contracts/phalanx-core/src/policy.rs) | **Fiduciary Policy Gate** | Per-agent spending caps, rolling window velocity limits, and automated key deletion (`Promise::delete_key`) | Secures enterprise capital, justifying premium SaaS retention |
+| [`recipients.rs`](../contracts/phalanx-core/src/recipients.rs) | **Shared Threat Intelligence** | Global decentralized scam/phishing blocklist (128 entries max) with dynamic challenge windows | Network effect moat: value increases with each protected treasury |
 
 ---
 
