@@ -11,7 +11,7 @@
   "scripts": {
     "lint": "pnpm lint:code && pnpm lint:shell",
     "lint:code": "eslint . --max-warnings 0",
-    "lint:shell": "bash scripts/lint-shell.sh",
+    "lint:shell": "node scripts/lint-shell.mjs",
     "lint:fix": "eslint . --fix",
     "check:source": "node scripts/check-source-integrity.mjs",
     "format": "prettier --write . && cargo fmt --all",

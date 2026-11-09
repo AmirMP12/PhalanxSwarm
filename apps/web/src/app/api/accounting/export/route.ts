@@ -59,4 +59,3 @@ export async function GET(req: Request): Promise<Response> {
     return Response.json({ message: `accounting export failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 });
   }
 }
-

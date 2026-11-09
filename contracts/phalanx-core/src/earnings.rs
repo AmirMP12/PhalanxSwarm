@@ -139,3 +139,11 @@ impl PhalanxCore {
         ok
     }
 }
+
+// Standard accounting export schemas for enterprise integration (tracks: business, realworld).
+//
+// The accounting reconciliation is computed off-chain and via MCP from the
+// contract's event log and treasury ledger. Each on-chain event (revenue, escrow lock/release,
+// agent payout, vendor payment, distribution, refund) produces balanced double-entry journal
+// legs. The MCP tool `phalanx_export_accounting` and Next.js route `/api/accounting/export`
+// format these into reconciled General Ledger entries, trial balances, CSV, and QuickBooks IIF.

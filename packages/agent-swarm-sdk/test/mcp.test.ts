@@ -195,4 +195,3 @@ describe("PhalanxMcpServer and Enterprise Accounting Export", () => {
     expect(parsed.result.structuredContent.summary.total_capital_contributed_near).toBe("100.0000");
   });
 });
-

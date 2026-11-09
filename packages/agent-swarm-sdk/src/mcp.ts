@@ -372,10 +372,7 @@ export class PhalanxMcpServer {
 
   private async exportAccounting(a: z.infer<typeof ExportAccountingArgs>): Promise<Record<string, unknown>> {
     const views = this.opts.views;
-    const [info, dashboard] = await Promise.all([
-      views.parse("contract_info", {}, ContractInfo),
-      views.dashboard(),
-    ]);
+    const [info, dashboard] = await Promise.all([views.parse("contract_info", {}, ContractInfo), views.dashboard()]);
 
     const format = a.format ?? "both";
     const includeRaw = a.include_raw_events ?? false;
@@ -740,26 +737,42 @@ export class PhalanxMcpServer {
     };
 
     if (format === "csv") {
-      const header = ["Entry ID", "Block Height", "Timestamp", "Source Module", "Description", "Account Code", "Account Name", "Category", "Debit NEAR", "Credit NEAR", "Debit Yocto", "Credit Yocto", "Line Memo"].join(",");
+      const header = [
+        "Entry ID",
+        "Block Height",
+        "Timestamp",
+        "Source Module",
+        "Description",
+        "Account Code",
+        "Account Name",
+        "Category",
+        "Debit NEAR",
+        "Credit NEAR",
+        "Debit Yocto",
+        "Credit Yocto",
+        "Line Memo",
+      ].join(",");
       const rows: string[] = [header];
       for (const je of journalEntries) {
         for (const line of je.lines) {
           const cat = COA[Number(line.account_code) as CoaCode].category;
-          rows.push([
-            je.entry_id,
-            je.block_height,
-            generatedAt,
-            `"${je.source_module}"`,
-            `"${je.description.replace(/"/g, '""')}"`,
-            line.account_code,
-            `"${line.account_name}"`,
-            cat,
-            line.debit_near,
-            line.credit_near,
-            line.debit_yocto,
-            line.credit_yocto,
-            `"${(line.memo ?? "").replace(/"/g, '""')}"`,
-          ].join(","));
+          rows.push(
+            [
+              je.entry_id,
+              je.block_height,
+              generatedAt,
+              `"${je.source_module}"`,
+              `"${je.description.replace(/"/g, '""')}"`,
+              line.account_code,
+              `"${line.account_name}"`,
+              cat,
+              line.debit_near,
+              line.credit_near,
+              line.debit_yocto,
+              line.credit_yocto,
+              `"${(line.memo ?? "").replace(/"/g, '""')}"`,
+            ].join(","),
+          );
         }
       }
       return {
@@ -790,13 +803,17 @@ export class PhalanxMcpServer {
         const firstDebit = parseFloat(firstLine.debit_near);
         const firstCredit = parseFloat(firstLine.credit_near);
         const firstAmt = firstDebit > 0 ? firstDebit : -firstCredit;
-        iifLines.push(`TRNS\t${je.entry_id}\tGENERAL JOURNAL\t${iifDate}\t${firstLine.account_name}\t\t${firstAmt.toFixed(4)}\t${je.entry_id}\t${je.description}`);
+        iifLines.push(
+          `TRNS\t${je.entry_id}\tGENERAL JOURNAL\t${iifDate}\t${firstLine.account_name}\t\t${firstAmt.toFixed(4)}\t${je.entry_id}\t${je.description}`,
+        );
         for (let i = 1; i < je.lines.length; i++) {
           const line = je.lines[i]!;
           const d = parseFloat(line.debit_near);
           const c = parseFloat(line.credit_near);
           const amt = d > 0 ? d : -c;
-          iifLines.push(`SPL\t${je.entry_id}_${i}\tGENERAL JOURNAL\t${iifDate}\t${line.account_name}\t\t${amt.toFixed(4)}\t${je.entry_id}\t${line.memo ?? je.description}`);
+          iifLines.push(
+            `SPL\t${je.entry_id}_${i}\tGENERAL JOURNAL\t${iifDate}\t${line.account_name}\t\t${amt.toFixed(4)}\t${je.entry_id}\t${line.memo ?? je.description}`,
+          );
         }
         iifLines.push("ENDTRNS");
       }
