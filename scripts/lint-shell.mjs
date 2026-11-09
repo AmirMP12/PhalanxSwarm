@@ -11,8 +11,9 @@ if (process.platform === "win32") {
     const run = spawnSync("shellcheck", ["scripts/*.sh"], { stdio: "inherit", shell: true });
     process.exit(run.status ?? 0);
   }
-  const checkBash = spawnSync("bash", ["-c", "exit 0"], { stdio: "ignore" });
-  if (checkBash.status === 0) {
+  const checkBash = spawnSync("bash", ["-c", "exit 0"], { stdio: "pipe" });
+  const hasWorkingBash = checkBash.status === 0 && !checkBash.stderr?.toString().includes("Failed to start") && !checkBash.stderr?.toString().includes("wsl:");
+  if (hasWorkingBash) {
     const run = spawnSync("bash", [scriptPath], { stdio: "inherit" });
     process.exit(run.status ?? 0);
   }

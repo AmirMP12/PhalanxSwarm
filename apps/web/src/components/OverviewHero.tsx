@@ -1,12 +1,12 @@
 "use client";
 
-import { FlaskConical, MousePointerClick } from "lucide-react";
+import { FlaskConical, MousePointerClick, Rocket } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { JudgeMode } from "./JudgeModeBar";
 import { RuntimeMenu } from "./shell/RuntimeMenu";
 import { TryIt } from "./TryIt";
-import { SegmentedControl } from "./ui";
+import { Button, SegmentedControl } from "./ui";
 
 export type OverviewTab = "try" | "judge";
 
@@ -51,7 +51,20 @@ export function OverviewHero() {
             { value: "judge", label: "Judge scenario", icon: FlaskConical, hint: "All 11 steps with every check" },
           ]}
         />
-        <RuntimeMenu className="self-end sm:self-auto" />
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <Button
+            as="a"
+            href="https://github.com/AmirMP12/PhalanxSwarm/blob/main/QUICKSTART.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="primary"
+            size="sm"
+            icon={Rocket}
+          >
+            Deploy Your Own
+          </Button>
+          <RuntimeMenu />
+        </div>
       </div>
       {tab === "try" ? <TryIt /> : <JudgeMode />}
     </div>

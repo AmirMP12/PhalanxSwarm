@@ -39,6 +39,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   iconRight?: LucideIcon;
   loading?: boolean;
   shine?: boolean;
+  as?: "button" | "a";
+  href?: string;
+  target?: string;
+  rel?: string;
 }
 
 export function Button({
@@ -51,22 +55,22 @@ export function Button({
   className,
   children,
   disabled,
+  as: Element = "button",
+  href,
+  target,
+  rel,
   ...props
 }: ButtonProps) {
-  return (
-    <button
-      type="button"
-      {...props}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={cx(
-        "touch-target inline-flex max-w-full shrink-0 select-none items-center justify-center whitespace-nowrap rounded-lg font-medium transition-[background,border,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 max-sm:h-auto max-sm:min-h-10 max-sm:whitespace-normal max-sm:py-2",
-        buttonVariants[variant],
-        buttonSizes[size],
-        shine && !disabled && !loading && "shine",
-        className,
-      )}
-    >
+  const classes = cx(
+    "touch-target inline-flex max-w-full shrink-0 select-none items-center justify-center whitespace-nowrap rounded-lg font-medium transition-[background,border,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 max-sm:h-auto max-sm:min-h-10 max-sm:whitespace-normal max-sm:py-2",
+    buttonVariants[variant],
+    buttonSizes[size],
+    shine && !disabled && !loading && "shine",
+    className,
+  );
+
+  const content = (
+    <>
       {loading ? (
         <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden />
       ) : Icon ? (
@@ -74,6 +78,20 @@ export function Button({
       ) : null}
       {children}
       {IconRight && <IconRight className="size-4 shrink-0 opacity-70" aria-hidden />}
+    </>
+  );
+
+  if (Element === "a") {
+    return (
+      <a href={href} target={target} rel={rel} className={classes}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" {...props} disabled={disabled || loading} aria-busy={loading || undefined} className={classes}>
+      {content}
     </button>
   );
 }

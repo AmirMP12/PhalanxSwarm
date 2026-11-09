@@ -603,6 +603,180 @@ impl PolicyViolation {
             | Self::TaskFloorBelowPolicy { .. } => Severity::Warning,
         }
     }
+
+    /// Returns a user-friendly explanation of this policy violation.
+    pub fn message(&self) -> String {
+        match self {
+            Self::ProtocolPaused => "The protocol is currently paused. All transactions are temporarily disabled.".to_string(),
+            Self::AgentNotActive { status } => {
+                format!("Agent is not active (status: {}). Only active agents can execute transactions.", status)
+            }
+            Self::AmountExceedsTxLimit { amount, limit } => {
+                format!(
+                    "Transaction amount ({} yoctoNEAR) exceeds the limit ({} yoctoNEAR). Reduce the amount or request a limit increase.",
+                    amount.0, limit.0
+                )
+            }
+            Self::AgentEpochCapExceeded { spent, amount, cap } => {
+                format!(
+                    "Agent has spent {} yoctoNEAR this epoch. Adding {} would exceed the cap of {} yoctoNEAR. Wait for the next epoch or request a cap increase.",
+                    spent.0, amount.0, cap.0
+                )
+            }
+            Self::GlobalEpochCapExceeded { spent, amount, cap } => {
+                format!(
+                    "Global spending has reached {} yoctoNEAR this epoch. Adding {} would exceed the cap of {} yoctoNEAR. Wait for the next epoch.",
+                    spent.0, amount.0, cap.0
+                )
+            }
+            Self::ChainNotAllowed { chain } => {
+                format!("Chain '{}' is not in the allowed chains list. Update policy or use an allowed chain.", chain)
+            }
+            Self::ContractNotAllowed { contract_id } => {
+                format!(
+                    "Contract '{}' is not in the allowed contracts list. Add it to the policy or use an approved contract.",
+                    contract_id
+                )
+            }
+            Self::AssetNotAllowed { asset } => {
+                format!("Asset '{}' is not in the allowed assets list. Add it to the policy or use an approved asset.", asset)
+            }
+            Self::SlippageTooHigh { slippage_bps, max_bps } => {
+                format!(
+                    "Slippage tolerance of {}bps exceeds the maximum of {}bps. Reduce slippage or adjust policy.",
+                    slippage_bps, max_bps
+                )
+            }
+            Self::VelocityExceeded { requests, limit, window_sec } => {
+                format!(
+                    "Rate limit exceeded: {} requests in {}s (limit: {}). The circuit breaker has tripped. Slow down and retry.",
+                    requests, window_sec, limit
+                )
+            }
+            Self::MissingTeeAttestation => {
+                "TEE attestation is required but missing. Provide a valid enclave receipt or audit proof.".to_string()
+            }
+            Self::InvalidTeeAttestation { reason } => {
+                format!("TEE attestation is invalid: {}. Check enclave configuration and signatures.", reason)
+            }
+            Self::InvalidIntentSignature => {
+                "Intent signature verification failed. Ensure the agent's keypair matches and the intent is properly signed."
+                    .to_string()
+            }
+            Self::NonceReused => {
+                "This nonce has already been used. Each intent must have a unique nonce to prevent replay attacks.".to_string()
+            }
+            Self::DeadlineInvalid { reason } => {
+                format!("Intent deadline is invalid: {}. Set a reasonable future deadline.", reason)
+            }
+            Self::QuoteInvalid { reason } => {
+                format!("Price quote validation failed: {}. Verify quote freshness and oracle data.", reason)
+            }
+            Self::InsufficientTreasuryLiquidity { available, amount } => {
+                format!(
+                    "Treasury has {} yoctoNEAR available, but {} is required. Deposit funds or reduce the amount.",
+                    available.0, amount.0
+                )
+            }
+            Self::RecipientNotAllowed { chain, recipient } => {
+                format!(
+                    "Recipient '{}:{}' is not in the allow-list. This is treated as an attack. Add the recipient to allowed_recipients first.",
+                    chain, recipient
+                )
+            }
+            Self::PriceBelowFloor { min_amount_out, floor } => {
+                format!(
+                    "Minimum output ({} units) is below the price floor ({} units). The quote is too unfavorable—reject it or update the floor.",
+                    min_amount_out.0, floor.0
+                )
+            }
+            Self::NoPriceFloor { origin_asset, destination_asset } => {
+                format!(
+                    "No price floor configured for {} → {}. Add a floor to the policy before swapping.",
+                    origin_asset, destination_asset
+                )
+            }
+            Self::EvmChainNotAllowed { chain } => {
+                format!("EVM chain '{}' is not configured in evm_chains policy. Add it or use a configured chain.", chain)
+            }
+            Self::EvmAssetNotAllowed { asset } => {
+                format!(
+                    "EVM token '{}' is not in the chain's token policy. Add it to evm_chains or use an approved token.",
+                    asset
+                )
+            }
+            Self::EvmAmountExceedsLimit { amount, limit } => {
+                format!(
+                    "EVM transfer amount ({} wei/units) exceeds the limit ({} wei/units). Reduce the amount or increase the limit.",
+                    amount.0, limit.0
+                )
+            }
+            Self::EvmEpochCapExceeded { spent, amount, cap } => {
+                format!(
+                    "EVM chain has spent {} this epoch. Adding {} would exceed the cap of {}. Wait for the next epoch.",
+                    spent.0, amount.0, cap.0
+                )
+            }
+            Self::EvmFeeTooHigh { fee, cap } => {
+                format!(
+                    "EVM transaction fee estimate ({} wei) exceeds the cap ({} wei). Reduce gas limit or max fee, or adjust policy.",
+                    fee.0, cap.0
+                )
+            }
+            Self::InsufficientAgentBalance { balance, amount } => {
+                format!(
+                    "Agent balance is {} yoctoNEAR, but {} is required. Deposit funds to the agent subaccount.",
+                    balance.0, amount.0
+                )
+            }
+            Self::RecipientBlocked { chain, recipient, reason } => {
+                format!(
+                    "Recipient '{}:{}' is on the blocklist: {}. This is critical. Do not attempt to pay blocked addresses.",
+                    chain, recipient, reason
+                )
+            }
+            Self::RecipientNeedsApproval { chain, recipient } => {
+                format!(
+                    "Recipient '{}:{}' is unknown and requires DAO approval under the 'hold' rule. The settlement is queued for review.",
+                    chain, recipient
+                )
+            }
+            Self::TaskPromptNotApproved { prompt_hash } => {
+                format!(
+                    "Task prompt hash '{}' is not in the approved task_prompt_hashes list. Use an approved prompt or submit it to the DAO.",
+                    prompt_hash
+                )
+            }
+            Self::TaskFloorBelowPolicy { field, value, floor } => {
+                format!(
+                    "Task requirement '{}' is {} but policy requires at least {}. Raise the requirement or adjust policy.",
+                    field, value, floor
+                )
+            }
+            Self::EvmNonceMismatch { expected, got } => {
+                format!(
+                    "EVM nonce mismatch: expected {}, got {}. This is usually a race condition—retry with the correct nonce.",
+                    expected.0, got.0
+                )
+            }
+            Self::EvmTransferOutstanding { tx_id } => {
+                format!(
+                    "An EVM transfer (tx_id: {}) is already in flight on this chain. Wait for confirmation or cancellation before submitting another.",
+                    tx_id.0
+                )
+            }
+            Self::InvoiceRefMissing => {
+                "Invoice reference is required for vendor payments and EVM transfers. Provide an invoice_ref to proceed."
+                    .to_string()
+            }
+            Self::InvoiceAlreadyPaid { invoice_ref, subject, subject_id } => {
+                format!(
+                    "Invoice '{}' has already been paid to {} (id: {}). Duplicate payments are rejected.",
+                    invoice_ref, subject, subject_id.0
+                )
+            }
+        }
+    }
 }
 
 pub fn max_severity(violations: &[PolicyViolation]) -> Severity {
@@ -698,6 +872,16 @@ impl<'a> SpendRequest<'a> {
 /// The recipient rule every payment path shares: a blocked recipient is critical even when it is
 /// allow-listed; allow-listed recipients and registered agents (agent-to-agent payments) pass; an
 /// unknown recipient follows `GlobalPolicy::unknown_recipient`.
+///
+/// **Business logic**: This implements the three-tier destination security model:
+/// 1. **Blocklist always wins**: If a recipient is on the shared blocklist (reported by Sentinel
+///    or DAO), paying them is critical regardless of allow-list status. This prevents compromised
+///    agents from bypassing the blocklist by pre-allowing bad addresses.
+/// 2. **Allow-list and registered agents**: Allowed recipients pass through. Registered, active
+///    agents are implicit recipients for agent-to-agent payments (no pre-allowlisting needed).
+/// 3. **Unknown recipients**: New addresses not on the allow-list follow the `unknown_recipient`
+///    rule: `quarantine` treats them as an attack (default), `hold` parks the settlement for DAO
+///    approval without quarantining the agent.
 pub fn recipient_violation(
     global: &GlobalPolicy,
     chain: &str,
@@ -705,6 +889,7 @@ pub fn recipient_violation(
     recipient_is_agent: bool,
     blocked: Option<&str>,
 ) -> Option<PolicyViolation> {
+    // Blocklist is strongest: paying a blocked address is always critical.
     if let Some(reason) = blocked {
         return Some(PolicyViolation::RecipientBlocked {
             chain: chain.to_string(),
@@ -712,12 +897,18 @@ pub fn recipient_violation(
             reason: reason.to_string(),
         });
     }
+
+    // Allow-list and agent-to-agent payments: these recipients are trusted.
     if recipient_is_agent || global.allows_recipient(chain, recipient) {
         return None;
     }
+
+    // Unknown recipient: behavior depends on the policy rule.
     let (chain, recipient) = (chain.to_string(), recipient.to_string());
     Some(match global.unknown_recipient {
+        // Quarantine: unknown = attacker trying to exfiltrate funds (freeze the agent).
         UnknownRecipientRule::Quarantine => PolicyViolation::RecipientNotAllowed { chain, recipient },
+        // Hold: unknown = possibly legitimate new vendor (queue for DAO review, no strike).
         UnknownRecipientRule::Hold => PolicyViolation::RecipientNeedsApproval { chain, recipient },
     })
 }
@@ -731,27 +922,52 @@ fn intersect<T: Clone + PartialEq>(global: &[T], agent: &[T]) -> Vec<T> {
 }
 
 /// `min_amount_out` must be at least `amount * min_out_per_unit / unit_in` for the pair.
+///
+/// **Business logic**: This prevents agents from accepting terrible swap prices, either due to
+/// market manipulation, oracle failures, or compromised decision-making. The DAO sets a floor
+/// (e.g., "at least 1 USDC per wNEAR") and the contract verifies the agent's quote meets it.
+///
+/// The check is: `min_amount_out >= (amount * floor.min_out_per_unit) / floor.unit_in`
+/// Example: Swapping 10 wNEAR for USDC with a floor of "1 USDC per 1 wNEAR"
+///   → min_amount_out must be >= (10 * 1_000_000) / 1 = 10 USDC
+///
+/// If no floor exists for the asset pair, the swap is rejected (requiring explicit DAO approval
+/// before trading new pairs).
 pub fn check_price_floor(global: &GlobalPolicy, p: &PriceCheck) -> Option<PolicyViolation> {
+    // Find the price floor for this asset pair.
     let Some(floor) =
         global.price_floors.iter().find(|f| f.origin_asset == p.origin_asset && f.destination_asset == p.destination_asset)
     else {
+        // No floor configured: reject the swap (DAO must approve new trading pairs).
         return Some(PolicyViolation::NoPriceFloor {
             origin_asset: p.origin_asset.to_string(),
             destination_asset: p.destination_asset.to_string(),
         });
     };
+
+    // Verify the quote: min_amount_out * unit_in >= amount * min_out_per_unit
+    // (rearranged to avoid division and handle overflow gracefully).
     let lhs = p.min_amount_out.checked_mul(floor.unit_in.0);
     let rhs = p.amount.checked_mul(floor.min_out_per_unit.0);
     match (lhs, rhs) {
-        (Some(l), Some(r)) if l >= r => None,
+        (Some(l), Some(r)) if l >= r => None, // Price meets the floor: approved.
         _ => Some(PolicyViolation::PriceBelowFloor {
             min_amount_out: U128(p.min_amount_out),
+            // Convert back to per-unit terms for the error message.
             floor: U128(rhs.map(|r| r / floor.unit_in.0).unwrap_or(u128::MAX)),
         }),
     }
 }
 
 /// Pure policy evaluation: no state is read besides the arguments, no state is written.
+/// This is the core spend authorization engine: it takes a spend request and returns all
+/// policy violations plus the effective limits that were applied.
+///
+/// **Business logic**: Spending is allowed when ALL checks pass. A single violation can
+/// block a transaction (warnings add strikes; critical violations quarantine the agent).
+/// The severity ladder (none → notice → warning → critical) controls how violations are
+/// enforced: notice-level rejections don't count as strikes, warnings accumulate toward
+/// quarantine, and critical violations freeze the agent immediately.
 pub fn evaluate_spend(
     global: &GlobalPolicy,
     paused: bool,
@@ -761,18 +977,26 @@ pub fn evaluate_spend(
     req: &SpendRequest,
 ) -> (Vec<PolicyViolation>, EffectiveLimits) {
     let mut violations = Vec::new();
+
+    // Protocol-level gate: all spending stops when the DAO pauses the contract.
     if paused {
         violations.push(PolicyViolation::ProtocolPaused);
     }
+
+    // Agent status check: only Active agents can spend. Quarantined agents are frozen.
     if agent.status != AgentStatus::Active {
         violations.push(PolicyViolation::AgentNotActive { status: agent.status.label().to_string() });
     }
 
+    // Per-transaction limit: take the stricter of global and agent-specific limits.
+    // This prevents any single spend from being too large, even if the epoch cap allows it.
     let max_tx = global.max_tx_amount_yocto.0.min(agent.policy.max_tx_amount_yocto.0);
     if req.amount > max_tx {
         violations.push(PolicyViolation::AmountExceedsTxLimit { amount: U128(req.amount), limit: U128(max_tx) });
     }
 
+    // Agent epoch spending cap: reset at epoch boundaries (roughly 12 hours).
+    // Each agent has a budget per epoch; overspending triggers a warning (strike).
     let agent_spent = if agent.spend.epoch.0 == epoch { agent.spend.spent_in_epoch.0 } else { 0 };
     let agent_cap = agent.policy.epoch_spending_cap_yocto.0;
     if agent_spent.saturating_add(req.amount) > agent_cap {
@@ -783,6 +1007,8 @@ pub fn evaluate_spend(
         });
     }
 
+    // Global epoch spending cap: the swarm's total budget per epoch.
+    // Prevents the entire system from overspending, even if individual agents stay under their caps.
     let global_spent = if treasury.epoch == epoch { treasury.epoch_spent } else { 0 };
     let global_cap = global.epoch_spending_cap_yocto.0;
     if global_spent.saturating_add(req.amount) > global_cap {
@@ -793,6 +1019,8 @@ pub fn evaluate_spend(
         });
     }
 
+    // Chain allow-list: intersect global and agent-specific lists (agent restrictions
+    // never relax global policy, only tighten it).
     let chains = intersect(&global.allowed_target_chains, &agent.policy.allowed_target_chains);
     if let Some(chain) = req.destination_chain {
         if !chains.iter().any(|c| c == chain) {
@@ -800,6 +1028,8 @@ pub fn evaluate_spend(
         }
     }
 
+    // Contract allow-list: payments must route through approved contracts (NEAR Intents, MPC signer, etc.).
+    // This prevents agents from calling arbitrary contracts that could drain funds.
     let contracts = intersect(&global.allowed_contract_ids, &agent.policy.allowed_contract_ids);
     if let Some(contract) = req.execution_contract {
         if !contracts.contains(contract) {
@@ -807,30 +1037,40 @@ pub fn evaluate_spend(
         }
     }
 
+    // Asset allow-list: only approved tokens (wNEAR, USDC on various chains) can be traded.
+    // Prevents agents from buying obscure or malicious tokens.
     for asset in &req.assets {
         if !global.allowed_assets.iter().any(|a| a == asset) {
             violations.push(PolicyViolation::AssetNotAllowed { asset: asset.to_string() });
         }
     }
 
+    // Slippage ceiling: agents specify max acceptable price impact, but the DAO sets an upper bound.
+    // High slippage can signal market manipulation or poor execution.
     if let Some(slippage) = req.slippage_bps {
         if slippage > global.max_slippage_bps {
             violations.push(PolicyViolation::SlippageTooHigh { slippage_bps: slippage, max_bps: global.max_slippage_bps });
         }
     }
 
+    // Destination security: blocked recipients are critical (never pay them), allow-listed
+    // recipients pass, and unknown recipients follow the 'unknown_recipient' rule (quarantine or hold).
     if let Some((chain, recipient)) = req.recipient {
         if let Some(v) = recipient_violation(global, chain, recipient, req.recipient_is_agent, req.recipient_blocked) {
             violations.push(v);
         }
     }
 
+    // Price floor enforcement: swaps must meet DAO-set minimum output per unit input.
+    // The contract never trusts the agent's quote—it verifies the math against the floor.
     if let Some(price) = &req.price {
         if let Some(v) = check_price_floor(global, price) {
             violations.push(v);
         }
     }
 
+    // Liquidity check: the treasury must have enough available balance to cover this spend.
+    // This is a notice (not the agent's fault) when the treasury is low.
     if req.amount > req.available_liquidity {
         violations.push(PolicyViolation::InsufficientTreasuryLiquidity {
             available: U128(req.available_liquidity),
