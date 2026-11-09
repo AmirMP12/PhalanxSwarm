@@ -19,5 +19,5 @@ export * from "./injection-eval.ts";
 export * from "./market-sim.ts";
 export * from "./mcp.ts";
 
-// Agent Examples - TODO: Re-enable after fixing type errors
-// export * from "./examples/index.ts";
+// Agent Examples
+export * from "./examples/index.ts";

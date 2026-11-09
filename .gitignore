@@ -70,6 +70,3 @@ ehthumbs.db
 ehthumbs_vista.db
 [Dd]esktop.ini
 ~$*
-
-# Examples with work-in-progress type issues
-packages/agent-swarm-sdk/src/examples/
