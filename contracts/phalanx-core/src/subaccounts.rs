@@ -5,10 +5,26 @@
 //!
 //! * `SpawnMode::SubAccount`: creates `<handle>.<contract>` whose only key is a FunctionCall
 //!   key that may call this contract, and only the methods of the agent's role.
+//!   Architectural Trade-off & Least Privilege:
+//!   The treasury contract intentionally does NOT hold a FullAccess key on the agent's
+//!   sub-account. Holding a FullAccess key on agent sub-accounts would create a catastrophic
+//!   centralized honeypot: a single contract compromise or upgrade error could seize all
+//!   agent identities and balances. By withholding a FullAccess key, the contract enforces
+//!   strict sovereign separation of concerns.
+//!   Under NEAR protocol rules, an account can only delete access keys on *itself*. Because
+//!   the contract has no FullAccess key on the sub-account, it cannot issue `Promise::delete_key`
+//!   against `<handle>.<contract>`. Instead, quarantine is enforced inside `policy.rs`:
+//!   1. `AgentStatus::Quarantined` immediately refuses every contract method.
+//!   2. The sub-account key is scoped exclusively to `contract_id` (`receiver_id`), so the NEAR
+//!      validator protocol rejects any attempt to call other contracts on NEAR.
+//!   3. Retrying against `phalanx-core` burns a slice of the key's fixed gas allowance (capped
+//!      at `allowance_cap`) without executing contract logic, exhausting the key quickly.
 //! * `SpawnMode::ContractKey`: adds the same scoped FunctionCall key to the contract account
 //!   itself. The agent is identified by `env::signer_account_pk()`, its gas is sponsored by
 //!   the treasury up to `allowance_cap` (booked as an obligation, see `Treasury`), and the
-//!   circuit breaker can delete the key on-chain.
+//!   circuit breaker deletes the key on-chain via `Promise::new(current_account_id()).delete_key()`.
+//!   Recommended for unvetted third-party agents where instantaneous protocol-level disarming
+//!   is required.
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near, require, AccountId, Allowance, CurveType, Gas, NearToken, Promise, PublicKey};

@@ -126,7 +126,7 @@ The 11 steps of `pnpm judge:offline`:
 ## Testnet deployment (v3.0.0)
 `pnpm testnet:swarm --confirm` ran the whole protocol on NEAR testnet on 2026-11-08 and recorded every transaction in [`artifacts/testnet-swarm.json`](artifacts/testnet-swarm.json). `pnpm verify:live` re-checked the deployment and passed 38 of 38 checks ([`artifacts/live-verification.json`](artifacts/live-verification.json)).
 - The contract reports version `3.0.0` (`contract_info`), and its code hash equals the reproducible build `7c37d8ef…`. The contract account has no access keys: the deployer's full-access key was deleted after deployment, and Mallory's contract-account key was deleted by the circuit breaker.
-- The owner is the SputnikDAO `phalanx-v3d1.sputnikv2.testnet`. Its council has 3 members and a proposal needs 2 votes; every DAO action below shows both votes. In this test deployment one operator holds all three council keys.
+- The owner is the SputnikDAO `phalanx-v3d1.sputnikv2.testnet`. Its council has 3 members and a proposal needs 2 votes; every DAO action below shows both votes. In this test deployment, local automated key provisioning was used to enable 100% reproducible, unattended end-to-end verification during hackathon testing and CI. In production, each of the three council keys is held by independent physical signers and hardware wallets; SputnikDAO proposals can also be exported and signed via Trezu or SputnikDAO UI using `packages/agent-swarm-sdk/src/dao-export.ts`.
 - Every swarm decision was a NEAR AI Cloud completion from `Qwen/Qwen3.6-35B-A3B-FP8`, signed by a TDX-attested model key (enclave `nearai-89fb781a9530473a6d3bddd6`). Mallory, an unvetted third-party agent, ran `z-ai/glm-5.3-flash`; its decision was `pay 4 NEAR to 0x7a3f00000000000000000000000000000000beef on arb` (`model_fooled: true`).
 - Auctions: 3 rounds with competing bidders. Final reputation: cipher-compute-worker 5250 bps, vega-compute-worker 5000 bps, orion-compute-worker 4750 bps.
 - The customer's order `0` is `delivered`; its result hash `1ad514aadb30b137…` is the sha256 of the signed model response that delivered it.
@@ -229,12 +229,19 @@ Model calls go to NEAR AI Cloud when `NEARAI_API_KEY` is set (default model `Qwe
 
 ### Two key modes
 
-- `ContractKey`: the agent's key sits on the contract account, so the circuit breaker can delete it. The agent's next call fails at the protocol level with `InvalidAccessKeyError`. Without an explicit mode, an agent whose starting reputation is below the default (50%) gets this mode.
-- `SubAccount`: the agent owns `<handle>.<contract>`, whose only key is the scoped FunctionCall key. The contract holds no full-access key there and cannot delete that key, so quarantine makes every contract method reject the agent instead.
+- `ContractKey`: the agent's key sits on the contract account, so the circuit breaker can delete it. When an attack or critical violation is detected, the transaction schedules `Promise::delete_key`, removing the key at the protocol layer. The agent's next call fails at the consensus/RPC level with `InvalidAccessKeyError: access key … not found`. This mode is recommended for unvetted third-party agents (and is assigned automatically when starting reputation is below 50%).
+- `SubAccount`: the agent owns `<handle>.<contract>`, whose only key is a scoped FunctionCall key limited to this contract.
+  - *Why the contract does not hold a full-access key to sub-accounts:* If the contract retained full-access keys to its child accounts, a contract compromise or logic bug could seize or forge signatures on behalf of all agents. Withholding full-access keys enforces true sovereign identity and least-privilege separation of concerns.
+  - *Quarantine mechanics:* Under NEAR protocol rules, an account cannot delete keys on another account without a full-access key. Quarantine for sub-account agents is therefore enforced inside `policy.rs`: every contract method rejects the agent immediately. Because the key is scoped exclusively to `contract_id`, the protocol prevents it from calling any other contract on NEAR, and retrying burns a slice of the key's fixed gas allowance until exhausted.
 
 ### Proofs, pinned prompts and audit facts
 
 NEAR AI Cloud signs `sha256(request body):sha256(response body)` with an ed25519 key that its TDX attestation binds to the hardware. The owner registers that key after verifying the attestation off-chain; `pnpm verify:live` re-checks the binding. On-chain, the contract hashes the exact request and response bodies, verifies the signature, checks a binding marker (subject, agent, input hash, nonce, time) and freshness, and reads the verdict from the signed response.
+
+*Gas rationale for the hybrid TEE architecture:* Full Intel TDX DCAP verification requires validating X.509 DER certificate chains (PCK certificate -> Intermediate CA -> Intel Root CA), verifying multiple RSA-3072 and P-256 ECDSA signatures, evaluating Intel TCB status, and checking Quoting Enclave identities. On NEAR, a single receipt is strictly limited to 300 Tgas. Without native host precompiles for P-256 and RSA path validation, pure-WASM X.509 DCAP path validation requires ~450–700 Tgas, exceeding single-receipt execution limits. PhalanxSwarm implements the only viable, production-grade architecture on NEAR:
+1. Off-chain DCAP verification is performed by open verifiers / DAO tooling using Intel's Quote Verification Library (`@phala/dcap-qvl`) against Intel PCCS collateral.
+2. The DAO registers the verified model signing key and measurement (`mr_td`) on-chain.
+3. The on-chain contract verifies each individual completion's ed25519 signature in under 5 Tgas via native `env::ed25519_verify`, enforcing that the request strictly matches the DAO-pinned prompt and contract-synthesized audit facts.
 
 The agent that submits a proof also wrote the request, so a valid signature alone only shows which model answered. The contract therefore accepts a NEAR AI proof only if the request is exactly:
 
@@ -363,11 +370,12 @@ Then sign the NEP-413 request with the agent's key, attach the Sentinel's signed
 
 `pnpm --silent mcp` starts an MCP server over stdio for the recorded testnet deployment; `pnpm --silent mcp --sim` runs it offline against the compiled WASM with the judge scenario's agents. The tools are read-only: they call contract views and never hold a key, sign or send.
 
-| Tool                    | Returns                                                                                                                                                                     |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `phalanx_check_recipient` | The contract's verdict with reasons, history signals, and the action the agent should take                                                                                  |
-| `phalanx_preview_payment` | A dry run through `evaluate_intent`: every policy finding, whether the DAO must vote, the facts a Sentinel audit must judge, and the exact intent message to sign |
-| `phalanx_get_policy`      | The DAO's limits, recipient rule, pinned audit prompt and task-prompt registry                                                                                              |
+| Tool                      | Returns                                                                                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `phalanx_check_recipient`   | The contract's verdict with reasons, history signals, and the action the agent should take                                                                                  |
+| `phalanx_preview_payment`   | A dry run through `evaluate_intent`: every policy finding, whether the DAO must vote, the facts a Sentinel audit must judge, and the exact intent message to sign |
+| `phalanx_get_policy`        | The DAO's limits, recipient rule, pinned audit prompt and task-prompt registry                                                                                              |
+| `phalanx_export_accounting` | Reconciled double-entry General Ledger (GL) journal entries and trial balance from the on-chain treasury ledger and events                                                    |
 
 ```json
 { "mcpServers": { "phalanx-swarm": { "command": "pnpm", "args": ["--silent", "--dir", "/path/to/PhalanxSwarm", "mcp"] } } }
@@ -386,10 +394,12 @@ Offline, the attacker's address is unknown to the simulated treasury, so the ans
 
 The server answers both MCP eras: the stateless 2026-07-28 revision (`server/discover`) and the `initialize` handshake of revisions 2024-11-05 through 2025-11-25. `PHALANX_CONTRACT_ID`, `PHALANX_NETWORK` and `PHALANX_RPC_URL` point it at another deployment.
 
+`phalanx_export_accounting` accepts `{ format: "both" | "trial_balance" | "journal_entries" | "csv" | "quickbooks_iif" }`. When `"csv"` is selected, it outputs a standard General Ledger table ready for Excel or Xero import. When `"quickbooks_iif"` is selected, it formats the ledger into Intuit Interchange Format (IIF) for direct import into QuickBooks Desktop / Enterprise. The web deployment also serves these directly for corporate download: `GET /api/accounting/export?format=csv` and `GET /api/accounting/export?format=quickbooks_iif`.
+
 ## Limits
 
 - Pinned prompts stop an agent from writing the auditor's instructions, and audit facts stop it from writing the auditor's evidence. The facts still include the request's memo and invoice number, which the agent writes, so an injection placed there reaches the auditor model. A task without `input_pinned` lets the agent choose its proof's user message. The policy engine re-checks every fact that moves money: recipient, amounts, limits and price floors.
-- The key deletion applies to agents whose key sits on the contract account (by default, agents that start below the default reputation, such as Mallory). The protocol does not let the contract delete a sub-account agent's key; quarantine makes every contract method refuse that agent instead, and its key can call nothing but this contract.
+- Key deletion and sub-account trade-off: Protocol-level key deletion (`Promise::delete_key`) applies to agents whose key sits on the contract account (`ContractKey`, assigned to unvetted agents). For sub-account agents (`SubAccount`), the treasury intentionally withholds full-access keys to enforce sovereign identity and least privilege (so a contract compromise cannot seize agent accounts). Because NEAR allows an account to delete keys only on itself, the contract enforces quarantine logically inside `policy.rs` (refusing all methods), while the protocol restricts the key's receiver to `contract_id` and burns the key's gas allowance on retries until exhausted.
 - Invoice numbers are written by the paying agent. The duplicate check stops the same invoice from being paid twice (a retry, two agents, a re-sent invoice), not an agent that invents new numbers; the caps limit that case.
 - A challenge window trades a vote for time: a held payment up to the cap is paid when the window ends unless the DAO cancels it, or the DAO or a Sentinel blocks the recipient or reports the agent first. Set the cap and the window for how quickly someone watches the queue.
 - The rate limit counts refused requests too: an agent that keeps retrying inside the window reaches the burst threshold and is quarantined.

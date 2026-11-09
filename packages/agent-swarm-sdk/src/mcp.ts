@@ -11,6 +11,8 @@
  * - `phalanx_preview_payment`: a dry run of a payment through the contract's policy engine
  *   (`evaluate_intent`), the facts a Sentinel audit must judge (v2.3), and the exact message to sign.
  * - `phalanx_get_policy`: the DAO's current limits and rules.
+ * - `phalanx_export_accounting`: export reconciled enterprise double-entry General Ledger (GL)
+ *   journal entries and trial balance from the on-chain treasury state.
  *
  * Protocol: JSON-RPC 2.0, transport-agnostic (`mcp-cli.ts` runs it over stdio). It serves both MCP
  * eras: the stateless revisions (`server/discover`, protocol version in every request's `_meta`,
@@ -64,6 +66,10 @@ const PreviewArgs = z.strictObject({
   recipient: CheckArgs.shape.recipient,
   amount_near: z.number().positive().max(1_000_000),
   memo: z.string().max(120).regex(SAFE_TEXT).optional(),
+});
+const ExportAccountingArgs = z.strictObject({
+  format: z.enum(["journal_entries", "trial_balance", "both", "csv", "quickbooks_iif"]).default("both").optional(),
+  include_raw_events: z.boolean().default(false).optional(),
 });
 
 /** Destination asset of a cross-chain vendor payment (USDC on the chain). */
@@ -124,10 +130,32 @@ const TOOLS = [
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
+  {
+    name: "phalanx_export_accounting",
+    title: "Export enterprise reconciliations & General Ledger",
+    description:
+      "Export auditable double-entry General Ledger (GL) journal entries and trial balance reconciliations from the on-chain PhalanxSwarm treasury. Formats capital inflows, customer orders, swarm procurement escrows, vendor settlements, EVM transfers, agent earnings, and revenue distributions into standard enterprise accounting journal entries where total debits equal total credits. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        format: {
+          type: "string",
+          enum: ["journal_entries", "trial_balance", "both", "csv", "quickbooks_iif"],
+          description: "Output format: journal_entries, trial_balance, both, csv (Excel/Xero), or quickbooks_iif (QuickBooks Desktop). Default: both.",
+        },
+        include_raw_events: {
+          type: "boolean",
+          description: "Include underlying on-chain reference IDs in line items. Default false.",
+        },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
 ] as const;
 
 const INSTRUCTIONS =
-  "Call phalanx_check_recipient before an agent pays anyone, and follow its action. Use phalanx_preview_payment to see what the contract would decide and get the message to sign. These tools never sign or send; the contract enforces the same rules when the agent submits.";
+  "Call phalanx_check_recipient before an agent pays anyone, and follow its action. Use phalanx_preview_payment to see what the contract would decide and get the message to sign. Call phalanx_export_accounting to export reconciled double-entry General Ledger journal entries and trial balance. These tools never sign or send; the contract enforces the same rules when the agent submits.";
 
 export class PhalanxMcpServer {
   private readonly serverInfo: { name: string; title: string; version: string };
@@ -214,6 +242,8 @@ export class PhalanxMcpServer {
       case "phalanx_get_policy":
         z.strictObject({}).parse(args);
         return this.getPolicy();
+      case "phalanx_export_accounting":
+        return this.exportAccounting(ExportAccountingArgs.parse(args));
       default:
         throw new Error(`unknown tool ${name}`);
     }
@@ -337,6 +367,465 @@ export class PhalanxMcpServer {
       task_prompt_hashes: policy.task_prompt_hashes,
       min_task_confidence_bps: policy.min_task_confidence_bps,
       min_task_reputation_bps: policy.min_task_reputation_bps,
+    };
+  }
+
+  private async exportAccounting(a: z.infer<typeof ExportAccountingArgs>): Promise<Record<string, unknown>> {
+    const views = this.opts.views;
+    const [info, dashboard] = await Promise.all([
+      views.parse("contract_info", {}, ContractInfo),
+      views.dashboard(),
+    ]);
+
+    const format = a.format ?? "both";
+    const includeRaw = a.include_raw_events ?? false;
+
+    // Standard Chart of Accounts (COA) for enterprise autonomous treasury
+    const COA = {
+      1010: { code: "1010", name: "Cash & Liquid Treasury", category: "Asset", normal: "Debit" },
+      1020: { code: "1020", name: "Escrow Deposits in Transit", category: "Asset", normal: "Debit" },
+      1030: { code: "1030", name: "Capital Reserve", category: "Asset", normal: "Debit" },
+      2010: { code: "2010", name: "Customer Unearned Revenue", category: "Liability", normal: "Credit" },
+      2020: { code: "2020", name: "Agent Earnings Payable", category: "Liability", normal: "Credit" },
+      3010: { code: "3010", name: "Contributed Treasury Capital", category: "Equity", normal: "Credit" },
+      3020: { code: "3020", name: "Retained Operating Reserve", category: "Equity", normal: "Credit" },
+      4010: { code: "4010", name: "Customer Sales Revenue", category: "Revenue", normal: "Credit" },
+      5010: { code: "5010", name: "Swarm Task Procurement Expense", category: "Expense", normal: "Debit" },
+      5020: { code: "5020", name: "Vendor Accounts Payable Expense", category: "Expense", normal: "Debit" },
+      5030: { code: "5030", name: "Cross-Chain Settlement Expense", category: "Expense", normal: "Debit" },
+      5040: { code: "5040", name: "Stakeholder Dividend & Operator Distributions", category: "Expense", normal: "Debit" },
+    } as const;
+
+    type CoaCode = keyof typeof COA;
+
+    interface EntryLine {
+      account_code: string;
+      account_name: string;
+      debit_yocto: string;
+      debit_near: string;
+      credit_yocto: string;
+      credit_near: string;
+      memo?: string;
+    }
+
+    interface JournalEntry {
+      entry_id: string;
+      block_height: string;
+      source_module: string;
+      description: string;
+      reference_id?: string;
+      lines: EntryLine[];
+      reconciled: boolean;
+      total_debit_near: string;
+      total_credit_near: string;
+    }
+
+    const journalEntries: JournalEntry[] = [];
+    let entrySeq = 1;
+
+    const addEntry = (
+      sourceModule: string,
+      description: string,
+      debits: Array<{ code: CoaCode; amount: bigint; memo?: string }>,
+      credits: Array<{ code: CoaCode; amount: bigint; memo?: string }>,
+      refId?: string,
+    ) => {
+      const sumDebits = debits.reduce((acc, d) => acc + d.amount, 0n);
+      const sumCredits = credits.reduce((acc, c) => acc + c.amount, 0n);
+      if (sumDebits === 0n && sumCredits === 0n) return;
+      if (sumDebits !== sumCredits) {
+        throw new Error(`Unbalanced journal entry in ${sourceModule}: debits ${sumDebits} != credits ${sumCredits}`);
+      }
+
+      const lines: EntryLine[] = [
+        ...debits.map((d) => ({
+          account_code: COA[d.code].code,
+          account_name: COA[d.code].name,
+          debit_yocto: d.amount.toString(),
+          debit_near: formatNear(d.amount, 4),
+          credit_yocto: "0",
+          credit_near: "0.0000",
+          ...(d.memo ? { memo: d.memo } : {}),
+        })),
+        ...credits.map((c) => ({
+          account_code: COA[c.code].code,
+          account_name: COA[c.code].name,
+          debit_yocto: "0",
+          debit_near: "0.0000",
+          credit_yocto: c.amount.toString(),
+          credit_near: formatNear(c.amount, 4),
+          ...(c.memo ? { memo: c.memo } : {}),
+        })),
+      ];
+
+      const entryId = `JE-${entrySeq.toString().padStart(4, "0")}`;
+      entrySeq++;
+
+      journalEntries.push({
+        entry_id: entryId,
+        block_height: dashboard.block_height,
+        source_module: sourceModule,
+        description,
+        ...(includeRaw && refId ? { reference_id: refId } : {}),
+        lines,
+        reconciled: true,
+        total_debit_near: formatNear(sumDebits, 4),
+        total_credit_near: formatNear(sumCredits, 4),
+      });
+    };
+
+    // 1. Initial Contributed Capital
+    const capIn = BigInt(dashboard.treasury.total_capital_in);
+    if (capIn > 0n) {
+      addEntry(
+        "TreasuryCapital",
+        "Initial treasury capital funding contribution",
+        [{ code: 1010, amount: capIn, memo: "Initial liquid treasury deposit" }],
+        [{ code: 3010, amount: capIn, memo: "Contributed capital equity" }],
+        "capital_in",
+      );
+    }
+
+    // 2. Customer Orders & Sales Revenue
+    let accountedRevenue = 0n;
+    if (dashboard.orders && dashboard.orders.length > 0) {
+      for (const order of dashboard.orders) {
+        const price = BigInt(order.price);
+        if (price <= 0n) continue;
+        if (order.status === "paid" || order.status === "in_production") {
+          addEntry(
+            "CustomerOrders",
+            `Customer deposit received for order #${order.order_id} (${order.product_id})`,
+            [{ code: 1010, amount: price, memo: `Paid by ${order.customer}` }],
+            [{ code: 2010, amount: price, memo: "Unearned revenue liability" }],
+            `order:${order.order_id}:deposit`,
+          );
+        } else if (order.status === "delivered") {
+          accountedRevenue += price;
+          addEntry(
+            "CustomerOrders",
+            `Customer deposit received for order #${order.order_id} (${order.product_id})`,
+            [{ code: 1010, amount: price, memo: `Paid by ${order.customer}` }],
+            [{ code: 2010, amount: price, memo: "Unearned revenue liability" }],
+            `order:${order.order_id}:deposit`,
+          );
+          addEntry(
+            "CustomerOrders",
+            `Revenue recognized: Order #${order.order_id} verified and delivered`,
+            [{ code: 2010, amount: price, memo: "Unearned revenue fulfilled" }],
+            [{ code: 4010, amount: price, memo: `Sales revenue for ${order.product_id}` }],
+            `order:${order.order_id}:delivery`,
+          );
+        } else if (order.status === "refunded" || order.status === "refunding") {
+          addEntry(
+            "CustomerOrders",
+            `Customer deposit received for order #${order.order_id} (${order.product_id})`,
+            [{ code: 1010, amount: price, memo: `Paid by ${order.customer}` }],
+            [{ code: 2010, amount: price, memo: "Unearned revenue liability" }],
+            `order:${order.order_id}:deposit`,
+          );
+          addEntry(
+            "CustomerOrders",
+            `Customer refund: Order #${order.order_id} unfulfilled by deadline; deposit returned`,
+            [{ code: 2010, amount: price, memo: "Refund liability reduction" }],
+            [{ code: 1010, amount: price, memo: `Refunded to ${order.customer}` }],
+            `order:${order.order_id}:refund`,
+          );
+        }
+      }
+    }
+
+    const totalRev = BigInt(dashboard.treasury.total_revenue);
+    if (totalRev > accountedRevenue) {
+      const unitemizedRev = totalRev - accountedRevenue;
+      addEntry(
+        "CustomerOrders",
+        "Direct customer sales & treasury revenue deposits",
+        [{ code: 1010, amount: unitemizedRev, memo: "Liquid revenue received" }],
+        [{ code: 4010, amount: unitemizedRev, memo: "Product sales revenue" }],
+        "revenue_deposits",
+      );
+    }
+
+    // 3. Swarm Market Procurement Tasks
+    let accountedCosts = 0n;
+    if (dashboard.tasks && dashboard.tasks.length > 0) {
+      for (const taskView of dashboard.tasks) {
+        const task = taskView.task;
+        const escrowAmt = taskView.escrow?.amount ? BigInt(taskView.escrow.amount) : BigInt(task.budget_ceiling);
+        if (escrowAmt <= 0n) continue;
+        if (task.status === "awarded") {
+          addEntry(
+            "SwarmMarket",
+            `Task #${task.task_id} awarded to ${task.winner ?? "worker"}; escrow locked`,
+            [{ code: 1020, amount: escrowAmt, memo: "Escrow transit hold" }],
+            [{ code: 1010, amount: escrowAmt, memo: "Treasury liquid reservation" }],
+            `task:${task.task_id}:award`,
+          );
+        } else if (task.status === "completed") {
+          accountedCosts += escrowAmt;
+          addEntry(
+            "SwarmMarket",
+            `Task #${task.task_id} verified via TEE proof; payment disbursed to ${task.winner ?? "worker"}`,
+            [{ code: 5010, amount: escrowAmt, memo: "Task execution procurement expense" }],
+            [{ code: 1010, amount: escrowAmt, memo: "Disbursed to worker earnings" }],
+            `task:${task.task_id}:complete`,
+          );
+        }
+      }
+    }
+
+    // 4. Vendor Invoices & Settlements
+    if (dashboard.intents && dashboard.intents.length > 0) {
+      for (const intent of dashboard.intents) {
+        if (intent.status === "settled" && intent.kind === "vendor_payment") {
+          const amt = BigInt(intent.amount);
+          if (amt > 0n) {
+            accountedCosts += amt;
+            addEntry(
+              "VendorSettlements",
+              `Settled vendor invoice (${intent.memo ?? "invoice"}) to ${intent.recipient}`,
+              [{ code: 5020, amount: amt, memo: `Vendor payment on ${intent.destination_chain}` }],
+              [{ code: 1010, amount: amt, memo: "Direct treasury transfer" }],
+              `intent:${intent.intent_id}`,
+            );
+          }
+        }
+      }
+    }
+
+    // 5. Cross-chain EVM Settlements
+    if (dashboard.evm_txs && dashboard.evm_txs.length > 0) {
+      for (const tx of dashboard.evm_txs) {
+        if (tx.status === "confirmed") {
+          const amt = BigInt(tx.amount);
+          if (amt > 0n) {
+            accountedCosts += amt;
+            addEntry(
+              "CrossChainEVM",
+              `Confirmed EIP-1559 transfer #${tx.tx_id} to ${tx.to} on ${tx.chain}`,
+              [{ code: 5030, amount: amt, memo: "EVM Chain Signatures settlement" }],
+              [{ code: 1010, amount: amt, memo: "Treasury EVM allocation" }],
+              `evm:${tx.tx_id}`,
+            );
+          }
+        }
+      }
+    }
+
+    const totalCosts = BigInt(dashboard.treasury.total_operating_costs);
+    if (totalCosts > accountedCosts) {
+      const unitemizedCosts = totalCosts - accountedCosts;
+      addEntry(
+        "OperatingExpenses",
+        "Operating disbursements and vendor expenses",
+        [{ code: 5020, amount: unitemizedCosts, memo: "Operating expense disbursements" }],
+        [{ code: 1010, amount: unitemizedCosts, memo: "Disbursed from liquid treasury" }],
+        "operating_disbursements",
+      );
+    }
+
+    // 6. Revenue Distributions
+    let accountedDistributed = 0n;
+    let accountedRetained = 0n;
+    if (dashboard.distributions && dashboard.distributions.length > 0) {
+      for (const dist of dashboard.distributions) {
+        for (const leg of dist.payouts) {
+          const legAmt = BigInt(leg.amount);
+          if (legAmt > 0n) {
+            accountedDistributed += legAmt;
+            addEntry(
+              "RevenueDistributions",
+              `Dividend distribution #${dist.distribution_id} to ${leg.label} (${leg.account_id})`,
+              [{ code: 5040, amount: legAmt, memo: `Stakeholder payout to ${leg.account_id}` }],
+              [{ code: 1010, amount: legAmt, memo: "Disbursed from treasury profits" }],
+              `dist:${dist.distribution_id}:${leg.account_id}`,
+            );
+          }
+        }
+        const retainedAmt = BigInt(dist.retained);
+        if (retainedAmt > 0n) {
+          accountedRetained += retainedAmt;
+          addEntry(
+            "RevenueDistributions",
+            `Retained operating reserve allocation from distribution #${dist.distribution_id}`,
+            [{ code: 1030, amount: retainedAmt, memo: "Restricted reserve asset" }],
+            [{ code: 3020, amount: retainedAmt, memo: "Retained earnings reserve equity" }],
+            `dist:${dist.distribution_id}:reserve`,
+          );
+        }
+      }
+    }
+
+    const totalDist = BigInt(dashboard.treasury.total_distributed);
+    if (totalDist > accountedDistributed) {
+      const deltaDist = totalDist - accountedDistributed;
+      addEntry(
+        "RevenueDistributions",
+        "Stakeholder dividend distributions",
+        [{ code: 5040, amount: deltaDist, memo: "Stakeholder payouts" }],
+        [{ code: 1010, amount: deltaDist, memo: "Disbursed from liquid treasury" }],
+        "distribution_disbursements",
+      );
+    }
+
+    const totalRet = BigInt(dashboard.treasury.total_retained);
+    if (totalRet > accountedRetained) {
+      const deltaRet = totalRet - accountedRetained;
+      addEntry(
+        "RevenueDistributions",
+        "Retained operating reserve allocation",
+        [{ code: 1030, amount: deltaRet, memo: "Restricted reserve asset" }],
+        [{ code: 3020, amount: deltaRet, memo: "Retained earnings reserve equity" }],
+        "reserve_allocations",
+      );
+    }
+
+    // Compute Trial Balance by aggregating all lines across all journal entries
+    const trialBalanceMap = new Map<CoaCode, { debits: bigint; credits: bigint }>();
+    for (const k of Object.keys(COA).map(Number) as CoaCode[]) {
+      trialBalanceMap.set(k, { debits: 0n, credits: 0n });
+    }
+
+    for (const entry of journalEntries) {
+      for (const line of entry.lines) {
+        const codeNum = Number(line.account_code) as CoaCode;
+        const record = trialBalanceMap.get(codeNum);
+        if (record) {
+          record.debits += BigInt(line.debit_yocto);
+          record.credits += BigInt(line.credit_yocto);
+        }
+      }
+    }
+
+    let grandTotalDebits = 0n;
+    let grandTotalCredits = 0n;
+
+    const trialBalance = (Object.keys(COA).map(Number) as CoaCode[])
+      .map((code) => {
+        const meta = COA[code];
+        const { debits, credits } = trialBalanceMap.get(code)!;
+        grandTotalDebits += debits;
+        grandTotalCredits += credits;
+        const net = meta.normal === "Debit" ? debits - credits : credits - debits;
+        return {
+          account_code: meta.code,
+          account_name: meta.name,
+          category: meta.category,
+          normal_balance: meta.normal,
+          total_debit_near: formatNear(debits, 4),
+          total_credit_near: formatNear(credits, 4),
+          net_balance_near: formatNear(net, 4),
+          net_balance_yocto: net.toString(),
+        };
+      })
+      .filter((row) => row.total_debit_near !== "0.0000" || row.total_credit_near !== "0.0000");
+
+    const imbalance = grandTotalDebits > grandTotalCredits ? grandTotalDebits - grandTotalCredits : grandTotalCredits - grandTotalDebits;
+    const isReconciled = imbalance === 0n;
+
+    const tsMs = Number(BigInt(dashboard.block_timestamp_ns) / 1_000_000n);
+    const generatedAt = !isNaN(tsMs) && tsMs > 0 ? new Date(tsMs).toISOString() : new Date().toISOString();
+
+    const summary = {
+      total_capital_contributed_near: formatNear(BigInt(dashboard.treasury.total_capital_in), 4),
+      total_sales_revenue_near: formatNear(BigInt(dashboard.treasury.total_revenue), 4),
+      total_operating_expenses_near: formatNear(BigInt(dashboard.treasury.total_operating_costs), 4),
+      total_distributed_near: formatNear(BigInt(dashboard.treasury.total_distributed), 4),
+      total_retained_reserve_near: formatNear(BigInt(dashboard.treasury.total_retained), 4),
+      net_operating_profit_near: formatNear(BigInt(dashboard.treasury.net_profit), 4),
+      liquid_cash_balance_near: formatNear(BigInt(dashboard.treasury.liquid), 4),
+      escrow_held_balance_near: formatNear(BigInt(dashboard.treasury.escrow_locked), 4),
+      journal_entry_count: journalEntries.length,
+    };
+
+    if (format === "csv") {
+      const header = ["Entry ID", "Block Height", "Timestamp", "Source Module", "Description", "Account Code", "Account Name", "Category", "Debit NEAR", "Credit NEAR", "Debit Yocto", "Credit Yocto", "Line Memo"].join(",");
+      const rows: string[] = [header];
+      for (const je of journalEntries) {
+        for (const line of je.lines) {
+          const cat = COA[Number(line.account_code) as CoaCode].category;
+          rows.push([
+            je.entry_id,
+            je.block_height,
+            generatedAt,
+            `"${je.source_module}"`,
+            `"${je.description.replace(/"/g, '""')}"`,
+            line.account_code,
+            `"${line.account_name}"`,
+            cat,
+            line.debit_near,
+            line.credit_near,
+            line.debit_yocto,
+            line.credit_yocto,
+            `"${(line.memo ?? "").replace(/"/g, '""')}"`,
+          ].join(","));
+        }
+      }
+      return {
+        contract_id: views.contractId,
+        contract_version: info.version,
+        format: "csv",
+        reporting_currency: "NEAR",
+        generated_at: generatedAt,
+        reconciled: isReconciled,
+        imbalance_near: formatNear(imbalance, 4),
+        csv: rows.join("\n"),
+        summary,
+        note: "Standard General Ledger CSV format compatible with Excel, Xero, and corporate accounting imports.",
+      };
+    }
+
+    if (format === "quickbooks_iif") {
+      const iifLines: string[] = [
+        "!TRNS\tTRNSID\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO",
+        "!SPL\tSPLID\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO",
+        "!ENDTRNS",
+      ];
+      const dateParts = generatedAt.split("T")[0]!.split("-");
+      const iifDate = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
+      for (const je of journalEntries) {
+        const firstLine = je.lines[0];
+        if (!firstLine) continue;
+        const firstDebit = parseFloat(firstLine.debit_near);
+        const firstCredit = parseFloat(firstLine.credit_near);
+        const firstAmt = firstDebit > 0 ? firstDebit : -firstCredit;
+        iifLines.push(`TRNS\t${je.entry_id}\tGENERAL JOURNAL\t${iifDate}\t${firstLine.account_name}\t\t${firstAmt.toFixed(4)}\t${je.entry_id}\t${je.description}`);
+        for (let i = 1; i < je.lines.length; i++) {
+          const line = je.lines[i]!;
+          const d = parseFloat(line.debit_near);
+          const c = parseFloat(line.credit_near);
+          const amt = d > 0 ? d : -c;
+          iifLines.push(`SPL\t${je.entry_id}_${i}\tGENERAL JOURNAL\t${iifDate}\t${line.account_name}\t\t${amt.toFixed(4)}\t${je.entry_id}\t${line.memo ?? je.description}`);
+        }
+        iifLines.push("ENDTRNS");
+      }
+      return {
+        contract_id: views.contractId,
+        contract_version: info.version,
+        format: "quickbooks_iif",
+        reporting_currency: "NEAR",
+        generated_at: generatedAt,
+        reconciled: isReconciled,
+        imbalance_near: formatNear(imbalance, 4),
+        iif: iifLines.join("\n"),
+        summary,
+        note: "Intuit Interchange Format (IIF) for direct import into QuickBooks Desktop / Enterprise.",
+      };
+    }
+
+    return {
+      contract_id: views.contractId,
+      contract_version: info.version,
+      reporting_currency: "NEAR",
+      generated_at: generatedAt,
+      block_height: dashboard.block_height,
+      reconciled: isReconciled,
+      imbalance_near: formatNear(imbalance, 4),
+      summary,
+      ...(format === "trial_balance" || format === "both" ? { trial_balance: trialBalance } : {}),
+      ...(format === "journal_entries" || format === "both" ? { journal_entries: journalEntries } : {}),
+      note: "Exported double-entry general ledger generated directly from verified on-chain treasury ledger and events. Debits equal credits.",
     };
   }
 }

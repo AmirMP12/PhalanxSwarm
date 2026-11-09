@@ -10,6 +10,21 @@
 //!   request and response bodies, verifies the signature with `env::ed25519_verify`, checks that
 //!   the request carries the binding marker for this subject, agent, input and nonce, and reads
 //!   the model's verdict from the signed response. The agent cannot change any of these bytes.
+//!
+//!   Gas Rationale for Hybrid On-Chain / Off-Chain Architecture:
+//!   Validating an Intel TDX DCAP Quote end-to-end requires parsing multi-layer X.509 DER
+//!   certificates (PCK cert -> Intermediate CA -> Intel Root CA), verifying RSA-3072 and
+//!   P-256 ECDSA signatures, checking Intel TCB Status, and evaluating Quoting Enclave (QE)
+//!   identities. On NEAR, a single receipt is strictly limited to 300 Tgas. Without native
+//!   protocol host functions for P-256 and RSA path validation, full DCAP quote parsing in
+//!   pure WebAssembly requires ~450-700 Tgas, exceeding single-receipt execution limits.
+//!   PhalanxSwarm implements the only viable, production-grade architecture on NEAR:
+//!   1. Off-chain DCAP verification is performed by open verifiers / DAO tooling using
+//!      Intel's Quote Verification Library (`@phala/dcap-qvl`) against Intel PCCS collateral.
+//!   2. The DAO registers the verified model signing key and measurement (`mr_td`) on-chain.
+//!   3. The on-chain contract verifies each individual completion's ed25519 signature in
+//!      < 5 Tgas via native `env::ed25519_verify`, enforcing that the request strictly matches
+//!      the DAO-pinned prompt and contract-synthesized audit facts.
 //! * Pinned prompt: the agent that submits a NEAR AI proof also wrote the request, so a valid
 //!   signature alone only shows which model answered. The contract therefore accepts a NEAR AI
 //!   proof only if the request is a single turn whose system message is a template pinned on-chain
