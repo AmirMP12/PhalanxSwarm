@@ -968,6 +968,33 @@ function Treasury({ s }: { s: LiveSnapshot }) {
           </p>
         ))}
       </div>
+      <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11.5px] font-medium text-slate-300">Enterprise Accounting Export</span>
+          <Badge tone="slate">QuickBooks & CSV</Badge>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Reconciled double-entry ledger entries and trial balance from testnet deployment.
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <a
+            href="/api/accounting/export?format=csv"
+            download="phalanx-testnet-ledger.csv"
+            className="touch-target inline-flex items-center gap-1 rounded border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+          >
+            <CloudDownload className="size-3 text-emerald-400" aria-hidden />
+            CSV Ledger
+          </a>
+          <a
+            href="/api/accounting/export?format=quickbooks_iif"
+            download="phalanx-testnet.iif"
+            className="touch-target inline-flex items-center gap-1 rounded border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+          >
+            <ScrollText className="size-3 text-sky-400" aria-hidden />
+            QuickBooks (.IIF)
+          </a>
+        </div>
+      </div>
       <div className="mt-auto space-y-2 border-t border-white/[0.06] pt-3">
         <Label>Run the business loop with your wallet ({NETWORK})</Label>
         <p className="text-[11.5px] leading-snug text-slate-500">

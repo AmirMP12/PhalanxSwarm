@@ -1,7 +1,7 @@
 "use client";
 
 import { ACCOUNTS, quarterLabel } from "@phalanx/agent-swarm-sdk";
-import { BadgeCheck, Banknote, Coins, FileJson, Landmark, Plus, SquareTerminal, Vote } from "lucide-react";
+import { BadgeCheck, Banknote, Coins, Download, ExternalLink, FileJson, FileSpreadsheet, Landmark, Plus, SquareTerminal, Vote } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { usePhalanx } from "@/lib/phalanx-context";
@@ -210,6 +210,47 @@ export function TreasuryVault() {
             <span className={t.unbacked_liquidity === "0" ? "text-emerald-300/80" : "text-red-300"}>
               {t.unbacked_liquidity === "0" ? "fully backed" : `unbacked ${nearFmt(t.unbacked_liquidity)}`}
             </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-xl border border-white/[0.06] bg-black/25 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Label className="text-slate-200">Enterprise Accounting & Reconciliation</Label>
+              <Badge tone="emerald">GAAP / IIF Reconciled</Badge>
+            </div>
+            <p className="mt-0.5 text-[12px] text-slate-400">
+              Download balanced double-entry General Ledger journal entries and trial balance generated from on-chain treasury events.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">
+            <a
+              href="/api/accounting/export?format=csv"
+              download="phalanx-general-ledger.csv"
+              className="touch-target inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300 transition hover:bg-emerald-500/20 hover:text-emerald-200"
+            >
+              <Download className="size-3.5" aria-hidden />
+              Export CSV (Excel / Xero)
+            </a>
+            <a
+              href="/api/accounting/export?format=quickbooks_iif"
+              download="phalanx-quickbooks.iif"
+              className="touch-target inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[12px] font-medium text-sky-300 transition hover:bg-sky-500/20 hover:text-sky-200"
+            >
+              <FileSpreadsheet className="size-3.5" aria-hidden />
+              Export QuickBooks (.IIF)
+            </a>
+            <a
+              href="/api/accounting/export?format=both"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="touch-target inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[11.5px] text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200"
+            >
+              <ExternalLink className="size-3" aria-hidden />
+              Trial Balance (JSON)
+            </a>
           </div>
         </div>
       </div>
