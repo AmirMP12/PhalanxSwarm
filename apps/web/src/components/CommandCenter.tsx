@@ -1,13 +1,15 @@
 "use client";
 
 import { MotionConfig } from "framer-motion";
-import { ArrowRightLeft, Compass, Cpu, Landmark, Network, RadioTower, ScrollText, ShieldCheck } from "lucide-react";
+import { ArrowRightLeft, Compass, Cpu, Landmark, Network, RadioTower, ScrollText, ShieldCheck, Store } from "lucide-react";
 
 import { PhalanxProvider, usePhalanx } from "@/lib/phalanx-context";
 import { useLiveDeployment } from "@/lib/live-deployment";
 
 import { ActivityFeed } from "./ActivityFeed";
 import { CoordinationMarket } from "./CoordinationMarket";
+import { CustomerOrders } from "./CustomerOrders";
+import { EvmTransferPanel } from "./EvmTransfers";
 import { IntentLedger, IntentTerminal } from "./IntentTerminal";
 import { LiveDeployment } from "./LiveDeployment";
 import { LiveProofs } from "./LiveProofs";
@@ -125,6 +127,18 @@ function Page() {
       </Section>
 
       <Section
+        id="orders"
+        icon={Store}
+        title="Customer orders"
+        description="The business loop the DAO sells: a customer pays the product's exact price into escrow, the swarm procures exactly that spec through the auction market, and only a verified delivery turns the payment into revenue."
+        meta={<SandboxTag />}
+      >
+        <div id="customer-orders" className="scroll-mt-24 lg:scroll-mt-28">
+          <CustomerOrders />
+        </div>
+      </Section>
+
+      <Section
         id="treasury"
         icon={Landmark}
         title="Treasury"
@@ -175,6 +189,9 @@ function Page() {
           <div id="intent-ledger" className="h-full scroll-mt-24 lg:scroll-mt-28">
             <IntentLedger />
           </div>
+        </div>
+        <div id="evm-transfers" className="scroll-mt-24 lg:scroll-mt-28">
+          <EvmTransferPanel />
         </div>
       </Section>
 

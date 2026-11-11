@@ -23,6 +23,7 @@ import {
   GlobalPolicy,
   IntentAssessment,
   IntentRecord,
+  Order,
   parsePhalanxEvents,
   RecipientCheck,
   SecurityEvent,
@@ -162,6 +163,14 @@ export class PhalanxViews {
   }
   recentEvmTxs(limit = 50) {
     return this.parse("list_evm_txs", { limit }, EvmTxRecord.array());
+  }
+  /** A customer order: paid, in production, delivered or refunded. */
+  order(orderId: bigint | string) {
+    return this.parse("get_order", { order_id: orderId.toString() }, Order.nullable());
+  }
+  /** Customer orders, newest first. */
+  orders(limit = 20) {
+    return this.parse("list_orders", { limit }, Order.array());
   }
   /** `promptHash`: the pinned system prompt a NEAR AI proof must use (see `promptHash(role)`). */
   verifyAttestation(proof: ExecutionProofT, promptHash: string | null = null) {

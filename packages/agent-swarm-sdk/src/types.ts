@@ -815,6 +815,12 @@ export const PhalanxEvent = z.discriminatedUnion("event", [
   ev("evm_transfer_cancelled", { tx_id: U64, cancel_tx_id: U64 }),
   ev("recipient_blocked", { recipient: z.string(), reason: z.string(), evidence_hash: Hash32Hex, reported_by: AccountId }),
   ev("recipient_unblocked", { recipient: z.string(), by: AccountId }),
+  ev("held_intent_released", { intent_id: U64, recipient: z.string(), released_by: AccountId }),
+  ev("order_placed", { order_id: U64, customer: AccountId, product_id: z.string(), price: U128, spec_hash: Hash32Hex, deadline_ns: U64 }),
+  ev("order_in_production", { order_id: U64, task_id: U64 }),
+  ev("order_delivered", { order_id: U64, customer: AccountId, task_id: U64, price: U128, result_hash: Hash32Hex }),
+  ev("order_reopened", { order_id: U64, failed_task_id: U64 }),
+  ev("order_refunded", { order_id: U64, customer: AccountId, amount: U128 }),
 ]);
 
 /** Parses every `EVENT_JSON:` log line through the strict event schema. */

@@ -135,7 +135,9 @@ export function TreasuryVault() {
   const disabled = busy !== null;
   const liquid = BigInt(t.liquid);
   const available = BigInt(t.available);
-  const holdings = liquid + BigInt(t.reserved_for_tasks) + BigInt(t.escrow_locked) + BigInt(t.reserved_for_intents);
+  // Mirrors the contract's obligations: customer payments for undelivered orders are held too.
+  const ordersEscrow = BigInt(t.orders_escrow);
+  const holdings = liquid + BigInt(t.reserved_for_tasks) + BigInt(t.escrow_locked) + BigInt(t.reserved_for_intents) + ordersEscrow;
   const splitTone = (kind: string, i: number): ChartTone =>
     kind === "reserve" ? "amber" : kind === "operator" ? "sky" : kind === "investor" ? "violet" : i === 0 ? "emerald" : "violet";
 
@@ -187,6 +189,7 @@ export function TreasuryVault() {
                 { label: "Task budgets", value: BigInt(t.reserved_for_tasks), tone: "sky" },
                 { label: "Escrow locked", value: BigInt(t.escrow_locked), tone: "violet" },
                 { label: "Intent reserves", value: BigInt(t.reserved_for_intents), tone: "amber" },
+                { label: "Customer order escrow", value: ordersEscrow, tone: "teal" },
               ]}
             />
           </div>
@@ -207,6 +210,9 @@ export function TreasuryVault() {
           <div className="num mt-1 flex flex-wrap justify-between gap-x-4 gap-y-1 text-[11px] text-slate-500">
             <span title="Agent earnings held by the contract until the agent spends or withdraws them">owed to agents {nearFmt(t.agent_balances)}</span>
             <span title="Gas allowances of contract-account agent keys, booked as obligations">gas allowances {nearFmt(t.contract_key_allowances)}</span>
+            <span title="Customer payments for orders no verified task has delivered yet: a liability, not revenue">
+              customer orders {nearFmt(t.orders_escrow)}
+            </span>
             <span className={t.unbacked_liquidity === "0" ? "text-emerald-300/80" : "text-red-300"}>
               {t.unbacked_liquidity === "0" ? "fully backed" : `unbacked ${nearFmt(t.unbacked_liquidity)}`}
             </span>

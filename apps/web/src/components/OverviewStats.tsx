@@ -49,6 +49,7 @@ function Tile({
 }) {
   const ring = {
     emerald: "text-emerald-300",
+    teal: "text-teal-300",
     sky: "text-sky-300",
     amber: "text-amber-200",
     red: "text-red-300",

@@ -79,6 +79,7 @@ import {
   EvmTransferOutcome,
   EvmTxRecord,
   IntentRecord,
+  Order,
   PaymentOutcome,
   SettlementOutcome,
   TaskExecutionOutcome,
@@ -86,6 +87,7 @@ import {
   TaskRfp,
   TreasuryReport,
   type AgentRoleT,
+  type AuctionKindT,
   type AuditFactsT,
   type CrossChainIntentRequestT,
   type DashboardT,
@@ -95,6 +97,7 @@ import {
   type EvmTxRecordT,
   type ExecutionProofT,
   type GlobalPolicyT,
+  type OrderT,
   type ProductT,
   type IntentAssessmentT,
   type IntentRecordT,
@@ -704,6 +707,60 @@ export class SwarmRuntime {
 
   recordRevenue(nearAmount: number, customerRef: string, memo: string) {
     return this.contract.call(this.customer, "deposit_revenue", { customer_ref: customerRef, memo }, TreasuryReport, { deposit: near(nearAmount) });
+  }
+
+  /**
+   * A customer buys a product from the DAO's list (`place_order`). The payment is a liability
+   * (`orders_escrow`), not revenue, until a verified task delivers it. `spec` is the work the
+   * customer is buying; only its sha256 goes on-chain.
+   */
+  placeOrder(product: ProductT, spec: ProcurementSpec): Promise<CallResult<OrderT>> {
+    return this.contract.call(this.customer, "place_order", { product_id: product.product_id, spec_hash: sha256Hex(canonicalJson(spec)) }, Order, {
+      deposit: BigInt(product.price),
+    });
+  }
+
+  /** Anyone refunds an order that was not delivered by its deadline. */
+  refundOrder(orderId: string) {
+    return this.contract.call(this.customer, "refund_order", { order_id: orderId }, Order);
+  }
+
+  /**
+   * The RFP that procures an order. The contract requires the order's exact spec (pass the same
+   * document that was hashed into `place_order`), a pinned prompt over that spec, and a budget
+   * within the product's `max_cost_bps` share.
+   */
+  orderRfp(order: OrderT, spec: ProcurementSpec, budget: bigint, auction: AuctionKindT = "sealed_bid"): TaskRfpInputT {
+    if (sha256Hex(canonicalJson(spec)) !== order.spec_hash) {
+      throw new Error(`orderRfp: the spec is not order #${order.order_id}'s spec (its sha256 must equal the order's spec_hash)`);
+    }
+    return {
+      title: `Order #${order.order_id}: ${order.product_id}`,
+      category: "procurement",
+      spec_hash: order.spec_hash,
+      budget_ceiling: budget.toString(),
+      auction,
+      dutch_start_price: auction === "reverse_dutch" ? (budget / 2n).toString() : null,
+      bidding_window_sec: 120,
+      reveal_window_sec: auction === "sealed_bid" ? 300 : null,
+      execution_window_sec: 1_800,
+      deadline_epochs: 2,
+      max_bidders: 3,
+      verification: {
+        schema_id: spec.schema,
+        schema_hash: sha256Hex(spec.schema),
+        min_confidence_bps: 8_000,
+        min_reputation_bps: 4_000,
+        prompt_hash: promptHash("procurement"),
+        input_pinned: true,
+      },
+      order_id: order.order_id,
+    };
+  }
+
+  /** The spec a customer buys: a scoped-down procurement plan for its own workloads. */
+  customerSpec(gpuHours = 60): ProcurementSpec {
+    return { ...this.procurementSpec("this customer"), objective: `${gpuHours} GPU-hours of TEE-backed inference for acme-robotics`, gpu_hours: gpuHours };
   }
 
   /** NEAR AI gateway hardware evidence for the UI (fresh, cached or the offline fixture). */

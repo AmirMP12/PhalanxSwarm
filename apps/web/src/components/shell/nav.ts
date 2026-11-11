@@ -14,12 +14,15 @@ import {
   LayoutDashboard,
   MousePointerClick,
   Network,
+  PackageCheck,
   RadioTower,
   Scale,
   ScrollText,
   ShieldAlert,
   ShieldCheck,
+  Signature,
   Sliders,
+  Store,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -34,7 +37,7 @@ export interface NavSubItem {
 }
 
 export interface NavSection {
-  id: "overview" | "onchain" | "swarm" | "treasury" | "policy" | "intents" | "activity";
+  id: "overview" | "onchain" | "swarm" | "orders" | "treasury" | "policy" | "intents" | "activity";
   label: string;
   icon: LucideIcon;
   /** `start`: the guided demo. `explore`: everything behind it. */
@@ -79,6 +82,16 @@ export const SECTIONS: NavSection[] = [
     ],
   },
   {
+    id: "orders",
+    label: "Customer orders",
+    icon: Store,
+    group: "explore",
+    subItems: [
+      { id: "customer-orders", label: "Product Catalogue & Orders", href: "#customer-orders", icon: Store },
+      { id: "order-book", label: "Order Book", href: "#customer-orders", icon: PackageCheck },
+    ],
+  },
+  {
     id: "treasury",
     label: "Treasury",
     icon: Landmark,
@@ -107,6 +120,7 @@ export const SECTIONS: NavSection[] = [
     subItems: [
       { id: "intents-terminal", label: "Cross-chain Terminal", href: "#intent-terminal", icon: ArrowRightLeft },
       { id: "intents-ledger", label: "Settlement Ledger", href: "#intent-ledger", icon: ScrollText },
+      { id: "evm-transfers", label: "EVM Transfers (MPC)", href: "#evm-transfers", icon: Signature },
     ],
   },
   {

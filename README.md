@@ -14,13 +14,13 @@ Built at [NEAR HACKATHON](https://nearhackathon.com). Primary track: `security` 
 - **Real models fooled**, contract still blocked payments
 
 ### Production-Grade Quality
-- **189** automated tests passing (110 Rust + 70 TypeScript + 9 Sandbox)
+- **195** automated tests (110 Rust + 76 TypeScript + 9 Sandbox); 192 pass, and 3 TypeScript tests skip unless a live service key is set
 - **100%** feature implementation completion
 - **Byte-identical** reproducible build verified
 
 ### Deep NEAR Integration
 - **8+** protocol features: FunctionCall keys, sub-accounts, Promise::delete_key, NEAR AI TEE, Chain Signatures, NEAR Intents, SputnikDAO, NEP-413
-- **38+** real testnet transactions with evidence
+- **65** real testnet transactions with evidence
 - **Live deployment** with 2-of-3 DAO governance
 
 ### Technical Innovation
@@ -81,8 +81,8 @@ Many agent-spending guards refuse a payment to an address nobody approved. Phala
 | **Autonomous Circuit Breaker** | ✅ Auto key deletion | ❌ Manual recovery | ❌ None | ❌ Manual recovery |
 | **Prompt Injection Defense** | ✅ 24/24 stopped | ❌ No testing | ❌ No testing | ❌ No testing |
 | **Cross-Chain Payments** | ✅ Chain Signatures | ✅ Bridges | ⚠️ Examples only | ✅ Relayers |
-| **Testnet Evidence** | ✅ 38+ transactions | ✅ Deployed | ⚠️ SDK examples | ✅ Deployed |
-| **Test Coverage** | ✅ 189 tests | ✅ Audited | ⚠️ Basic | ✅ Audited |
+| **Testnet Evidence** | ✅ 65 transactions | ✅ Deployed | ⚠️ SDK examples | ✅ Deployed |
+| **Test Coverage** | ✅ 195 tests | ✅ Audited | ⚠️ Basic | ✅ Audited |
 | **Open Source** | ✅ MIT License | ✅ GPL-3.0 | ✅ MIT | ✅ GPL-3.0 |
 
 **Verdict:** PhalanxSwarm is the only solution specifically designed to stop AI prompt injection attacks.
@@ -139,7 +139,7 @@ After `pnpm install`, rows 1-7 and 9 run offline and need no API key.
 | --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | 1   | `pnpm install`, then `pnpm judge:attack`                                                 | `ALL CHECKS PASSED: 24/24 assertions`. Mallory, an accounts-payable agent, reads invoice INV-2291, which hides a forwarded "our bank details changed" message, and asks to pay `0x7a3f…beef` on `arb`, inside every amount, chain, route and asset limit. Her call to `update_global_policy` fails with `InvalidAccessKeyError: MethodNameMismatch`. The payment is rejected (`recipient_not_allowed`, critical), she is quarantined, a `DeleteKey` receipt removes her key, her retry fails with `InvalidAccessKeyError: access key … not found`, and treasury liquidity is unchanged. Offline, a deterministic stand-in plays a model the injection fooled. | Node                  |
 | 2   | `pnpm judge:offline`                                                                     | 11 steps, each `PASS`, ending `ALL CHECKS PASSED: 80/80 assertions` (step list below the table).                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Node                  |
-| 3   | `pnpm --filter @phalanx/agent-swarm-sdk test`                                              | `Test Files  13 passed (13)` and `Tests  70 passed \| 3 skipped (73)`. The skipped tests call live services; they run with `PHALANX_LIVE_MPC=1`, `PHALANX_LIVE_INTENTS=1`, or `PHALANX_LIVE_TEE=1` plus `NEARAI_API_KEY`.                                                                                                                                                                                                                                                                                                                                                | Node                  |
+| 3   | `pnpm --filter @phalanx/agent-swarm-sdk test`                                              | `Test Files  14 passed (14)` and `Tests  73 passed \| 3 skipped (76)`. The skipped tests call live services; they run with `PHALANX_LIVE_MPC=1`, `PHALANX_LIVE_INTENTS=1`, or `PHALANX_LIVE_TEE=1` plus `NEARAI_API_KEY`.                                                                                                                                                                                                                                                                                                                                                | Node                  |
 | 4   | `cargo test -p phalanx-core`                                                               | `test result: ok. 110 passed` (103 tests in `tests.rs`, 5 in `codec.rs`, 2 in `facts.rs`). On Windows without MSVC linker (`link.exe`), run via WSL or execute `pnpm test` / `pnpm judge:offline` for WASM execution.                                                                                                                                                                                                                                                                                                                                              | Rust (or WSL)         |
 | 5   | `pnpm eval:injection`                                                                    | `contract: 24/24 rejected (0 forced), 24 quarantined, 24 keys deleted, 0 moved funds`: 12 injection styles on 2 invoices, each in a fresh runtime ([Measurements](#prompt-injection-pnpm-evalinjection)). Writes `artifacts/injection-eval-offline.json`. With `--live` and `NEARAI_API_KEY` it measures a NEAR AI model instead and writes `artifacts/injection-eval.json`; the recorded live runs are in [Measurements](#prompt-injection-pnpm-evalinjection).                                                                                                                                                                                                                                                                                                                  | Node                  |
 | 6   | `pnpm market`                                                                            | 12 sealed-bid rounds among 20 scripted bidders on the compiled contract, ending `paid for undelivered work: 0 NEAR` ([Measurements](#swarm-market-pnpm-market)). Rewrites `artifacts/market-sim.json`.                                                                                                                                                                                                                                                                                                                                                              | Node                  |
@@ -326,10 +326,10 @@ NEP-413 is NEAR's standard for signing a message off-chain with an account key. 
 
 | Method                                                                                                                                                                                         | Caller                     | Purpose                                                                                  |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------- |
-| `new(owner_id, config?, policy?, revenue_splits?)`                                                                                                                                             | the contract itself        | Initialization inside the deploy batch, so it cannot be front-run                        |
+| `new(owner_id, config?, policy?, revenue_splits?)`                                                                                                                                             | the contract itself        | `#[init]` + `#[private]`: only the contract account can initialize it, so it cannot be front-run |
 | `fund_treasury`, `deposit_revenue`                                                                                                                                                             | anyone (payable)           | Capital and customer revenue                                                             |
 | `register_and_spawn_agent`                                                                                                                                                                     | owner                      | Creates `<handle>.<contract>` with a scoped FunctionCall key, or adds the key to the contract account |
-| `place_order`, `refund_order`  | a customer (payable) / anyone after the deadline | Buy a product; take the price back if nothing was delivered |
+| `place_order`, `refund_order`  | a customer (payable) / anyone after the deadline | Buy a product at exactly its price; take the price back if nothing was delivered by the deadline |
 | `post_task_rfp`, `close_auction` | orchestrator key           | Budgeted tasks, checked by the policy engine and the task-prompt registry                |
 | `submit_bid`, `execute_verified_task`                                                                                                                                                          | worker keys                | Bidding, and escrow release after proof verification                                     |
 | `expire_task`, `cancel_task`                                                                                                                                                                   | anyone / poster or owner   | Fail an overdue winner; withdraw a task nobody bid on                                    |
@@ -490,6 +490,21 @@ No private key or API key is committed. Keys used inside PhalanxSim runs are der
 
 `apps/web` is a Next.js 15 app (React 19, Tailwind CSS 4, NEAR Connect wallet). Before `dev` and `build`, `apps/web/scripts/copy-wasm.mjs` copies `artifacts/phalanx_core.wasm` and the evidence JSON into `public/`, so the host never builds the contract.
 
+The command center exposes the whole protocol, not a subset. Each panel calls the same WASM the contract deploy runs:
+
+| Panel | What it drives |
+| --- | --- |
+| Guided demo | The 3-step walkthrough (key deletion, forged facts, held vendor) and the 11-step judge scenario |
+| On-chain | The recorded testnet deployment, recipient pre-flight and the execution log |
+| Agent swarm | Swarm topology, TEE evidence, the coordination market with close/expire/cancel, and the market simulation |
+| **Customer orders** | The product catalogue, `place_order`, the order book, the 4-step fulfilment strip and `refund_order` |
+| Treasury | The vault, every obligation including order escrow, and DAO export |
+| Security | The policy firewall (caps, allow-lists, products, task floors, hold window, invoice rule), agent controls and the security log |
+| Settlement | The cross-chain terminal, the settlement ledger with held-payment actions, and EVM transfers authored end to end through Chain Signatures |
+| Activity | The transaction feed and receipts |
+
+Static assets and server routes:
+
 - Static: the page, `/phalanx_core.wasm` and `/evidence/*.json`.
 - `/api/intents/quote` forwards 1Click quotes and forces `dry: true`.
 - `/api/tee/attest` fetches a fresh NEAR AI attestation and DCAP-verifies it, or answers with the saved evidence when offline or rate-limited.
@@ -503,8 +518,8 @@ On Vercel, either set the Root Directory to `apps/web` (settings in `apps/web/ve
 
 ```text
 docs/
-  ARCHITECTURE.md              comprehensive technical architecture and module designs
-  BUSINESS_MODEL.md            institutional unit economics, pricing tiers, and GTM
+  ARCHITECTURE.md              modules, state model, verification chain and invariants
+  BUSINESS_MODEL.md            what the contract monetises, pricing tiers and GTM
   QUICKSTART.md                10-minute deployment guide for testnet
   HACKATHON.md                 NEAR Hackathon rules and submission specification
 contracts/
@@ -529,7 +544,7 @@ packages/agent-swarm-sdk/      TypeScript SDK and runtime
   src/mcp.ts, mcp-cli.ts                   pnpm mcp
   src/dao-export.ts            SputnikDAO / Trezu proposal payloads
   src/examples/                yield-strategist, procurement-agent, grant-distributor
-  test/                        13 Vitest files
+  test/                        14 Vitest files
 apps/web/                      Next.js 15 command center
   src/app/api/                 agents/complete, intents/quote, tee/attest
   src/components/              guided demo (TryIt), judge runner, live testnet view, explore panels

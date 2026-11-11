@@ -25,6 +25,7 @@ export default tseslint.config(
       ".icon-tmp/**",
       ".vscode/**",
       ".idea/**",
+      ".claude/**",
       "test-results/**",
       "playwright-report/**",
       "blob-report/**",

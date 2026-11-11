@@ -9,6 +9,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 const HEX = {
   emerald: "#00ec97",
+  teal: "#2dd4bf",
   sky: "#7dd3fc",
   amber: "#fcd34d",
   red: "#f87171",

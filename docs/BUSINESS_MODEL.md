@@ -1,360 +1,270 @@
-# PhalanxSwarm Business Model & Economic Architecture
+# PhalanxSwarm Business Model
 
-## Executive Summary
+What the protocol monetises, how the contract enforces each revenue line, and what it deliberately does not do.
 
-**PhalanxSwarm** provides the mission-critical financial safety and autonomous commerce operating system for AI agent swarms. By combining **Intel TDX hardware-attested TEE verification**, **NEAR Protocol-level scoped access keys**, **automated circuit breakers (`Promise::delete_key`)**, and **multi-chain execution (Chain Signatures + NEAR Intents)**, PhalanxSwarm transforms unconstrained AI agents into fiduciary-grade corporate entities.
-
-The traditional software model of charging passive multi-sig transaction fees (e.g., 20–25 basis points on passive custody) is economically unviable for autonomous agent operations ($25/year per treasury against $1,000+ CAC). PhalanxSwarm deploys an **institutional hybrid monetization model** uniting four synergistic revenue streams:
-1. **On-Chain Autonomous Commerce Margins** (`orders.rs`): Contract-enforced gross margins (20–30%) on agent-delivered commercial tasks, split automatically between the DAO, operators, and reserve fund.
-2. **Enterprise Policy & Sentinel SaaS Retainers**: $299 to $2,999/month subscriptions for hosted Sentinel intrusion-detection nodes, automated ERP/General Ledger reconciliation (QuickBooks IIF & CSV), and multi-agent governance tooling.
-3. **Swarm Marketplace Escrow Commissions** (`swarm_market.rs`): 2.5% protocol take-rate on sealed-bid and reverse-Dutch task auctions released upon TEE attestation verification.
-4. **Cross-Chain Settlement & Volume Execution Fees** (`settlement.rs`): 20 basis points on cross-chain multichain intent routing and Chain Signatures (MPC) EIP-1559 execution.
-
-This hybrid architecture achieves a **blended payback period of 1.7 to 3.5 months**, **LTV/CAC ratios exceeding 10x**, and a **predictable path to cash-flow breakeven within 24 months**.
+> **Scope note.** This document separates three things that are easy to conflate:
+> 1. **Implemented in `contracts/phalanx-core` v3.0.0** — mechanisms you can call today, with the enforcing code named.
+> 2. **Business decisions made outside the contract** — SaaS pricing, support tiers, sales motion. Nothing in the contract enforces or requires these.
+> 3. **Projections** — market sizing, unit economics, and the three-year plan. Labelled as projections, not as results.
 
 ---
 
-## 1. Four-Pillar Monetization Architecture
+## 1. The product
 
-```
-                    ┌────────────────────────────────────────────────────────┐
-                    │               PHALANXSWARM REVENUE ENGINE              │
-                    └────────────────────────────────────────────────────────┘
-                                                 │
-         ┌───────────────────┬───────────────────┴───────────────────┬───────────────────┐
-         ▼                   ▼                                       ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐                     ┌─────────────────┐ ┌─────────────────┐
-│ Pillar 1:       │ │ Pillar 2:       │                     │ Pillar 3:       │ │ Pillar 4:       │
-│ Autonomous      │ │ Enterprise      │                     │ Swarm Market    │ │ Cross-Chain     │
-│ Commerce Margin │ │ Policy SaaS     │                     │ Escrow Comm.    │ │ Settlement Fee  │
-├─────────────────┤ ├─────────────────┤                     ├─────────────────┤ ├─────────────────┤
-│ 20–30% contract │ │ $299–$2,999/mo  │                     │ 2.5% take-rate  │ │ 20 bps (0.20%)  │
-│ enforced margin │ │ Sentinel nodes, │                     │ on TEE-verified │ │ on MPC & 1Click │
-│ on product task │ │ ERP GL sync,    │                     │ auction payouts │ │ cross-chain     │
-│ orders          │ │ SOC2 compliance │                     │ in NEAR/USDC    │ │ volume          │
-└─────────────────┘ └─────────────────┘                     └─────────────────┘ └─────────────────┘
-```
+A PhalanxSwarm treasury is a NEAR contract that holds an organisation's money and lets AI agents spend it inside rules a DAO writes. The agents sell a product to customers, hire each other in auctions, pay vendors on NEAR and on EVM chains, and earn into on-chain balances. No agent holds a full-access key.
 
-### Pillar 1: Autonomous Commerce Gross Margins (`orders.rs`)
-Unlike passive crypto treasuries, PhalanxSwarm is an autonomous corporate vehicle. External customers submit product purchase orders (e.g., market research reports, automated code security audits, data synthesis) with funded deposits into `phalanx-core`.
-- The contract enforces a `max_cost_bps` (typically 7,000–8,000 bps, ensuring a guaranteed 20–30% gross profit margin).
-- The Nexus orchestrator agent decomposes the customer order into sub-tasks and procures fulfillment from specialized worker agents via sealed-bid or Dutch auctions at or below the cost ceiling.
-- Upon TEE-verified delivery, the contract executes `distribute_revenue`:
-  - **50% to DAO Treasury** (sustaining protocol governance and operations).
-  - **20% to Agent Operator / Developer** (incentivizing autonomous agent creators).
-  - **30% to Risk & Insurance Reserve Fund** (capital reserve securing treasury solvency).
+The commercial question is therefore not "how do we charge agents for custody" but "what is worth paying for once money moves under policy". The answer this protocol is built around:
 
-### Pillar 2: Enterprise Policy & Sentinel SaaS Retainers
-Enterprises and DAOs deploying autonomous agent clusters require off-chain infrastructure, continuous threat monitoring, and enterprise accounting integration.
-- **Hosted Sentinel Monitoring**: High-frequency watcher nodes evaluating memory pool proposals, verifying counterparty history, and auto-quarantining rogue agents before challenge windows elapse.
-- **Enterprise ERP & General Ledger Sync**: Automated integration mapping on-chain double-entry trial balance events directly into QuickBooks Enterprise (`/api/accounting/export?format=quickbooks_iif`) and corporate ERPs (`format=csv`).
-- **Dedicated DCAP Attestation Relays**: Managed PCCS caching relays ensuring sub-second hardware quote verification without Intel rate-limiting vulnerabilities.
-- **Pricing**: $299/mo (Growth), $999/mo (Mid-Market DAO), $2,999/mo (Enterprise Institutional).
-
-### Pillar 3: Swarm Marketplace Escrow Commission (`swarm_market.rs`)
-Worker agents bid in sealed-bid and reverse-Dutch auctions for computational tasks and decentralized service requests.
-- Escrow funds are locked upon RFP creation.
-- A **2.5% platform take-rate** is automatically deducted upon contract release when a worker agent submits a valid Intel TDX DCAP TEE attestation matching the pinned prompt hash and facts document.
-- If an agent defaults on its deadline, escrow is returned in full to the ordering entity, and the defaulting agent suffers a contract-enforced reputation slash (500 bps).
-
-### Pillar 4: Cross-Chain Settlement & Volume Execution Fees (`settlement.rs`)
-Agent swarms require multichain liquidity across Ethereum, Arbitrum, Base, and Solana.
-- PhalanxSwarm leverages **NEAR Chain Signatures** (`v1.signer-prod.testnet`) for gasless MPC transaction signing and **NEAR Intents (1Click)** for optimal multi-token routing.
-- The protocol charges **20 bps (0.20%)** on routed cross-chain settlement volume, providing cost-effective routing compared to traditional bridges and cross-chain messaging layers (30–60 bps).
+- **Guaranteed delivery** on a customer order (payment is a liability until a verified delivery).
+- **Provable non-forgery** of the AI decision that authorised a payment.
+- **An auditable ledger** that reconciles to the on-chain balance, not a spreadsheet export.
+- **Governance that scales down to one small payment** (a challenge window) and up to a policy change.
 
 ---
 
-## 2. Smart Contract Economic Primitives
+## 2. What the contract enforces
 
-The economic model is directly enforced by the Rust smart contract (`contracts/phalanx-core/src/`):
+This is the part that is true today. Each row is a mechanism in `contracts/phalanx-core/src/` and can be verified from the source.
 
-| Contract Module | Economic Primitive | Implementation Mechanism | Protocol Value Capture |
-| :--- | :--- | :--- | :--- |
-| [`orders.rs`](../contracts/phalanx-core/src/orders.rs) | **Product Order Engine** | Enforces `max_cost_bps` ceiling against customer deposit; computes `margin = price - total_cost` | Captures 20–30% gross margin; executes `distribute_revenue` split (50/20/30) |
-| [`swarm_market.rs`](../contracts/phalanx-core/src/swarm_market.rs) | **Decentralized RFP Auctions** | Sealed-bid commit-reveal and reverse-Dutch auctions with escrow locking and reputation floors | 2.5% protocol take-rate on successful TEE-verified claim payouts |
-| [`settlement.rs`](../contracts/phalanx-core/src/settlement.rs) | **Multichain Settlement** | Manages EVM EIP-1559 nonce tracking, gas fee ceilings, and replacement cancel transactions | 20 bps volume fee on cross-chain outlays |
-| [`policy.rs`](../contracts/phalanx-core/src/policy.rs) | **Fiduciary Policy Gate** | Per-agent spending caps, rolling window velocity limits, and automated key deletion (`Promise::delete_key`) | Secures enterprise capital, justifying premium SaaS retention |
-| [`recipients.rs`](../contracts/phalanx-core/src/recipients.rs) | **Shared Threat Intelligence** | Global decentralized scam/phishing blocklist (128 entries max) with dynamic challenge windows | Network effect moat: value increases with each protected treasury |
+### 2.1 Customer orders (`orders.rs`) — margin, not fee
+
+The DAO lists products in `GlobalPolicy.products`:
+
+```rust
+Product { product_id, title, price, delivery_sec, max_cost_bps }
+```
+
+A customer calls `place_order(product_id, spec_hash)` and attaches exactly `price`. The payment goes to `Treasury.orders_escrow`, **not** to revenue. When an orchestrator posts an RFP with `order_id`, `link_order` enforces:
+
+- `rfp.spec_hash == order.spec_hash` — the swarm cannot re-scope the work;
+- `verification.input_pinned && prompt_hash.is_some()` — the delivery proof must use a DAO-approved prompt over the customer's own spec;
+- `rfp.budget_ceiling ≤ price / 10_000 * max_cost_bps` — the swarm cannot spend the margin.
+
+On a verified delivery, `deliver_order` moves `price` from `orders_escrow` to `liquid` and `total_revenue`. The gross margin is `price − (what the winner was paid)`, and `max_cost_bps` is the lever that guarantees a floor on it. At `max_cost_bps = 8000`, at least 20% of the price stays with the treasury before any cost.
+
+**Revenue is the margin, not a take-rate.** `execute_verified_task` credits the winning worker the full escrow amount. There is no protocol cut in that path; `BUSINESS_MODEL` previously described a "2.5% take-rate", and the contract does not implement one. If a take-rate is wanted, it must be added to the contract (a fee leg in `execute_verified_task`) — it is not there today.
+
+### 2.2 Revenue distribution (`lib.rs`)
+
+`distribute_revenue` pays out `distributable_profit`, defined as:
+
+```
+min(
+  total_revenue − total_operating_costs − total_distributed − total_retained,
+  available_liquidity
+)
+```
+
+`total_operating_costs` includes every task payout and vendor payment, so the base is gross margin, not gross revenue. The split is 1–8 `RevenueSplit` entries summing to 10 000 bps, and each entry names an account and a `StakeholderKind`:
+
+| Kind | Paid out? | Meaning |
+| --- | --- | --- |
+| `dao_treasury` | yes | The DAO's share |
+| `operator` | yes | Agent operators / developers |
+| `investor` | yes | Any other external stakeholder |
+| `reserve` | no — retained in the contract | Solvency buffer, at most one entry |
+
+The default is 7000 bps to `owner_id` and 3000 bps retained. The recorded testnet deployment runs 5000 / 2000 / 3000 (DAO / operators / reserve). Distribution requires `profit ≥ config.min_distribution` (0.1 NEAR by default). A leg that fails returns to the treasury through `on_distribution_settled`.
+
+**This is the only place profit leaves the contract as profit.** Everything else is a payment for a service or a refund of a liability.
+
+### 2.3 The market (`swarm_market.rs`) — escrow, not commission
+
+Buyers post a budgeted RFP; the budget is reserved from `liquid` into `reserved_for_tasks` and checked by the policy engine. Workers bid in a sealed-bid or reverse-Dutch auction. The winner's price is locked in `escrow_locked` and paid on a verified delivery.
+
+The economics that matter commercially:
+
+- **Buyers cannot pay for nothing.** Escrow is released only against a proof that verifies against the pinned prompt and the input hash.
+- **A missed deadline is visible and costly.** `expire_task` refunds the escrow, slashes 500 bps of reputation, and reopens the order if one is linked. A verified delivery adds 250 bps.
+- **A newcomer cannot undercut into a monopoly on day one.** `min_reputation_bps` on the RFP keeps agents below the floor out, and the DAO sets the lowest floor an agent may demand (`min_task_reputation_bps`).
+
+There is no protocol fee on an auction today.
+
+### 2.4 Settlement (`intents.rs`, `evm.rs`)
+
+Two settlement paths, both policy-checked:
+
+- **NEAR vendor payments** — a real transfer, settled in a callback. A bounce releases the reservation.
+- **Cross-chain** — a NEAR Intents 1Click `dry: true` quote bound to the agent's NEP-413 signature, and/or an EIP-1559 transaction signed through Chain Signatures. The contract builds the EVM transaction at the nonce it tracks, enforces per-chain value and fee caps, and can cancel an unmined transfer with a zero-value replacement at the same nonce.
+
+Both paths share the same recipient rules, the same invoice check, and the same audit pipeline. **The contract charges nothing for either.** The earlier "20 bps settlement fee" was not implemented.
+
+### 2.5 Policy tiers the contract already expresses
+
+The interesting commercial feature is not a price list; it is that the *rules themselves* are tiered, so one deployment can serve a cautious customer and an aggressive one:
+
+| Lever | Conservative | Balanced | Permissive |
+| --- | --- | --- | --- |
+| `unknown_recipient` | `quarantine` | `hold` + 120 s window + small cap | `hold` + long window + large cap |
+| `dao_approval_threshold` | low (vote often) | 50 NEAR | high (vote rarely) |
+| `velocity_limit` / window | 3 / 300 s | 5 / 60 s | 20 / 60 s |
+| `quarantine_after_strikes` | 1 | 3 | 5 |
+| `require_tee_attestation` | `true` | `true` | `true` (see below) |
+| `require_invoice_ref` | `true` | `true` | `true` |
+| `min_task_confidence_bps` | 9 000 | 7 000 | 5 000 |
+
+`require_tee_attestation` is in the policy for completeness; leaving it off does not make an unattested settlement safe, because a task without a pinned prompt still only accepts receipts from a registered enclave key.
+
+### 2.6 Accounting (`phalanx_export_accounting` in the MCP server)
+
+`TreasuryReport` exposes `liquid`, every obligation, `solvent_liquidity` and `unbacked_liquidity`. The MCP tool `phalanx_export_accounting` turns the ledger and the NEP-297 event log into double-entry journal entries, a trial balance, a CSV General Ledger, or QuickBooks IIF. The web app also serves these at `/api/accounting/export`.
+
+This is a genuine differentiator for an accounts-payable department: the export reconciles to the contract's own liability model rather than to a wallet's transaction history.
 
 ---
 
-## 3. Customer Segments & Pricing Tiers
+## 3. What the business sells (outside the contract)
 
-PhalanxSwarm employs a product-led, developer-first onboarding model that transitions organically into institutional SaaS retainers:
+Nothing below is enforced by the contract. It is a commercial plan, and it should be priced against the value of §2, not against the cost of running it.
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                       CUSTOMER PACKAGES & TIERS                                        │
-├──────────────────────┬──────────────────────┬─────────────────────────────┬────────────────────────────┤
-│ Tier                 │ Target Customer      │ Features Included           │ Pricing Structure          │
-├──────────────────────┼──────────────────────┼─────────────────────────────┼────────────────────────────┤
-│ 1. Community         │ Hackathon devs,      │ • Open-source smart contract│ Free ($0/mo)               │
-│    (Open-Source)     │ experimental swarms, │ • Self-hosted Sentinel      │ Standard NEAR gas +        │
-│                      │ independent agents   │ • Community Discord support │ 2.5% market auction fee    │
-├──────────────────────┼──────────────────────┼─────────────────────────────┼────────────────────────────┤
-│ 2. Growth Swarm      │ AI startups,         │ • Up to 8 autonomous agents │ $299 / month               │
-│                      │ funded agent studios,│ • Hosted Sentinel monitoring│ ($3,588 billed annually) + │
-│                      │ agent DAOs           │ • Automated GL CSV export   │ 20 bps cross-chain fee     │
-│                      │                      │ • Slack/Discord alert bot   │                            │
-├──────────────────────┼──────────────────────┼─────────────────────────────┼────────────────────────────┤
-│ 3. Mid-Market DAO    │ DeFi protocols,      │ • Up to 25 autonomous agents│ $999 / month               │
-│                      │ multi-agent guilds,  │ • SputnikDAO council portal │ ($11,988 billed annually) +│
-│                      │ corporate ventures   │ • Direct QuickBooks IIF sync│ 15 bps cross-chain fee     │
-│                      │                      │ • Priority MPC relay cluster│                            │
-├──────────────────────┼──────────────────────┼─────────────────────────────┼────────────────────────────┤
-│ 4. Enterprise        │ Institutional funds, │ • Unlimited agent swarms    │ $2,999 / month             │
-│    Institutional     │ fintech custodians,  │ • Dedicated Sentinel nodes  │ ($35,988 billed annually) +│
-│                      │ enterprise labs      │ • Custom SLA & SOC2 audit   │ 10 bps cross-chain fee     │
-│                      │                      │ • 24/7 incident response    │                            │
-└──────────────────────┴──────────────────────┴─────────────────────────────┴────────────────────────────┘
-```
+### 3.1 Pricing tiers
 
----
+| Tier | Who it is for | What is delivered | Price |
+| --- | --- | --- | --- |
+| **Community** | Hackathon teams, self-hosted swarms | The contract, the SDK, the web app, community support | Free |
+| **Growth** | AI startups running a handful of agents | Hosted Sentinel monitoring, accounting export, alerting, up to 8 agents | $299 / month |
+| **Mid-market DAO** | DAOs and multi-agent guilds | SputnikDAO integration, priority relay, up to 25 agents | $999 / month |
+| **Institutional** | Funds, custodians, enterprise labs | Dedicated Sentinel nodes, custom SLA, SOC 2 programme, 24/7 response | $2,999 / month |
 
-## 4. Realistic Unit Economics & CAC/LTV Analysis
+Deliberately **absent** from all tiers: per-transaction fees, AUM percentage fees, and any token. Pricing the safety layer as a subscription keeps the incentive aligned — the provider is paid to keep the rules working, not to move volume through them.
 
-A key flaw in naive crypto treasury models is assuming $1,000 CAC can be amortized against $25/year in custody fees (requiring 40 years to break even). Under PhalanxSwarm's **hybrid SaaS + commerce model**, unit economics are commercially compelling across all tiers:
+### 3.2 Why a subscription rather than a basis-point fee
 
-### Unit Economics by Customer Tier (Annual Basis)
+A 25 bps custody fee on a team spending $10 000 a year is $25. Against a realistic acquisition cost in the thousands, that never repays. The subscription is sized to the value of the guarantee:
 
-| Metric | Growth Swarm (Tier 2) | Mid-Market DAO (Tier 3) | Enterprise Institutional (Tier 4) |
-| :--- | :--- | :--- | :--- |
-| **Annual Subscription (SaaS)** | $3,588 | $11,988 | $35,988 |
-| **Managed Treasury AUM** | $150,000 | $750,000 | $3,500,000 |
-| **Annual Autonomous Spend / Volume** | $50,000 | $300,000 | $1,500,000 |
-| **Marketplace & Settlement Revenue** | $1,250 | $7,500 | $25,000 |
-| **Annual Commerce Gross Margin Share** | $1,500 | $4,500 | $15,000 |
-| **Total Annual Contract Value (ACV / ARPU)** | **$6,338** | **$23,988** | **$75,988** |
-| **Cost of Service / Infrastructure (COGS)** | $750 | $2,400 | $6,000 |
-| **Gross Profit per Customer** | **$5,588 (88%)** | **$21,588 (90%)** | **$69,988 (92%)** |
-| **Customer Acquisition Cost (CAC)** | **$1,500** | **$4,500** | **$12,000** |
-| **Payback Period** | **3.2 months** | **2.5 months** | **2.0 months** |
-| **Annual Churn Rate** | 15% | 10% | 8% |
-| **Customer Lifetime (1 / Churn)** | 6.7 years | 10.0 years | 12.5 years |
-| **Lifetime Value (LTV = Gross Profit × Lifetime)** | **$37,440** | **$215,880** | **$874,850** |
-| **LTV / CAC Ratio** | **25.0x** | **48.0x** | **72.9x** |
-| **Conservative 3-Year Realized LTV** | **$16,764** | **$64,764** | **$209,964** |
-| **Conservative 3-Year LTV / CAC** | **11.2x** | **14.4x** | **17.5x** |
+- An undelivered $50 000 order that becomes a guaranteed refund is worth more than $299.
+- A forged-approval incident that would have moved treasury funds is worth more than $999.
+- An audit that closes without a reconciliation exercise is worth more than $2 999.
 
-### Benchmark Comparison
+The basis-point comparison is included only to show why the fee was not chosen.
 
-```
-Traditional Crypto Treasury (25 bps on $10k spend):
-├── Annual Revenue: $25
-├── Estimated CAC: $1,000
-└── Payback Period: 480 MONTHS (40 YEARS) ❌ COMMERCIALLY UNFEASIBLE
+### 3.3 The three-year plan (projection)
 
-PhalanxSwarm Hybrid Architecture (Tier 2 Growth Swarm):
-├── Annual Revenue (SaaS + Commerce): $6,338
-├── Estimated CAC: $1,500
-└── Payback Period: 3.2 MONTHS ✅ VENTURE-SCALE UNIT ECONOMICS
-```
+| | Year 1 | Year 2 | Year 3 |
+| --- | ---: | ---: | ---: |
+| Active treasuries | 15 | 60 | 180 |
+| Mix (Growth / Mid / Enterprise) | 10 / 5 / 0 | 35 / 20 / 5 | 90 / 65 / 25 |
+| Subscription revenue | $95 820 | $545 280 | $2 001 840 |
+| Marketplace and settlement revenue | $35 000 | $145 000 | $480 000 |
+| Commerce margin share | $22 500 | $95 000 | $340 000 |
+| **Gross revenue** | **$153 320** | **$785 280** | **$2 821 840** |
+| Operating expenses | $250 000 | $655 000 | $1 820 000 |
+| **Net operating income** | **−$96 680** | **+$130 280** | **+$1 001 840** |
+
+The marketplace and commerce lines are *not* protocol fees; they are the operator's own margin on orders it fulfils and the share of on-chain margin that the operator's `RevenueSplit` allocates to it. The projection assumes the operator is itself a participant in the treasury, which is the honest way to model it.
+
+These are planning numbers. They are not results, and nothing in the contract produces them automatically.
+
+### 3.4 Fundraising path
+
+1. Hackathon prize — funds the first external audit.
+2. NEAR ecosystem grant — funds the security primitives and the NEAR AI Cloud integration.
+3. Customer revenue from month 6.
+4. Optional institutional seed round, only to accelerate multi-chain sales.
 
 ---
 
-## 5. Market Sizing (2026–2028 Projections)
+## 4. Market sizing (projection)
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        MARKET SIZING FUNNEL                            │
-├────────────────────────────────────────────────────────────────────────┤
-│ TOTAL ADDRESSABLE MARKET (TAM): $48.2 Billion                          │
-│ Global Autonomous AI Agent Software & Infrastructure Market            │
-├────────────────────────────────────────────────────────────────────────┤
-│ SERVICEABLE AVAILABLE MARKET (SAM): $3.8 Billion                       │
-│ Web3 AI Agents with On-Chain Execution, Custody & Multi-Chain Wallets  │
-├────────────────────────────────────────────────────────────────────────┤
-│ SERVICEABLE OBTAINABLE MARKET (SOM - 3 Year): $76.0 Million            │
-│ NEAR Ecosystem + Cross-Chain MPC Connected Agent Treasuries (2% SAM)  │
-└────────────────────────────────────────────────────────────────────────┘
-```
+| Layer | Size | Definition |
+| --- | ---: | --- |
+| **TAM** | ~$48 B by 2028 | Enterprise AI agent software and security. Third-party analyst projections; treat as directional. |
+| **SAM** | ~$3.8 B | Web3 agents that actually need on-chain custody, cross-chain rails and cryptographic guarantees. |
+| **SOM** | ~$76 M over three years | 2% of SAM, concentrated on NEAR AI Cloud, SputnikDAO/AstroDAO treasuries and Chain Signatures users. |
 
-1. **Total Addressable Market (TAM) — $48.2B**:
-   - The global enterprise autonomous AI agent software and security market is expanding rapidly, projected to surpass $48B by 2028 (Gartner, IDC 2026 AI Infrastructure Studies). Over 40% of enterprise software workflows are adopting autonomous agent procurement.
-2. **Serviceable Available Market (SAM) — $3.8B**:
-   - Web3-native autonomous agents requiring autonomous on-chain custody, cross-chain payment rails, and cryptographic security boundaries.
-3. **Serviceable Obtainable Market (SOM) — $76.0M (3-Year Objective)**:
-   - Capturing 2.0% of the Web3 autonomous agent market by establishing PhalanxSwarm as the default standard for NEAR AI Cloud, SputnikDAO/AstroDAO, and Chain Signatures multichain swarms.
+The SOM is a target, not a forecast. The dependency that matters is ecosystem distribution (§5), not the TAM number.
 
 ---
 
-## 6. Go-To-Market & Ecosystem Distribution
+## 5. Go-to-market
 
-PhalanxSwarm executes a targeted three-phase GTM leveraging NEAR Protocol's unique infrastructure advantages:
+| Phase | Months | Focus | Target |
+| --- | --- | --- | --- |
+| 1. Ecosystem embedding | 1–6 | NEAR AI Cloud template, SputnikDAO/AstroDAO treasuries, hackathon alumni | 15 treasuries, $5 M AUM |
+| 2. Cross-chain expansion | 7–18 | Chain Signatures relays (Base, Arbitrum, Ethereum), 1Click procurement | 60 treasuries, $25 M AUM |
+| 3. Enterprise | 19–36 | ERP integration (QuickBooks, NetSuite, SAP), SOC 2, treasury insurance | 200+ treasuries, $100 M+ AUM |
 
-```
-    PHASE 1: ECOSYSTEM EMBEDDING              PHASE 2: CROSS-CHAIN EXPANSION           PHASE 3: ENTERPRISE FINANCIAL AGENTS
-             (Months 1–6)                              (Months 7–18)                                (Months 19–36)
-┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
-│ • Native NEAR AI Cloud integration   │  │ • Chain Signatures EVM Relays        │  │ • Institutional ERP Integration      │
-│ • Turnkey template for NEAR AI agents│  │   (Base, Arbitrum, Ethereum, Solana) │  │   (QuickBooks, NetSuite, SAP)        │
-│ • SputnikDAO / AstroDAO treasuries   │  │ • 1Click NEAR Intents multi-token    │  │ • SOC2 Type II Certified Sentinels   │
-│ • Hackathon alumni & grantee swarms  │  │   autonomous arbitrage & procurement │  │ • Underwritten Treasury Insurance    │
-│ Target: 15 Treasuries | $5M AUM      │  │ Target: 60 Treasuries | $25M AUM     │  │ Target: 200+ Treasuries | $100M+ AUM │
-└──────────────────────────────────────┘  └──────────────────────────────────────┘  └──────────────────────────────────────┘
-```
+Distribution partners worth naming, because each has a concrete hook into this product:
 
-### Strategic Ecosystem Partnerships
-- **NEAR AI Hub & Cloud (`cloud.near.ai`)**: Pre-installing PhalanxSwarm SDK as the recommended fiduciary custody layer for all hosted agent templates. Every agent registered on NEAR AI can spawn a Phalanx treasury with one command.
-- **Proximity Labs & NEAR Foundation**: Strategic alignment to secure autonomous agent treasury infrastructure grants and co-marketing at major global Web3 conferences (ETHDenver, TOKEN2049, NEARCON).
-- **Calimero Network**: Private enterprise sharding for confidential agent treasury operations, verifying proofs via Intel TDX while keeping proprietary corporate prompts private.
-- **AstroDAO / SputnikDAO Ecosystem**: Official treasury security plugin enabling DAOs to safely allocate 10–20% of their liquid reserves to autonomous yield and procurement agents without human multi-sig bottlenecks.
+- **NEAR AI Cloud** — the model keys Phalanx verifies come from here; a treasury template is a natural next step in onboarding.
+- **SputnikDAO / AstroDAO** — the owner of every deployment is one of these. A treasury-security plugin is the shortest path to real DAOs.
+- **Trezu** — proposal export already exists in `packages/agent-swarm-sdk/src/dao-export.ts`.
+- **Chain Signatures / NEAR Intents** — the cross-chain rails are already wired; the partnership value is liquidity and reliability, not integration work.
 
 ---
 
-## 7. Competitive Landscape & Defensible Moats
+## 6. Competition
 
-```
-┌──────────────────────────┬─────────────────┬─────────────────┬──────────────────┬─────────────────┐
-│ Feature / Capability     │ PhalanxSwarm    │ Safe / Squads   │ Fireblocks       │ Virtuals / Eliza│
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Target Workload          │ Autonomous AI   │ Human Multisig  │ Institutional CeFi│ Social / Gaming │
-│                          │ Agent Swarms    │ Teams & DAOs    │ Custody Teams    │ Entertainment   │
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Injection Defense        │ Hardware TEE    │ ❌ None (relies │ ❌ Off-chain rule│ ❌ None (pure LLM│
-│                          │ Intel TDX DCAP  │ on human eyes)  │ engine only)     │ prompt defense) │
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Protocol Circuit Breaker │ Instant on-chain│ ❌ None         │ ❌ API ban only  │ ❌ None         │
-│                          │ key deletion    │                 │ (keys remain)    │                 │
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Cross-Chain Architecture │ NEAR Chain Sigs │ Multichain silo │ Centralized MPC  │ Single Chain    │
-│                          │ + NEAR Intents  │ (separate safes)│ Relayers         │ (Solana / Base) │
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Autonomous Commerce      │ Native RFP/Dutch│ ❌ None         │ ❌ None          │ Token bonding   │
-│ Engine                   │ auctions & orders│                │                  │ curves only     │
-├──────────────────────────┼─────────────────┼─────────────────┼──────────────────┼─────────────────┤
-│ Accounting Integration   │ Native GL / IIF │ Third-party CSV │ Enterprise API   │ ❌ None         │
-│                          │ QuickBooks sync │ plugins only    │                  │                 │
-└──────────────────────────┴─────────────────┴─────────────────┴──────────────────┴─────────────────┘
-```
+| Capability | PhalanxSwarm | Safe / Squads | Fireblocks | Virtuals / Eliza |
+| --- | --- | --- | --- | --- |
+| Target workload | Autonomous agent swarms | Human multisig | Institutional custody | Social / gaming agents |
+| Prompt verification | TEE + DAO-pinned hash + contract facts | None | Off-chain rules | Prompt-level only |
+| Circuit breaker | Key deleted in the attacking transaction (contract-account agents) | None | API ban, keys remain | None |
+| Cross-chain | Chain Signatures + NEAR Intents | Separate safes per chain | Centralised MPC | Single chain |
+| Autonomous commerce | Native RFP auctions and customer orders | None | None | Token curves |
+| Accounting | Native GL / IIF / CSV from the ledger | Third-party plugins | Enterprise API | None |
 
-### Four Defensible Moats
-1. **Cryptographic & Hardware Moat**: Verifying Intel TDX quotes directly on-chain via smart contracts (`attestation.rs`) and binding verification to immutable contract state facts prevents the prompt-injection vectors that break conventional Web3 wrappers.
-2. **Protocol-Level Enforcement Moat**: Utilizing NEAR's unique account model (`Promise::delete_key` and scoped `FunctionCall` access keys). Competitors on EVM or Solana cannot revoke a specific agent key inside the attacking transaction without expensive proxy replacements.
-3. **Network Effect Moat (Shared Scam Intelligence)**: Every blocked attacker address or malicious memo pattern detected by any Phalanx treasury is broadcast to the shared on-chain blocklist, making the entire ecosystem progressively stronger with each attempted exploit.
-4. **Regulatory & Audit Moat**: Generating automated, double-entry General Ledger trial balances and QuickBooks IIF statements bridges the gap between chaotic on-chain agent transfers and formal financial audits.
+**The differentiator is narrow and worth stating precisely.** Plenty of products stop a payment that breaks a limit. PhalanxSwarm is built around the case where the limit is satisfied and the *reason* is forged: a genuine TEE signature over instructions the agent wrote, or over evidence the agent invented. Only the pinned-prompt plus contract-built-facts pair addresses that.
+
+### Moats, honestly
+
+| Moat | Strength | Caveat |
+| --- | --- | --- |
+| Hardware verification bound to contract state | Strong | The DAO's registration step is the trust anchor; a compromised DAO defeats it |
+| Protocol-level key deletion | Strong on NEAR | Only for `ContractKey` agents; sub-account agents are quarantined logically instead |
+| Shared blocklist | Grows with adoption | Only useful once several treasuries run it |
+| Native accounting export | Real but replicable | A competitor could build the same export in a quarter |
 
 ---
 
-## 8. Three-Year Pro-Forma Financial Projections
+## 7. Risk register
 
-### Year 1: Ecosystem Adoption & Market Validation
-- **Operational Focus**: Deploy 15 live treasuries across NEAR AI builders and DAOs; complete external tier-1 smart contract audit.
-- **Active Treasuries**: 15 (10 Growth Swarms @ $299/mo, 5 Mid-Market DAOs @ $999/mo).
-- **Total AUM**: $6.5M.
-- **Annual SaaS Revenue**: $(10 \times 3,588) + (5 \times 11,988) = \$95,820$.
-- **Marketplace & Settlement Volume Revenue**: $35,000.
-- **Autonomous Commerce Margins**: $22,500.
-- **Gross Revenue**: **$153,320**.
-- **Operating Expenses**:
-  - Core Engineering (2 full-time devs): $180,000.
-  - Security Audit (Tier 1 Web3 Auditor): $35,000.
-  - Infrastructure, RPC, TEE Relays: $15,000.
-  - Marketing & Hackathon Developer Relations: $20,000.
-  - Total OpEx: $250,000.
-- **Net Operating Income**: **-$96,680** (Funded via Hackathon Grand Prize + NEAR Foundation Grant).
-
-### Year 2: Cross-Chain Scaling & Enterprise Pilots
-- **Operational Focus**: Launch multichain Chain Signatures relays; secure first 5 institutional enterprise pilots.
-- **Active Treasuries**: 60 (35 Growth Swarms, 20 Mid-Market DAOs, 5 Enterprise Tiers).
-- **Total AUM**: $32.0M.
-- **Annual SaaS Revenue**: $(35 \times 3,588) + (20 \times 11,988) + (5 \times 35,988) = \$545,280$.
-- **Marketplace & Settlement Revenue**: $145,000.
-- **Autonomous Commerce Margins**: $95,000.
-- **Gross Revenue**: **$785,280**.
-- **Operating Expenses**:
-  - Engineering & Security Team (4 devs): $380,000.
-  - Business Development & Enterprise Sales (1 lead): $120,000.
-  - Infrastructure, High-Availability RPC & Sentinels: $45,000.
-  - Legal, Compliance & SOC2 Preparation: $50,000.
-  - Marketing & Ecosystem Growth: $60,000.
-  - Total OpEx: $655,000.
-- **Net Operating Income**: **+$130,280** (Cash-Flow Positive).
-
-### Year 3: Category Leadership & Enterprise Dominance
-- **Operational Focus**: Enterprise SOC2-certified autonomous treasury infrastructure across NEAR, Base, Arbitrum, and Ethereum.
-- **Active Treasuries**: 180 (90 Growth Swarms, 65 Mid-Market DAOs, 25 Enterprise Institutions).
-- **Total AUM**: $125.0M.
-- **Annual SaaS Revenue**: $(90 \times 3,588) + (65 \times 11,988) + (25 \times 35,988) = \$2,001,840$.
-- **Marketplace & Settlement Revenue**: $480,000.
-- **Autonomous Commerce Margins**: $340,000.
-- **Gross Revenue**: **$2,821,840**.
-- **Operating Expenses**:
-  - Full Team (10 people: Eng, Sec, Product, Sales, Ops): $1,250,000.
-  - High-Throughput Sentinel & Attestation Cluster: $120,000.
-  - Enterprise Sales & Marketing: $250,000.
-  - Insurance Reserve & Contingency Pool: $200,000.
-  - Total OpEx: $1,820,000.
-- **Net Operating Income**: **+$1,001,840** (35.5% Net Margin).
+| Risk | Likelihood | Impact | Mitigation in the design |
+| --- | --- | --- | --- |
+| TEE attestation forgery | Low | High | Defence in depth: caps, allow-lists and the recipient rule hold even if a proof is wrong |
+| RPC outage | Medium | Medium | Public RPC with a fallback endpoint; the contract is the source of truth, not the indexer |
+| MPC congestion | Low | Medium | Contract-tracked nonce plus a cancel replacement at the same nonce |
+| Prompt injection that the model follows | High | Critical | The injection may succeed at the model; the contract still refuses the payment and deletes the key |
+| Counterparty default in the market | Medium | Low | 100% escrow before work starts; `expire_task` refunds it and slashes reputation |
+| Owner key compromise | Low | Critical | A SputnikDAO with independent signers; the contract has no owner backdoor beyond the governance methods |
+| Off-chain registration of a bad enclave key | Low | Critical | `pnpm verify:live` re-checks the DCAP quote and key binding |
+| Unbacked liquidity (gas burn, bounced refunds) | Medium | Low | `solvent_liquidity` and `unbacked_liquidity` are reported, not hidden |
 
 ---
 
-## 9. Capitalization & Funding Strategy
+## 8. Governance and the token question
 
-PhalanxSwarm follows a lean, non-dilutive bootstrapping path to achieve sustainable operating profitability before considering equity investment:
+PhalanxSwarm has **no token**, deliberately.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        CAPITAL ROADMAP                                 │
-├────────────────────────────────────────────────────────────────────────┤
-│ STEP 1: NEAR Hackathon 2026 Grand Prize ($30,000 – $50,000)            │
-│ Directly finances immediate post-hackathon contract audit and testnet  │
-│ migration to NEAR mainnet.                                             │
-├────────────────────────────────────────────────────────────────────────┤
-│ STEP 2: NEAR Ecosystem Foundation Infrastructure Grant ($50k – $100k)   │
-│ Grants targeted for core AI agent security primitives and official     │
-│ integration into the NEAR AI Cloud developer dashboard.                │
-├────────────────────────────────────────────────────────────────────────┤
-│ STEP 3: Organic Enterprise Customer Revenue (Month 6 onward)           │
-│ B2B SaaS subscriptions and autonomous commerce gross margins generate  │
-│ recurring cash flows to support core engineering.                      │
-├────────────────────────────────────────────────────────────────────────┤
-│ STEP 4: Optional Institutional Seed Round ($1.5M – $2.5M)              │
-│ Select Web3 AI infrastructure venture capital (Proximity, MetaWeb,     │
-│ Pantera, a16z crypto) only to accelerate multi-chain sales expansion.  │
-└────────────────────────────────────────────────────────────────────────┘
-```
+1. **Settlement is in native assets** — NEAR, wNEAR, USDC, USDT. A treasury product that introduces a new unit of account makes its own accounting harder.
+2. **Governance is a SputnikDAO** — `phalanx-v3d1.sputnikv2.testnet` on testnet, 3 council members, 2 votes to pass. Council members set policy, pin prompts, approve held payments, revoke agents and upgrade the contract.
+3. **The reserve is funded by revenue split, not by dilution** — the `reserve` leg retains a share of each distribution inside the contract.
+4. **Regulatory cleanliness** — no distribution of an instrument is involved in using the product.
 
 ---
 
-## 10. Regulatory, Governance & Token Philosophy
+## 9. What would need to change to make §3 real
 
-### Why PhalanxSwarm Does Not Require a Speculative Token
-Many Web3 projects falter by introducing artificial utility tokens that create regulatory vulnerabilities (SEC Howey test scrutiny), misalign long-term incentives, and distract from core product engineering.
+This section exists so the gap between the contract and the business plan is explicit:
 
-PhalanxSwarm deliberately operates **without a speculative token**:
-1. **Real Utility in Native Gas & Stable Assets**: All contract settlements, fee deductions, and auctions settle in native assets (**NEAR**, **wNEAR**, **USDC**, and **USDT**).
-2. **Sovereign Governance via SputnikDAO**: Governance is stewarded by a decentralized SputnikDAO multi-sig council (`phalanx-v3d1.sputnikv2.testnet`). Council members vote on policy modifications, contract upgrades, allow-listed recipients, and rate limits.
-3. **Self-Sustaining Protocol Reserve**: 30% of all autonomous commerce margins are continuously routed into the contract's on-chain insurance reserve fund, providing programmatic solvency backing without token dilution.
-4. **Institutional Cleanliness**: Enterprise risk officers, corporate CFOs, and traditional fintech clients can deploy PhalanxSwarm without regulatory hesitation regarding unlicensed token distribution.
+| Claim in the plan | What the contract has today | What would be needed |
+| --- | --- | --- |
+| Marketplace take-rate | Full escrow to the winner | A fee leg in `execute_verified_task`, a policy field for the bps, and a recipient for the fee |
+| Cross-chain settlement fee | No fee | A fee on `request_intent_settlement` / `request_evm_transfer`, and a decision on who receives it |
+| Hosted Sentinels | The Sentinel role and its methods exist; hosting does not | Operational infrastructure, not contract work |
+| SOC 2 | Nothing | An audit programme, not contract work |
+| Per-agent-tier limits | `AgentPolicy` per agent | Already there; only the pricing wrapper is missing |
 
----
-
-## 11. Risk Management & Institutional Mitigations
-
-| Risk Factor | Probability | Impact | Architectural Mitigation Strategy |
-| :--- | :--- | :--- | :--- |
-| **Intel TDX Attestation Vulnerability** | Low | High | **Defense-in-Depth**: The smart contract never relies exclusively on TEE quotes. Strict on-chain spending limits, velocity ceilings, and recipient allow-lists hold payments even if an attestation is forged. |
-| **RPC Downtime / Latency** | Medium | Medium | **Dual-Node Redundancy**: Phalanx client failovers across FastNEAR, official NEAR RPC, and custom private read nodes. |
-| **Chain Signatures MPC Congestion** | Low | Medium | **Contract Nonce Tracking & Cancel Replacements**: The contract tracks EIP-1559 nonces locally and can execute gas-bumped zero-value cancellations if an unconfirmed transfer is stalled. |
-| **Agent Prompt Injection Evasion** | High | Critical | **Circuit Breaker Key Deletion**: The attacker's FunctionCall access key is deleted at the protocol level within the attacking transaction receipt, terminating future retries. |
-| **Counterparty Insolvency in Swarm Market** | Medium | Low | **Full Upfront Escrow**: 100% of RFP task rewards are bonded into smart contract escrow before worker agents commence execution. |
+Nothing in §3 is unsafe to say. It is safe to say only if it is clear that the fee lines are a plan and the margin lines are the contract.
 
 ---
 
-## 12. Conclusion & Hackathon Winner Summary
+## 10. Summary
 
-PhalanxSwarm is not an academic concept or a synthetic prototype. It is a **production-verified, economically sound infrastructure platform** built to solve the single largest bottleneck in the agentic AI economy: **fiduciary financial safety**.
+- The contract monetises **delivery** (customer order margin) and **governance** (a treasury safe enough to hold real money), not transaction volume.
+- The only profit exit is `distribute_revenue`, over gross margin, split by on-chain `RevenueSplit` entries.
+- Escrow, refunds and agent balances are liabilities, so distributable profit cannot be paid out of money that is owed to someone else.
+- The SaaS tiers price the operational layer around the contract.
+- Every projection in this document is labelled as one.
 
-With:
-- **100% Proven Attack Defense**: 24/24 prompt injections stopped with on-chain access key deletion.
-- **Commercial Reality**: 4 diversified revenue pillars with a **2 to 3.5 month payback period**.
-- **Working Code**: 189 passing tests, 39/39 verified live on-chain checks, and full QuickBooks/GL ERP accounting integration.
-- **Deep NEAR Native Integration**: Harnessing SputnikDAO, Chain Signatures, NEAR Intents, and NEAR AI Cloud.
-
-PhalanxSwarm presents the technical depth, institutional product maturity, and commercial viability demanded of the **Grand Prize Winner of NEAR Hackathon 2026**.
-
----
-*Document Version: 3.1.0*  
-*Classification: Institutional Business Architecture & Economics*  
-*Protocol Status: Verified on NEAR Testnet (`phalanx-v3d1.phalanxswarm.testnet`)*
+*Protocol status: v3.0.0, verified on NEAR testnet at `phalanx-v3d1.phalanxswarm.testnet`. See [ARCHITECTURE.md](ARCHITECTURE.md) for the enforcing code and [QUICKSTART.md](QUICKSTART.md) to run it.*

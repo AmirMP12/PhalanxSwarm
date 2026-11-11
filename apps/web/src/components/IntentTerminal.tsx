@@ -27,6 +27,7 @@ import {
   Signature,
   Sparkles,
   TriangleAlert,
+  Unlock,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -643,6 +644,79 @@ const intentTone = (s: string): Tone =>
         ? "amber"
         : "sky";
 
+/** A held payment: the DAO votes (`approve_intent`), anyone releases it after the window, the DAO cancels it. */
+function HeldActions({ intent }: { intent: IntentRecordT }) {
+  const { runtime, dashboard, busy, refresh } = usePhalanx();
+  const action = useAction();
+  const disabled = busy !== null || !runtime;
+  const windowSec = dashboard?.policy.hold_release_after_sec ?? 0;
+  const releaseAt = intent.hold_release_at_ns ? BigInt(intent.hold_release_at_ns) : null;
+  const nowNs = dashboard ? BigInt(dashboard.block_timestamp_ns) : 0n;
+  const secsLeft = releaseAt === null ? null : releaseAt <= nowNs ? 0 : Number((releaseAt - nowNs) / 1_000_000_000n);
+  const autoReleasable =
+    releaseAt !== null && windowSec > 0 && secsLeft === 0 && BigInt(intent.amount) <= BigInt(dashboard?.policy.hold_auto_release_max_yocto ?? "0");
+  const advance = () => {
+    if (!runtime || releaseAt === null) return;
+    // The sandbox clock is explicit: skip the rest of the challenge window and re-read the state.
+    runtime.vm.advance(Number((releaseAt - runtime.nowNs()) / 1_000_000_000n) + 1);
+    void refresh();
+  };
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+      <Button
+        size="sm"
+        icon={Check}
+        disabled={disabled}
+        onClick={() =>
+          void action(`DAO approves held payment #${intent.intent_id}`, runtime!.owner, "approve_intent", (rt) => rt.approveIntent(intent.intent_id))
+        }
+      >
+        DAO approves
+      </Button>
+      {releaseAt !== null && secsLeft !== null && secsLeft > 0 && (
+        <Button size="sm" icon={Clock} disabled={disabled} onClick={advance}>
+          Skip {Math.ceil(secsLeft / 60)} min window
+        </Button>
+      )}
+      {autoReleasable && (
+        <Button
+          size="sm"
+          variant="primary"
+          icon={Unlock}
+          disabled={disabled}
+          onClick={() =>
+            void action(`anyone releases held payment #${intent.intent_id}`, runtime!.keeper, "release_held_intent", (rt) =>
+              rt.contract.call(rt.keeper, "release_held_intent", { intent_id: intent.intent_id }, null),
+            )
+          }
+        >
+          Release (window over)
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={Ban}
+        disabled={disabled}
+        onClick={() =>
+          void action(`DAO cancels payment #${intent.intent_id}`, runtime!.owner, "cancel_intent", (rt) =>
+            rt.contract.call(rt.owner, "cancel_intent", { intent_id: intent.intent_id }, null),
+          )
+        }
+      >
+        Cancel
+      </Button>
+      <span className="num text-[10.5px] text-slate-500">
+        {releaseAt === null
+          ? "challenge window off: a DAO vote is required"
+          : secsLeft === null || secsLeft === 0
+            ? "challenge window over"
+            : `releasable by anyone in ${Math.ceil(secsLeft / 60)} min`}
+      </span>
+    </div>
+  );
+}
+
 export function IntentLedger() {
   const { dashboard } = usePhalanx();
   const personaOf = usePersonaOf();
@@ -677,7 +751,13 @@ export function IntentLedger() {
               const p = personaOf(i.agent_id);
               const label = i.kind === "vendor_payment" && i.destination_chain === "near" ? "NEAR payment" : i.dry_run ? "dry run" : i.kind;
               return (
-                <li key={`i-${i.intent_id}`} className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+                <li
+                  key={`i-${i.intent_id}`}
+                  className={cx(
+                    "flex min-w-0 flex-wrap items-center gap-3 rounded-xl border p-2.5",
+                    i.status === "pending_approval" ? "border-amber-400/25 bg-amber-400/[0.04]" : "border-white/[0.06] bg-white/[0.02]",
+                  )}
+                >
                   {p ? <PersonaAvatar persona={p} size={28} /> : <TriangleAlert className="size-4 text-slate-500" aria-hidden />}
                   <div className="min-w-0 flex-1">
                     <div className="num flex flex-wrap items-center gap-2 text-[12.5px] text-slate-200">
@@ -688,11 +768,13 @@ export function IntentLedger() {
                     </div>
                     <div className="num truncate text-[11px] text-slate-500" title={i.agent_id}>
                       {short(i.agent_id, 22, 0)} · {label}
+                      {i.invoice_ref ? ` · invoice ${i.invoice_ref}` : ""}
                     </div>
                   </div>
                   <Badge tone={intentTone(i.status)} dot>
                     {i.status}
                   </Badge>
+                  {i.status === "pending_approval" && <HeldActions intent={i} />}
                 </li>
               );
             })}

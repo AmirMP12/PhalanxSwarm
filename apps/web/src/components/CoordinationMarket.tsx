@@ -1,13 +1,84 @@
 "use client";
 
-import { Gavel, Inbox, Lock, LockOpen, ReceiptText, Store, TrendingDown, Trophy } from "lucide-react";
+import type { TaskViewT } from "@phalanx/agent-swarm-sdk";
+import { Clock3, Gavel, Inbox, Lock, LockOpen, ReceiptText, Store, TrendingDown, Trophy, X } from "lucide-react";
 
 import { usePhalanx } from "@/lib/phalanx-context";
+import { useAction } from "@/lib/use-action";
 
-import { Badge, Card, CardHeader, EmptyState, PersonaAvatar, SkeletonBlock, cx, nearFmt, short, usePersonaOf, type Tone } from "./ui";
+import { Badge, Button, Card, CardHeader, EmptyState, PersonaAvatar, SkeletonBlock, cx, nearFmt, short, usePersonaOf, type Tone } from "./ui";
+
+const NS = 1_000_000_000n;
 
 const taskTone = (s: string): Tone =>
   s === "completed" ? "emerald" : s === "failed" || s === "expired" || s === "cancelled" ? "red" : s === "awarded" ? "violet" : "sky";
+
+/**
+ * The lifecycle calls the market exposes: close a sealed auction once its reveal phase is over
+ * (or every bid is revealed), expire an overdue task, cancel a task nobody bid on. Each moves the
+ * reserved budget or the escrow, so the buttons only appear when the contract would accept them.
+ */
+function TaskActions({ view }: { view: TaskViewT }) {
+  const { runtime, dashboard, busy } = usePhalanx();
+  const action = useAction();
+  const t = view.task;
+  const now = dashboard ? BigInt(dashboard.block_timestamp_ns) : 0n;
+  const biddingOver = now > BigInt(t.bidding_deadline_ns);
+  const revealOver = now > BigInt(t.reveal_deadline_ns);
+  const canClose =
+    t.auction === "sealed_bid" && (t.status === "bidding" || t.status === "revealing") && biddingOver && (revealOver || t.revealed_count === t.bid_count);
+  const canExpire =
+    (t.status === "awarded" && (now > BigInt(t.execution_deadline_ns) || BigInt(dashboard?.epoch_height ?? "0") > BigInt(t.deadline_epoch))) ||
+    (t.status === "bidding" && t.auction === "reverse_dutch" && biddingOver);
+  const canCancel = t.status === "bidding" && t.bid_count === 0;
+  const disabled = busy !== null || !runtime;
+  if (!runtime || (!canClose && !canExpire && !canCancel)) return null;
+  const skip = (target: bigint) => {
+    const wait = Number((target - runtime.nowNs()) / NS) + 1;
+    if (wait > 0) runtime.vm.advance(wait);
+  };
+  const close = () => {
+    if (!biddingOver) skip(BigInt(t.bidding_deadline_ns));
+    else if (revealOver === false && t.revealed_count !== t.bid_count) skip(BigInt(t.reveal_deadline_ns));
+    void action(`Nexus closes RFP #${t.task_id}`, runtime.agents.nexus.signer, "close_auction", (rt) => rt.closeAuction(t.task_id));
+  };
+  const expire = () => {
+    if (t.status === "awarded") skip(BigInt(t.execution_deadline_ns));
+    else skip(BigInt(t.bidding_deadline_ns));
+    void action(`anyone expires RFP #${t.task_id}`, runtime.keeper, "expire_task", (rt) =>
+      rt.contract.call(rt.keeper, "expire_task", { task_id: t.task_id }, null),
+    );
+  };
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {canClose && (
+        <Button size="sm" variant="primary" icon={Gavel} disabled={disabled} onClick={close}>
+          Close auction
+        </Button>
+      )}
+      {canExpire && (
+        <Button size="sm" icon={Clock3} disabled={disabled} onClick={expire}>
+          Expire (escrow refunded)
+        </Button>
+      )}
+      {canCancel && (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={X}
+          disabled={disabled}
+          onClick={() =>
+            void action(`Nexus cancels RFP #${t.task_id}`, runtime.agents.nexus.signer, "cancel_task", (rt) =>
+              rt.contract.call(rt.agents.nexus.signer, "cancel_task", { task_id: t.task_id }, null),
+            )
+          }
+        >
+          Cancel
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export function CoordinationMarket() {
   const { dashboard } = usePhalanx();
@@ -176,6 +247,8 @@ export function CoordinationMarket() {
                       </tbody>
                     </table>
                   </div>
+
+                  <TaskActions view={t} />
 
                   {t.escrow && (
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/[0.05] pt-3 text-[11.5px] text-slate-400">

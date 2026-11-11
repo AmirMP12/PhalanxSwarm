@@ -1,7 +1,24 @@
 "use client";
 
-import { formatNear, parseNear, type GlobalPolicyT } from "@phalanx/agent-swarm-sdk";
-import { Info, KeyRound, OctagonAlert, Play, Power, ShieldCheck, ShieldEllipsis, ShieldX, Snowflake, TriangleAlert, Undo2, UserCog } from "lucide-react";
+import { ACCOUNTS, formatNear, parseNear, type GlobalPolicyT, type ProductT } from "@phalanx/agent-swarm-sdk";
+import {
+  Banknote,
+  HandCoins,
+  Info,
+  KeyRound,
+  OctagonAlert,
+  Play,
+  Plus,
+  Power,
+  ShieldCheck,
+  ShieldEllipsis,
+  ShieldX,
+  Snowflake,
+  Store,
+  TriangleAlert,
+  Undo2,
+  UserCog,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { usePhalanx } from "@/lib/phalanx-context";
@@ -41,6 +58,13 @@ interface Draft {
   velocity: string;
   slippage: string;
   tee: boolean;
+  /** Floors an agent-posted RFP must meet before its escrow can be released. */
+  confidence: string;
+  reputation: string;
+  /** Challenge window for held payments to new recipients (0: a DAO vote is required). */
+  holdSec: string;
+  invoice: boolean;
+  products: ProductT[];
 }
 
 /** Exact decimal NEAR for an input: 2.5 NEAR stays 2.5, so saving another field never rounds a limit. */
@@ -53,6 +77,11 @@ function fromPolicy(p: GlobalPolicyT): Draft {
     velocity: String(p.velocity_limit),
     slippage: String(p.max_slippage_bps),
     tee: p.require_tee_attestation,
+    confidence: String(p.min_task_confidence_bps),
+    reputation: String(p.min_task_reputation_bps),
+    holdSec: String(p.hold_release_after_sec),
+    invoice: p.require_invoice_ref,
+    products: p.products,
   };
 }
 
@@ -66,6 +95,22 @@ const nearError = (v: string) => {
 /** Bounds match `GlobalPolicy::validate`, so the form never submits a policy the contract rejects. */
 const intError = (v: string, min: number, max: number) =>
   /^\d+$/.test(v.trim()) && Number(v) >= min && Number(v) <= max ? null : `Whole number between ${min} and ${max}`;
+
+/** `Product::validate`: the DAO's catalogue must already be valid when the policy is submitted. */
+function productError(p: ProductT): string | null {
+  if (!/^[a-z0-9-]{2,32}$/.test(p.product_id)) return "product_id is 2-32 chars of a-z, 0-9, -";
+  if (!p.title.trim()) return "title is required";
+  let price: bigint;
+  try {
+    price = BigInt(p.price);
+  } catch {
+    return "price must be yoctoNEAR";
+  }
+  if (price <= 0n) return "price must be > 0";
+  if (p.delivery_sec < 60 || p.delivery_sec > 2_592_000) return "delivery_sec is 60..2592000";
+  if (p.max_cost_bps < 1 || p.max_cost_bps > 10_000) return "max_cost_bps is 1..10000";
+  return null;
+}
 
 /** Kill switch / resume, shared by the card header and the command palette. */
 function usePauseControls() {
@@ -119,7 +164,18 @@ export function PolicyFirewall() {
   const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
   const { pause, resume } = usePauseControls();
-  const [draft, setDraft] = useState<Draft>({ maxTx: "", cap: "", velocity: "", slippage: "", tee: true });
+  const [draft, setDraft] = useState<Draft>({
+    maxTx: "",
+    cap: "",
+    velocity: "",
+    slippage: "",
+    tee: true,
+    confidence: "0",
+    reputation: "0",
+    holdSec: "0",
+    invoice: true,
+    products: [],
+  });
   const policy = dashboard?.policy ?? null;
   // Re-sync on a changed policy, not on every dashboard refresh: unsaved edits survive other actions.
   const policyKey = policy ? JSON.stringify(policy) : null;
@@ -137,7 +193,22 @@ export function PolicyFirewall() {
   const errors = useMemo(() => {
     const maxTx = nearError(draft.maxTx);
     const cap = nearError(draft.cap) ?? (maxTx === null && parseNear(draft.cap) < parseNear(draft.maxTx) ? "Must be at least the max per tx" : null);
-    return { maxTx, cap, velocity: intError(draft.velocity, 1, 1000), slippage: intError(draft.slippage, 0, 2000) };
+    // `GlobalPolicy::validate`: 0 turns the window off, otherwise 60 s to 30 days.
+    const holdSec =
+      /^\d+$/.test(draft.holdSec.trim()) && (Number(draft.holdSec) === 0 || (Number(draft.holdSec) >= 60 && Number(draft.holdSec) <= 2_592_000))
+        ? null
+        : "0 (DAO vote only) or 60 to 2592000 seconds";
+    const beds = draft.products.map((pr) => productError(pr));
+    return {
+      maxTx,
+      cap,
+      velocity: intError(draft.velocity, 1, 1000),
+      slippage: intError(draft.slippage, 0, 2000),
+      confidence: intError(draft.confidence, 0, 10_000),
+      reputation: intError(draft.reputation, 0, 10_000),
+      holdSec,
+      products: beds.some(Boolean) ? "Fix the catalogue first" : null,
+    };
   }, [draft]);
 
   if (!runtime || !dashboard)
@@ -169,9 +240,17 @@ export function PolicyFirewall() {
       velocity_limit: Number(draft.velocity),
       max_slippage_bps: Number(draft.slippage),
       require_tee_attestation: draft.tee,
+      min_task_confidence_bps: Number(draft.confidence),
+      min_task_reputation_bps: Number(draft.reputation),
+      hold_release_after_sec: Number(draft.holdSec),
+      require_invoice_ref: draft.invoice,
+      products: draft.products,
     };
     void action("owner updates global policy", runtime.owner, "update_global_policy", (rt) => rt.updatePolicy(policy));
   };
+
+  const editProduct = (i: number, patch: Partial<ProductT>) =>
+    setDraft({ ...draft, products: draft.products.map((pr, j) => (j === i ? { ...pr, ...patch } : pr)) });
 
   return (
     <Card className="flex h-full flex-col p-4 sm:p-5">
@@ -238,14 +317,135 @@ export function PolicyFirewall() {
               error={errors.slippage}
               onChange={(e) => setDraft({ ...draft, slippage: e.target.value })}
             />
-          </div>
-          <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-            <Switch
-              checked={draft.tee}
-              onChange={(tee) => setDraft({ ...draft, tee })}
-              label="Require a signed audit"
-              description="Every payment must carry a proof from a registered model key (NEAR AI completion or receipt signer)"
+            <Field
+              label="Task confidence floor"
+              suffix="bps"
+              inputMode="numeric"
+              value={draft.confidence}
+              error={errors.confidence}
+              onChange={(e) => setDraft({ ...draft, confidence: e.target.value })}
             />
+            <Field
+              label="Task reputation floor"
+              suffix="bps"
+              inputMode="numeric"
+              value={draft.reputation}
+              error={errors.reputation}
+              onChange={(e) => setDraft({ ...draft, reputation: e.target.value })}
+            />
+            <Field
+              label="Hold challenge window"
+              suffix="sec"
+              inputMode="numeric"
+              value={draft.holdSec}
+              error={errors.holdSec}
+              hint="0: a held payment needs a DAO vote. Otherwise anyone may release it after the window, for amounts up to the auto-release cap."
+              onChange={(e) => setDraft({ ...draft, holdSec: e.target.value })}
+            />
+          </div>
+          <div className="mt-3 space-y-2">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+              <Switch
+                checked={draft.tee}
+                onChange={(tee) => setDraft({ ...draft, tee })}
+                label="Require a signed audit"
+                description="Every payment must carry a proof from a registered model key (NEAR AI completion or receipt signer)"
+              />
+            </div>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+              <Switch
+                checked={draft.invoice}
+                onChange={(invoice) => setDraft({ ...draft, invoice })}
+                label="Require an invoice reference"
+                description="Every vendor payment and EVM transfer names its invoice, and no invoice is ever paid twice"
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="flex items-center gap-1.5 text-slate-200">
+                <Store className="size-3.5" aria-hidden /> Product catalogue
+                <span className="num text-slate-500">({draft.products.length}/8)</span>
+              </Label>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={draft.products.length >= 8 || draft.products.some((pr, i) => productError(pr) !== null && i === draft.products.length - 1)}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    products: [
+                      ...draft.products,
+                      {
+                        product_id: `product-${draft.products.length + 1}`,
+                        title: "New product",
+                        price: parseNear("1").toString(),
+                        delivery_sec: 7_200,
+                        max_cost_bps: 8_000,
+                      },
+                    ],
+                  })
+                }
+              >
+                Add product
+              </Button>
+            </div>
+            {errors.products && <p className="mt-1 text-[11.5px] text-red-300">{errors.products}</p>}
+            {draft.products.length === 0 ? (
+              <p className="mt-2 text-[11.5px] text-slate-500">No products: place_order rejects every purchase until the DAO lists one.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {draft.products.map((pr, i) => (
+                  <li key={i} className="rounded-lg border border-white/[0.05] bg-black/20 p-2">
+                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+                      <Field
+                        label="product_id"
+                        value={pr.product_id}
+                        error={productError(pr)?.includes("product_id") ? productError(pr) : null}
+                        onChange={(e) => editProduct(i, { product_id: e.target.value })}
+                      />
+                      <Field label="title" value={pr.title} onChange={(e) => editProduct(i, { title: e.target.value })} />
+                      <Field
+                        label="price"
+                        suffix="Ⓝ"
+                        inputMode="decimal"
+                        value={formatNear(BigInt(pr.price), 24).replace(/\.?0+$/, "")}
+                        error={productError(pr)?.includes("price") ? productError(pr) : null}
+                        onChange={(e) => {
+                          try {
+                            editProduct(i, { price: parseNear(e.target.value || "0").toString() });
+                          } catch {
+                            editProduct(i, { price: "0" });
+                          }
+                        }}
+                      />
+                      <Field
+                        label="delivery_sec"
+                        inputMode="numeric"
+                        value={String(pr.delivery_sec)}
+                        error={productError(pr)?.includes("delivery_sec") ? productError(pr) : null}
+                        onChange={(e) => editProduct(i, { delivery_sec: Number(e.target.value.replace(/\D/g, "")) || 0 })}
+                      />
+                      <Field
+                        label="max_cost_bps (share of the price the swarm may spend)"
+                        inputMode="numeric"
+                        value={String(pr.max_cost_bps)}
+                        error={productError(pr)?.includes("max_cost_bps") ? productError(pr) : null}
+                        onChange={(e) => editProduct(i, { max_cost_bps: Number(e.target.value.replace(/\D/g, "")) || 0 })}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ ...draft, products: draft.products.filter((_, j) => j !== i) })}
+                      className="mt-1 text-[11.5px] text-red-300 hover:text-red-200"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             {dirty && (
@@ -292,14 +492,31 @@ export function PolicyFirewall() {
               const chain = r.slice(0, at);
               const address = r.slice(at + 1);
               return (
-                <Badge key={r} tone="emerald" className="num">
-                  <span title={r}>
-                    {chain}:{short(address, address.startsWith("0x") ? 6 : 20, address.startsWith("0x") ? 4 : 0)}
-                  </span>
-                </Badge>
+                <span key={r} className="inline-flex items-center">
+                  <Badge tone="emerald" className="num">
+                    <span title={r}>
+                      {chain}:{short(address, address.startsWith("0x") ? 6 : 20, address.startsWith("0x") ? 4 : 0)}
+                    </span>
+                  </Badge>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${r} from the allow-list`}
+                    title="Remove from the allow-list (owner)"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void action(`owner removes ${r} from the allow-list`, runtime.owner, "remove_allowed_recipient", (rt) =>
+                        rt.contract.call(rt.owner, "remove_allowed_recipient", { recipient: r, expected_version: null }, null),
+                      )
+                    }
+                    className="touch-target ml-0.5 rounded-full px-1 text-slate-500 transition hover:text-red-300 disabled:opacity-40"
+                  >
+                    ×
+                  </button>
+                </span>
               );
             })}
           </div>
+          <AddRecipient />
           <p className="mt-1.5 text-[11px] text-slate-500">
             {p.unknown_recipient === "hold"
               ? "A settlement to anything else waits for the DAO (approve_intent); other payments to it are rejected without a strike."
@@ -347,6 +564,55 @@ export function PolicyFirewall() {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** The DAO allow-lists one `<chain>:<address>` destination without restating the whole policy. */
+function AddRecipient() {
+  const { runtime, dashboard, busy } = usePhalanx();
+  const action = useAction();
+  const [draft, setDraft] = useState("");
+  const entry = draft.trim();
+  const known = dashboard?.policy.allowed_recipients.includes(entry) ?? false;
+  // `is_valid_recipient_entry`: `<chain>:<address>`, no spaces, EVM addresses lower-case.
+  const [chain, ...rest] = entry.split(":");
+  const address = rest.join(":");
+  const error =
+    entry === ""
+      ? undefined
+      : !chain || !address
+        ? "Use <chain>:<address>, e.g. near:vendor.testnet or arb:0x…"
+        : /\s/.test(entry)
+          ? "No spaces"
+          : address.startsWith("0x") && address !== address.toLowerCase()
+            ? "EVM addresses are lower-case"
+            : known
+              ? "Already allow-listed"
+              : null;
+  return (
+    <form
+      className="mt-2 flex flex-wrap items-start gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (error !== null || !runtime) return;
+        void action(`owner allow-lists ${entry}`, runtime.owner, "add_allowed_recipient", (rt) =>
+          rt.contract.call(rt.owner, "add_allowed_recipient", { recipient: entry, expected_version: null }, null),
+        ).then(() => setDraft(""));
+      }}
+    >
+      <div className="min-w-0 flex-1">
+        <Field
+          label="Allow-list a destination"
+          placeholder="near:gpu-vendor-c.testnet"
+          value={draft}
+          error={error}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+      </div>
+      <Button type="submit" size="sm" icon={Plus} className="mt-[22px]" disabled={busy !== null || !runtime || entry === "" || Boolean(error)}>
+        Add
+      </Button>
+    </form>
   );
 }
 
@@ -485,6 +751,60 @@ export function SecurityEvents() {
   );
 }
 
+/**
+ * An agent's own earnings, spent or withdrawn with its key: `pay_from_balance` pays an
+ * allow-listed vendor (or another active agent) from the on-chain balance, and
+ * `withdraw_earnings` moves it to the owner-set payout account.
+ */
+function EarningsActions({ agent, full = false }: { agent: NonNullable<ReturnType<typeof usePhalanx>["dashboard"]>["agents"][number]; full?: boolean }) {
+  const { runtime, dashboard, busy } = usePhalanx();
+  const action = useAction();
+  const persona = usePersonaOf()(agent.agent_id);
+  const balance = BigInt(agent.balance);
+  const active = agent.status.kind === "active";
+  // `pay_from_balance` is bounded by the lower of the global and the agent limit.
+  const perTx = BigInt(dashboard?.policy.max_tx_amount_yocto ?? "0");
+  const agentTx = BigInt(agent.policy.max_tx_amount_yocto);
+  const maxTx = perTx < agentTx ? perTx : agentTx;
+  const half = balance / 2n;
+  const payment = half < maxTx ? half : maxTx;
+  const disabled = busy !== null || !active || !runtime || !persona || payment === 0n;
+  const className = full ? "w-full" : undefined;
+  if (balance === 0n) return null;
+  return (
+    <span className={cx("flex flex-wrap gap-1.5", full && "w-full")}>
+      <Button
+        className={className}
+        size="sm"
+        icon={Banknote}
+        disabled={disabled}
+        onClick={() =>
+          persona &&
+          void action(`${agent.handle} spends from its balance`, runtime!.agents[persona].signer, "pay_from_balance", (rt) =>
+            rt.payFromBalance(persona, ACCOUNTS.vendor, payment, "vendor invoice from earned balance"),
+          )
+        }
+      >
+        Pay vendor from balance
+      </Button>
+      <Button
+        className={className}
+        size="sm"
+        icon={HandCoins}
+        disabled={disabled}
+        onClick={() =>
+          persona &&
+          void action(`${agent.handle} withdraws its earnings`, runtime!.agents[persona].signer, "withdraw_earnings", (rt) =>
+            rt.withdrawEarnings(persona, balance),
+          )
+        }
+      >
+        Withdraw earnings
+      </Button>
+    </span>
+  );
+}
+
 export function AgentControls() {
   const { runtime, dashboard, busy } = usePhalanx();
   const action = useAction();
@@ -584,7 +904,10 @@ export function AgentControls() {
                       </div>
                       <Meter value={BigInt(a.spend.spent_in_epoch)} max={BigInt(a.policy.epoch_spending_cap_yocto)} label={`${a.handle} epoch spend`} />
                     </div>
-                    <div className="mt-3">{controlFor(a, true)}</div>
+                    <div className="mt-3 space-y-2">
+                      <EarningsActions agent={a} full />
+                      {controlFor(a, true)}
+                    </div>
                   </li>
                 );
               })}
@@ -652,31 +975,34 @@ export function AgentControls() {
                             {a.violations}
                           </span>
                         </td>
-                        <td className="py-2.5 text-right">
-                          {a.status.kind === "quarantined" ? (
-                            <Button
-                              size="sm"
-                              icon={Undo2}
-                              disabled={busy !== null}
-                              onClick={() => void action(`owner reinstates ${a.handle}`, runtime.owner, "reinstate_agent", (rt) => rt.reinstate(a.agent_id))}
-                            >
-                              Reinstate
-                            </Button>
-                          ) : a.status.kind === "active" ? (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              icon={Snowflake}
-                              disabled={busy !== null}
-                              onClick={() =>
-                                void action(`owner freezes ${a.handle}`, runtime.owner, "freeze_agent", (rt) =>
-                                  rt.freeze(a.agent_id, "manual review from command center"),
-                                )
-                              }
-                            >
-                              Freeze
-                            </Button>
-                          ) : null}
+                        <td className="py-2.5">
+                          <div className="flex flex-col items-end gap-1.5">
+                            <EarningsActions agent={a} />
+                            {a.status.kind === "quarantined" ? (
+                              <Button
+                                size="sm"
+                                icon={Undo2}
+                                disabled={busy !== null}
+                                onClick={() => void action(`owner reinstates ${a.handle}`, runtime.owner, "reinstate_agent", (rt) => rt.reinstate(a.agent_id))}
+                              >
+                                Reinstate
+                              </Button>
+                            ) : a.status.kind === "active" ? (
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                icon={Snowflake}
+                                disabled={busy !== null}
+                                onClick={() =>
+                                  void action(`owner freezes ${a.handle}`, runtime.owner, "freeze_agent", (rt) =>
+                                    rt.freeze(a.agent_id, "manual review from command center"),
+                                  )
+                                }
+                              >
+                                Freeze
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
