@@ -121,7 +121,7 @@ export function RuntimeMenu({ className }: { className?: string }) {
 
   const tone: Tone = status === "ready" ? "emerald" : status === "error" ? "red" : "amber";
   return (
-    <div ref={root} className={cx("relative", className)}>
+    <div ref={root} className={cx("relative z-30", className)}>
       <button
         ref={trigger}
         type="button"
@@ -141,7 +141,7 @@ export function RuntimeMenu({ className }: { className?: string }) {
       <div
         id={panelId}
         hidden={!open}
-        className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-1.5rem))] space-y-3 rounded-xl border border-white/10 bg-[#0c1018] p-3.5 text-left shadow-2xl shadow-black/60"
+        className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] space-y-3 rounded-xl border border-white/15 bg-[#0c1018] p-3.5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl ring-1 ring-white/10"
       >
         <p className="text-[12px] leading-relaxed text-slate-400">
           This tab runs the compiled contract (<span className="num text-slate-300">phalanx_core.wasm</span>) locally, in your browser. The same steps also ran

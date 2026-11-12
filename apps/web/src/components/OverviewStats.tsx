@@ -48,13 +48,13 @@ function Tile({
   footer?: ReactNode;
 }) {
   const ring = {
-    emerald: "text-emerald-300",
-    teal: "text-teal-300",
-    sky: "text-sky-300",
-    amber: "text-amber-200",
-    red: "text-red-300",
-    violet: "text-violet-300",
-    slate: "text-slate-400",
+    emerald: "text-emerald-300 bg-emerald-400/10 border-emerald-400/20 shadow-[0_0_12px_rgba(0,236,151,0.15)]",
+    teal: "text-teal-300 bg-teal-400/10 border-teal-400/20 shadow-[0_0_12px_rgba(45,212,191,0.15)]",
+    sky: "text-sky-300 bg-sky-400/10 border-sky-400/20 shadow-[0_0_12px_rgba(56,189,248,0.15)]",
+    amber: "text-amber-200 bg-amber-400/10 border-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.15)]",
+    red: "text-red-300 bg-red-400/10 border-red-400/20 shadow-[0_0_12px_rgba(244,63,94,0.15)]",
+    violet: "text-violet-300 bg-violet-400/10 border-violet-400/20 shadow-[0_0_12px_rgba(168,85,247,0.15)]",
+    slate: "text-slate-400 bg-white/[0.05] border-white/10 shadow-none",
   }[tone];
   return (
     <a
@@ -64,19 +64,21 @@ function Tile({
         e.currentTarget.style.setProperty("--mx", `${e.clientX - r.left}px`);
         e.currentTarget.style.setProperty("--my", `${e.clientY - r.top}px`);
       }}
-      className="surface spotlight group flex min-w-0 flex-col rounded-2xl p-4 transition-transform duration-200 hover:-translate-y-0.5"
+      className="surface spotlight group relative flex min-w-0 flex-col rounded-2xl p-4 sm:p-5 border border-white/[0.09] bg-gradient-to-b from-white/[0.035] to-black/40 backdrop-blur-md transition-all duration-200 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.8)]"
     >
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
-          <span className={cx("grid size-6 place-items-center rounded-md bg-white/[0.05]", ring)}>
-            <Icon className="size-3.5" aria-hidden />
+        <span className="flex items-center gap-2.5 text-[12.5px] font-medium text-slate-300">
+          <span className={cx("grid size-7 place-items-center rounded-lg border", ring)}>
+            <Icon className="size-4" aria-hidden />
           </span>
           {label}
         </span>
-        <ArrowUpRight className="size-3.5 text-slate-600 transition group-hover:text-slate-300" aria-hidden />
+        <div className="grid size-6 place-items-center rounded-md bg-white/[0.03] text-slate-500 transition-colors group-hover:bg-white/[0.08] group-hover:text-white">
+          <ArrowUpRight className="size-3.5" aria-hidden />
+        </div>
       </div>
-      <div className="mt-3 min-w-0">{children}</div>
-      {footer && <div className="mt-auto pt-3">{footer}</div>}
+      <div className="mt-3.5 min-w-0">{children}</div>
+      {footer && <div className="mt-auto pt-3.5 border-t border-white/[0.04]">{footer}</div>}
     </a>
   );
 }

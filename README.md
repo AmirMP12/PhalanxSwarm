@@ -72,21 +72,6 @@ Many agent-spending guards refuse a payment to an address nobody approved. Phala
 3. **A sale with a guarantee.** A customer pays for a product. The payment stays a liability until a TEE-verified task delivers the customer's exact spec, and the customer is refunded if nothing is delivered by the deadline. On testnet the first winner missed its deadline and lost reputation, the order reopened, and a second auction delivered it.
 4. **Rules for what an allow-list misses.** The same invoice is never paid twice to the same recipient. A burst of requests is rate-limited without a strike against an honest agent. A small first payment to a new vendor clears after a challenge window unless the DAO or a Sentinel vetoes it; a larger one needs a vote of the 3-member council.
 
-## How PhalanxSwarm Compares
-
-| Feature | PhalanxSwarm | Gnosis Safe | Coinbase AgentKit | Safe{Core} |
-|---------|--------------|-------------|-------------------|-----------|
-| **AI Prompt Verification** | ✅ TEE + DAO-pinned hash | ❌ No AI verification | ❌ Trust agent code | ❌ No AI verification |
-| **AI Facts Verification** | ✅ Contract-built facts | ❌ N/A | ❌ N/A | ❌ N/A |
-| **Autonomous Circuit Breaker** | ✅ Auto key deletion | ❌ Manual recovery | ❌ None | ❌ Manual recovery |
-| **Prompt Injection Defense** | ✅ 24/24 stopped | ❌ No testing | ❌ No testing | ❌ No testing |
-| **Cross-Chain Payments** | ✅ Chain Signatures | ✅ Bridges | ⚠️ Examples only | ✅ Relayers |
-| **Testnet Evidence** | ✅ 65 transactions | ✅ Deployed | ⚠️ SDK examples | ✅ Deployed |
-| **Test Coverage** | ✅ 195 tests | ✅ Audited | ⚠️ Basic | ✅ Audited |
-| **Open Source** | ✅ MIT License | ✅ GPL-3.0 | ✅ MIT | ✅ GPL-3.0 |
-
-**Verdict:** PhalanxSwarm is the only solution specifically designed to stop AI prompt injection attacks.
-
 ## The problem
 
 To let an AI agent pay invoices or buy compute, teams usually give it a private key or a hot wallet. One prompt injection, such as an invoice that says "our bank details changed", can then send the money anywhere, inside every amount limit. A guardrail that runs next to the model can be fooled along with it. An audit by a second model is only as good as the instructions and facts it is given, and the paying agent usually writes both.

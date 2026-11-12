@@ -20,6 +20,7 @@ import {
   BadgeCheck,
   Briefcase,
   ChevronDown,
+  Cpu,
   FileWarning,
   Fingerprint,
   Gavel,
@@ -559,31 +560,62 @@ export function TryIt() {
   const nextStep = !attackBlocked ? 1 : !factsRejected ? 2 : !heldPaid ? 3 : 0;
   const canRunAll = !disabled && mallory?.status.kind === "active" && cipher?.status.kind === "active" && nexus?.status.kind === "active";
 
+  const completedCount = (attackBlocked ? 1 : 0) + (factsRejected ? 1 : 0) + (heldPaid ? 1 : 0);
+
   return (
-    <section aria-labelledby="try-title" className="surface relative overflow-hidden rounded-2xl">
+    <section
+      aria-labelledby="try-title"
+      className="surface relative overflow-hidden rounded-3xl border border-white/10 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+    >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_320px_at_0%_0%,rgb(0_236_151/0.12),transparent_60%),radial-gradient(700px_300px_at_100%_0%,rgb(125_211_252/0.08),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_350px_at_0%_0%,rgba(0,236,151,0.15),transparent_65%),radial-gradient(800px_320px_at_100%_0%,rgba(56,189,248,0.12),transparent_65%)]"
       />
-      <div className="relative p-4 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="relative p-5 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="min-w-0 max-w-3xl">
-            <h2 id="try-title" className="text-balance text-[26px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                <ShieldCheck className="size-3.5" />
+                INTERACTIVE ON-CHAIN ATTACK SIMULATION
+              </span>
+              <span className="text-[12px] text-slate-400 num font-medium">{completedCount}/3 verified</span>
+            </div>
+            <h2 id="try-title" className="text-balance text-[24px] sm:text-[30px] font-bold leading-[1.18] tracking-tight text-white">
               A TEE signature proves which model answered, not what it was asked.
             </h2>
-            <p className="mt-2.5 text-[14px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-[13.5px] leading-relaxed text-slate-300/90 max-w-2xl">
               The NEAR contract checks both: the DAO pins the auditor&apos;s prompt and the contract writes its evidence, so a signed approval over a
-              self-written prompt or invented facts fails. An agent that breaks a critical rule loses its key in the same transaction.
+              self-written prompt or invented facts fails. When an agent breaks a critical rule, the attacking transaction deletes its access key.
             </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
+              <span className="inline-flex items-center gap-1 text-emerald-300 font-medium">
+                <Cpu className="size-3.5" /> In-Browser Sandbox (phalanx_core.wasm)
+              </span>
+              <span className="text-slate-600">·</span>
+              <span>Instant zero-gas execution for evaluator testing</span>
+              <span className="text-slate-600">·</span>
+              <a href="#onchain" className="text-sky-300 hover:text-sky-200 hover:underline">
+                View 65 Live On-Chain Testnet TXs ↓
+              </a>
+            </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <Button className="w-full min-[480px]:w-auto" size="sm" variant="primary" icon={Play} disabled={!canRunAll} onClick={() => void runAll()}>
+          <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
+            <Button
+              className="w-full min-[480px]:w-auto shadow-[0_0_20px_rgba(0,236,151,0.3)]"
+              size="md"
+              variant="primary"
+              icon={Play}
+              shine
+              disabled={!canRunAll}
+              onClick={() => void runAll()}
+            >
               Run all 3 steps
             </Button>
             <Button
               className="w-full min-[480px]:w-auto"
-              size="sm"
-              variant="ghost"
+              size="md"
+              variant="secondary"
               icon={RotateCcw}
               disabled={busy !== null || working !== null || scenario.running}
               onClick={() => void reset()}
@@ -592,10 +624,64 @@ export function TryIt() {
             </Button>
           </div>
         </div>
+
+        {/* Visual 3-Stage Progress Strip */}
+        <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 sm:p-4 backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-semibold text-white tracking-wide uppercase">Defense Progression</span>
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-mono text-slate-300">
+                {completedCount === 3 ? "All Attacks Neutralized" : `${3 - completedCount} Steps Remaining`}
+              </span>
+            </div>
+            {/* Visual Step Pills */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span
+                className={cx(
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-medium border transition-all",
+                  attackBlocked
+                    ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 font-semibold"
+                    : nextStep === 1
+                      ? "border-sky-400/40 bg-sky-400/15 text-sky-200 animate-pulse"
+                      : "border-white/10 bg-white/[0.03] text-slate-400",
+                )}
+              >
+                1. Key Revocation {attackBlocked && "✓"}
+              </span>
+              <span className="text-slate-600 text-[11px]">→</span>
+              <span
+                className={cx(
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-medium border transition-all",
+                  factsRejected
+                    ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 font-semibold"
+                    : nextStep === 2
+                      ? "border-sky-400/40 bg-sky-400/15 text-sky-200 animate-pulse"
+                      : "border-white/10 bg-white/[0.03] text-slate-400",
+                )}
+              >
+                2. Facts Mismatch {factsRejected && "✓"}
+              </span>
+              <span className="text-slate-600 text-[11px]">→</span>
+              <span
+                className={cx(
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-medium border transition-all",
+                  heldPaid
+                    ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 font-semibold"
+                    : nextStep === 3
+                      ? "border-sky-400/40 bg-sky-400/15 text-sky-200 animate-pulse"
+                      : "border-white/10 bg-white/[0.03] text-slate-400",
+                )}
+              >
+                3. DAO Governance {heldPaid && "✓"}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div aria-live="polite" className="mt-3 min-h-0 space-y-2">
           {working && (
-            <div className="flex items-center gap-2 text-[12.5px] text-sky-300">
-              <Spinner className="size-3.5" /> {working}…
+            <div className="flex items-center gap-2 text-[13px] text-sky-300 bg-sky-500/10 border border-sky-400/20 rounded-xl px-3.5 py-2">
+              <Spinner className="size-4" /> {working}…
             </div>
           )}
           {error && (
@@ -605,7 +691,7 @@ export function TryIt() {
           )}
         </div>
 
-        <ol className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
+        <ol className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
           <StepCard
             n={1}
             icon={FileWarning}
@@ -638,13 +724,21 @@ export function TryIt() {
               {attack && (
                 <Reveal>
                   <StepOutcome tone={attackBlocked ? "good" : "bad"} label={attackBlocked ? "Blocked by the contract" : "Not blocked"}>
-                    {attackBlocked ? (
-                      <>
-                        {attack.keyDeleted ? "Mallory lost its key" : attack.outcome?.quarantined ? "Mallory was quarantined" : "The payment was rejected"} and
-                        no NEAR left the treasury.{!attack.fooled && " The model saw through the scam, so the payment was sent anyway to test the contract."}
-                      </>
-                    ) : (
-                      "See what happened below."
+                    <div>
+                      {attackBlocked ? (
+                        <>
+                          {attack.keyDeleted ? "Mallory lost its key" : attack.outcome?.quarantined ? "Mallory was quarantined" : "The payment was rejected"}{" "}
+                          and no NEAR left the treasury.
+                          {!attack.fooled && " The model saw through the scam, so the payment was sent anyway to test the contract."}
+                        </>
+                      ) : (
+                        "See what happened below."
+                      )}
+                    </div>
+                    {txs.invoice_fraud_attempt && (
+                      <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                        <TestnetLink href={txs.invoice_fraud_attempt} label="Verify real testnet transaction on NearBlocks ↗" />
+                      </div>
                     )}
                   </StepOutcome>
                 </Reveal>
@@ -752,9 +846,19 @@ export function TryIt() {
               {facts && (
                 <Reveal>
                   <StepOutcome tone={factsRejected ? "good" : "bad"} label={factsRejected ? "Rejected as a forgery" : "Not rejected"}>
-                    {factsRejected
-                      ? `The approval covered facts the contract never built. ${facts.outcome?.quarantined ? "Cipher was quarantined and nothing" : "Nothing"} was paid.`
-                      : "See what happened below."}
+                    <div>
+                      {factsRejected
+                        ? `The approval covered facts the contract never built. ${facts.outcome?.quarantined ? "Cipher was quarantined and nothing" : "Nothing"} was paid.`
+                        : "See what happened below."}
+                    </div>
+                    {(txs.invented_facts_audit_attempt || txs.forged_audit_attempt) && (
+                      <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                        <TestnetLink
+                          href={txs.invented_facts_audit_attempt ?? txs.forged_audit_attempt}
+                          label="Verify real testnet transaction on NearBlocks ↗"
+                        />
+                      </div>
+                    )}
                   </StepOutcome>
                 </Reveal>
               )}
@@ -866,11 +970,21 @@ export function TryIt() {
                 <Reveal>
                   {held.finalStatus === "settled" && held.vendorGain > 0n ? (
                     <StepOutcome tone="good" label={held.approvedByDao ? "Paid after DAO approval" : "Paid"}>
-                      GPU Vendor B received {nearFmt(held.vendorGain)}. Nexus kept its key.
+                      <div>GPU Vendor B received {nearFmt(held.vendorGain)}. Nexus kept its key.</div>
+                      {txs.held_payment_approved && (
+                        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                          <TestnetLink href={txs.held_payment_approved} label="Verify real DAO vote &amp; payout on NearBlocks ↗" />
+                        </div>
+                      )}
                     </StepOutcome>
                   ) : held.finalStatus === "pending_approval" ? (
                     <StepOutcome tone="wait" label="Waiting for the DAO">
-                      The funds are reserved and nothing has moved. Nexus keeps its key.
+                      <div>The funds are reserved and nothing has moved. Nexus keeps its key.</div>
+                      {txs.held_payment_created && (
+                        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                          <TestnetLink href={txs.held_payment_created} label="Verify real held payment on NearBlocks ↗" />
+                        </div>
+                      )}
                     </StepOutcome>
                   ) : (
                     <StepOutcome tone="bad" label="Not paid">

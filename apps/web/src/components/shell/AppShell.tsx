@@ -47,10 +47,11 @@ function LogoMark({ size = 40 }: { size?: number }) {
 function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="bg-grid absolute inset-x-0 top-0 h-[720px]" />
-      <div className="absolute -top-56 left-[8%] h-[520px] w-[720px] rounded-full bg-emerald-400/[0.07] blur-[120px]" />
-      <div className="absolute -top-40 right-[-10%] h-[480px] w-[640px] rounded-full bg-sky-500/[0.06] blur-[120px]" />
-      <div className="absolute bottom-[-20%] left-[30%] h-[520px] w-[720px] rounded-full bg-violet-500/[0.04] blur-[140px]" />
+      <div className="bg-grid absolute inset-x-0 top-0 h-[840px]" />
+      <div className="absolute -top-48 left-[10%] h-[600px] w-[800px] rounded-full bg-emerald-400/[0.09] blur-[140px]" />
+      <div className="absolute -top-32 right-[-5%] h-[540px] w-[700px] rounded-full bg-sky-500/[0.08] blur-[140px]" />
+      <div className="absolute top-[40%] left-[-10%] h-[500px] w-[600px] rounded-full bg-teal-500/[0.05] blur-[150px]" />
+      <div className="absolute bottom-[-15%] right-[20%] h-[580px] w-[760px] rounded-full bg-violet-500/[0.06] blur-[160px]" />
       <div className="bg-noise absolute inset-0 opacity-[0.035] mix-blend-overlay" />
     </div>
   );

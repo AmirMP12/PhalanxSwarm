@@ -336,19 +336,19 @@ export function Section({
   const [about, setAbout] = useState(false);
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="min-w-0 scroll-mt-20 lg:scroll-mt-24 space-y-4">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/20">
-            <Icon className="size-4" aria-hidden />
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-emerald-400/30 bg-gradient-to-b from-emerald-400/15 to-emerald-950/30 text-emerald-300 shadow-[0_0_14px_rgba(0,236,151,0.2)]">
+            <Icon className="size-4.5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <div className="flex min-h-8 items-center gap-1">
-              <h2 id={`${id}-title`} className="text-[17px] font-semibold tracking-tight text-white">
+            <div className="flex min-h-9 items-center gap-1.5">
+              <h2 id={`${id}-title`} className="text-[18px] font-bold tracking-tight text-white">
                 {title}
               </h2>
               <AboutButton open={about} onToggle={() => setAbout((v) => !v)} controls={`${id}-about`} subject={title} />
             </div>
-            <p id={`${id}-about`} hidden={!about} className="max-w-3xl text-[12.5px] leading-relaxed text-slate-400">
+            <p id={`${id}-about`} hidden={!about} className="max-w-3xl text-[13px] leading-relaxed text-slate-300/90 mt-0.5">
               {description}
             </p>
           </div>
