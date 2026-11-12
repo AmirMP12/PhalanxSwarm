@@ -1,6 +1,6 @@
 "use client";
 
-import { Cpu, ExternalLink, FlaskConical, Globe, KeyRound, Lock, MousePointerClick, Rocket, ShieldAlert, ShieldCheck, Sparkles } from "lucide-react";
+import { Cpu, ExternalLink, FlaskConical, Globe, KeyRound, Lock, MousePointerClick, Rocket, ShieldAlert, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { JudgeMode } from "./JudgeModeBar";
@@ -52,10 +52,7 @@ export function OverviewHero() {
               <Sparkles className="size-3.5 text-emerald-400" />
               NEAR HACKATHON 2026
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11.5px] font-medium text-slate-300">
-              <ShieldCheck className="size-3.5 text-sky-400" />
-              AI Security &amp; Defense Track
-            </span>
+
             <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11.5px] text-slate-400">
               <Cpu className="size-3.5 text-slate-400" />
               Intel TDX Verified
@@ -168,7 +165,7 @@ export function OverviewHero() {
             <div className="h-7 w-px bg-white/10 hidden sm:block" />
             <div className="flex flex-col">
               <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Automated Tests</span>
-              <span className="num text-[17px] font-bold text-white">198 Total</span>
+              <span className="num text-[17px] font-bold text-white">200 Total</span>
             </div>
             <div className="h-7 w-px bg-white/10 hidden sm:block" />
             <div className="flex flex-col">
