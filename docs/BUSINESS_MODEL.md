@@ -237,7 +237,7 @@ Distribution partners worth naming, because each has a concrete hook into this p
 PhalanxSwarm has **no token**, deliberately.
 
 1. **Settlement is in native assets** — NEAR, wNEAR, USDC, USDT. A treasury product that introduces a new unit of account makes its own accounting harder.
-2. **Governance is a SputnikDAO** — `phalanx-v3d1.sputnikv2.testnet` on testnet, 3 council members, 2 votes to pass. Council members set policy, pin prompts, approve held payments, revoke agents and upgrade the contract.
+2. **Governance is a SputnikDAO** — `phalanx-v3d4.sputnikv2.testnet` on testnet, 3 council members, 2 votes to pass. Council members set policy, pin prompts, approve held payments, revoke agents and upgrade the contract.
 3. **The reserve is funded by revenue split, not by dilution** — the `reserve` leg retains a share of each distribution inside the contract.
 4. **Regulatory cleanliness** — no distribution of an instrument is involved in using the product.
 
@@ -267,4 +267,4 @@ Nothing in §3 is unsafe to say. It is safe to say only if it is clear that the 
 - The SaaS tiers price the operational layer around the contract.
 - Every projection in this document is labelled as one.
 
-*Protocol status: v3.0.0, verified on NEAR testnet at `phalanx-v3d1.phalanxswarm.testnet`. See [ARCHITECTURE.md](ARCHITECTURE.md) for the enforcing code and [QUICKSTART.md](QUICKSTART.md) to run it.*
+*Protocol status: v3.0.0, verified on NEAR testnet at `phalanx-v3d4.phalanxswarm.testnet`. See [ARCHITECTURE.md](ARCHITECTURE.md) for the enforcing code and [QUICKSTART.md](QUICKSTART.md) to run it.*

@@ -104,7 +104,7 @@ Line counts are the current source length, excluding `tests.rs` (2 729 lines of 
 | `evm.rs` | 934 | EIP-1559 construction, MPC signing, nonce tracking, cancel replacements | `request_evm_transfer`, `confirm_evm_transfer`, `cancel_evm_transfer`, `preview_evm_transfer` |
 | `swarm_market.rs` | 857 | Task RFPs, sealed-bid and reverse-Dutch auctions, escrow, deadlines | `post_task_rfp`, `submit_bid`, `close_auction`, `execute_verified_task`, `expire_task`, `cancel_task` |
 | `attestation.rs` | 786 | TEE receipt and NEAR AI proof verification, enclave registry | `register_enclave`, `verify_attestation`, `verify_proof` |
-| `lib.rs` | 706 | Treasury ledger, capital and revenue intake, revenue splits, ownership, upgrade, dashboard | `new`, `fund_treasury`, `deposit_revenue`, `distribute_revenue`, `get_dashboard`, `upgrade_contract` |
+| `lib.rs` | 706 | Treasury ledger, capital and revenue intake, revenue splits, ownership, upgrade, dashboard | `new`, `fund_treasury`, `deposit_revenue`, `distribute_revenue`, `get_dashboard`, `propose_upgrade`, `execute_upgrade` |
 | `subaccounts.rs` | 428 | Agent registration, sub-accounts, scoped keys, role method lists | `register_and_spawn_agent`, `get_role_scope`, `revoke_agent` |
 | `orders.rs` | 287 | Products, customer orders, delivery, refunds, reopen | `place_order`, `refund_order`, `get_order`, `list_orders`, `link_order`, `deliver_order` |
 | `facts.rs` | 280 | The audit-facts document the contract builds per settlement or EVM transfer | `intent_facts`, `evm_facts`, `get_intent_audit_facts`, `get_evm_audit_facts` |

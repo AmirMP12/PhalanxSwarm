@@ -28,7 +28,7 @@ export async function GET(req: Request): Promise<Response> {
     return Response.json({ message: `invalid format: ${format}. Expected one of: ${validFormats.join(", ")}` }, { status: 400 });
   }
 
-  const contractId = process.env.NEXT_PUBLIC_PHALANX_CONTRACT_ID ?? "phalanx-v3d1.phalanxswarm.testnet";
+  const contractId = process.env.NEXT_PUBLIC_PHALANX_CONTRACT_ID ?? "phalanx-v3d4.phalanxswarm.testnet";
   const rpcUrl = process.env.NEXT_PUBLIC_NEAR_RPC_URL ?? "https://test.rpc.fastnear.com";
 
   try {

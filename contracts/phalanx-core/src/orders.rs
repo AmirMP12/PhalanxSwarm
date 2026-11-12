@@ -139,9 +139,14 @@ impl PhalanxCore {
             return;
         };
         let now = env::block_timestamp();
-        if order.status != OrderStatus::InProduction || order.task_id != Some(task.task_id) || now > order.deadline_ns.0 {
+        if order.status != OrderStatus::InProduction || order.task_id != Some(task.task_id) {
             return;
         }
+        // `award_task` clamps the execution deadline to this order's deadline, so a verified
+        // delivery can only land past it if that invariant is ever broken. Refuse loudly: the
+        // caller has already paid the worker from escrow, and silently returning here would leave
+        // the customer refundable for a delivery the treasury has paid for.
+        require!(now <= order.deadline_ns.0, "PHALANX_E_ORDER: delivery after the order deadline");
         let price = order.price.0;
         self.treasury.orders_escrow -= price;
         self.treasury.liquid += price;

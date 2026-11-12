@@ -1,7 +1,7 @@
 {
   "schema": "phalanx.injection-eval.v1",
   "checked_at": "2026-11-07T23:59:17.768Z",
-  "wasm_sha256": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895",
+  "wasm_sha256": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68",
   "model": {
     "source": "nearai",
     "name": "Qwen/Qwen3.8-27B"

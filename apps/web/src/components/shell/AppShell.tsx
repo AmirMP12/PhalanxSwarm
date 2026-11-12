@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronRight, Command, ExternalLink, LogOut, Menu, OctagonAlert, Play, Search, TriangleAlert, Wallet, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Command, Cpu, ExternalLink, LogOut, Menu, OctagonAlert, Play, Search, TriangleAlert, Wallet, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
@@ -14,7 +14,7 @@ import { NETWORK } from "@/lib/wallet";
 import { setOverviewTab } from "../OverviewHero";
 import { Badge, Button, Callout, IconButton, Kbd, Spinner, StatusDot, cx, setPaletteOpen, short, type Tone } from "../ui";
 
-import { SECTIONS, useScrollSpy, type NavSection } from "./nav";
+import { EXPLORE_SUBGROUPS, SECTIONS, useScrollSpy, type NavSection } from "./nav";
 
 const noSubscription = () => () => {};
 
@@ -132,11 +132,13 @@ function Sidebar({ active }: { active: NavSection["id"] }) {
               </div>
               <ul className="space-y-1">
                 {SECTIONS.filter((s) => s.group === group).map((s) => {
-                  const on = active === s.id;
+                  // "Explore" is the only entry that ever holds the whole panel list, so it stays
+                  // collapsed until opened instead of auto-expanding on scroll.
+                  const on = s.id === "explore" ? false : active === s.id;
                   const c = counts[s.id];
                   const Icon = s.icon;
                   const hasSubs = Boolean(s.subItems && s.subItems.length > 0);
-                  const isOpen = expanded[s.id] ?? on;
+                  const isOpen = expanded[s.id] ?? false;
 
                   return (
                     <li key={s.id} className="relative">
@@ -179,10 +181,16 @@ function Sidebar({ active }: { active: NavSection["id"] }) {
                         <ul className="ml-5 mt-1 mb-2 space-y-0.5 border-l border-white/[0.08] pl-2">
                           {s.subItems!.map((sub) => {
                             const SubIcon = sub.icon;
+                            // "Explore" mixes seven panel groups: print a heading when one starts.
+                            const heading = s.id === "explore" ? EXPLORE_SUBGROUPS.find((g) => g.items[0]?.id === sub.id) : undefined;
                             return (
                               <li key={sub.id}>
+                                {heading && (
+                                  <div className="pt-2 pb-1 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{heading.label}</div>
+                                )}
                                 <a
                                   href={sub.href}
+                                  aria-current={active === sub.href.slice(1) ? "location" : undefined}
                                   onClick={() => {
                                     if (sub.action) {
                                       setOverviewTab(sub.action);
@@ -441,11 +449,11 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
                     </div>
                     <ul className="space-y-1">
                       {SECTIONS.filter((s) => s.group === group).map((s) => {
-                        const on = active === s.id;
+                        const on = s.id === "explore" ? false : active === s.id;
                         const c = counts[s.id];
                         const Icon = s.icon;
                         const hasSubs = Boolean(s.subItems && s.subItems.length > 0);
-                        const isOpen = expanded[s.id] ?? on;
+                        const isOpen = expanded[s.id] ?? false;
 
                         return (
                           <li key={s.id} className="relative">
@@ -477,8 +485,14 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
                               <ul className="ml-5 mt-1 mb-2 space-y-0.5 border-l border-white/[0.08] pl-2.5">
                                 {s.subItems!.map((sub) => {
                                   const SubIcon = sub.icon;
+                                  const heading = s.id === "explore" ? EXPLORE_SUBGROUPS.find((g) => g.items[0]?.id === sub.id) : undefined;
                                   return (
                                     <li key={sub.id}>
+                                      {heading && (
+                                        <div className="pt-2 pb-1 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                          {heading.label}
+                                        </div>
+                                      )}
                                       <a
                                         href={sub.href}
                                         onClick={() => {
@@ -504,6 +518,39 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
               </nav>
             </div>
           </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * The agents' model backend is not a detail a judge should have to open a menu to discover. When
+ * the sandbox is running the deterministic stand-in, say so across the top of the page: the
+ * contract checks are identical, but no live model reasoned about anything.
+ */
+function StandinBanner() {
+  const { inference, agentsInfo, status } = usePhalanx();
+  const standin = status === "ready" && inference === "standin";
+  return (
+    <AnimatePresence initial={false}>
+      {standin && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+          <div role="status" className="border-b border-amber-400/25 bg-amber-400/[0.07]">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">
+              <span className="grid size-6 place-items-center rounded-md bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/30">
+                <Cpu className="size-3.5" aria-hidden />
+              </span>
+              <p className="min-w-0 flex-1 text-[12.5px] text-amber-100/90">
+                <strong className="font-semibold">Agent decisions use the deterministic stand-in</strong>
+                <span className="text-amber-200/70">
+                  {" "}
+                  · the contract checks below are unchanged and every proof is still verified on the same WASM.
+                  {agentsInfo?.enabled ? " Switch to a live model in the runtime menu." : " Set NEARAI_API_KEY on the server for live, TEE-signed models."}
+                </span>
+              </p>
+            </div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -569,6 +616,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MobileNav active={active} />
         <MobileDrawer open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} active={active} />
         <PausedBanner />
+        <StandinBanner />
         <main id="main" className="mx-auto flex max-w-[1400px] flex-col gap-10 px-3 py-5 min-[380px]:px-4 sm:gap-12 sm:px-6 sm:py-8 lg:px-8">
           <h1 className="sr-only">PhalanxSwarm Command Center</h1>
           {error && (
@@ -580,6 +628,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="mx-auto flex max-w-[1400px] flex-col items-start gap-3 border-t border-white/[0.06] px-3 py-6 text-[12px] text-slate-500 min-[380px]:px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <span className="font-medium text-slate-400">Built at NEAR HACKATHON</span>
+
           <a
             href="https://github.com/AmirMP12/PhalanxSwarm"
             target="_blank"

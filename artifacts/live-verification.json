@@ -6,13 +6,13 @@
       "section": "build",
       "name": "canonical WASM was built twice byte-identically",
       "passed": true,
-      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895"
+      "detail": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68"
     },
     {
       "section": "build",
       "name": "artifacts/phalanx_core.wasm is the canonical build",
       "passed": true,
-      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895"
+      "detail": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68"
     },
     {
       "section": "nearai",
@@ -36,7 +36,7 @@
       "section": "v2",
       "name": "deployed bytecode equals the canonical WASM",
       "passed": true,
-      "detail": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
     },
     {
       "section": "v2",
@@ -243,7 +243,7 @@
     "v1 checks validated from preserved testnet deployment evidence (RPC offline)",
     "economic checks validated from preserved testnet deployment evidence (RPC offline)"
   ],
-  "canonical_wasm_sha256": "7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895",
+  "canonical_wasm_sha256": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68",
   "nearai": {
     "gateway_status": "UpToDate",
     "gateway_source": "cached",

@@ -1912,39 +1912,131 @@ fn nep413_golden_vector_matches_typescript_sdk() {
 
 const FAKE_WASM: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
-#[test]
-fn owner_upgrade_deploys_new_code_and_runs_migrate_in_the_same_batch() {
-    let mut h = H::new();
+/// Propose the fake WASM with a one-hour delay and return it.
+fn propose_fake_upgrade(h: &mut H, delay_sec: u64) -> PendingUpgrade {
     h.owner_ctx(0);
-    drop(h.c.upgrade_contract(FAKE_WASM.to_vec().into(), Some(br#"{"from":"2.0.0"}"#.to_vec().into())));
+    h.c.propose_upgrade(fake_upgrade_hash(), FAKE_WASM.len() as u64, delay_sec)
+}
+
+fn fake_upgrade_hash() -> String {
+    to_hex(&near_sdk::env::sha256(&FAKE_WASM))
+}
+
+#[test]
+fn proposing_an_upgrade_starts_the_clock_without_deploying_anything() {
+    let mut h = H::new();
+    let pending = propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    assert_eq!(pending.code_len.0, FAKE_WASM.len() as u64);
+    assert_eq!(pending.code_hash, to_hex(&near_sdk::env::sha256(&FAKE_WASM)));
+    assert_eq!(pending.execute_after_ns.0, h.now + MIN_UPGRADE_DELAY_SEC * 1_000_000_000);
+    assert_eq!(h.c.get_pending_upgrade().as_ref(), Some(&pending));
+    assert!(get_created_receipts().is_empty(), "a proposal must not deploy code");
+    assert!(h.c.get_security_events(Some(5)).iter().any(|e| e.kind == "upgrade_proposed"));
+}
+
+#[test]
+fn the_announced_upgrade_deploys_once_the_delay_has_elapsed() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    h.now += MIN_UPGRADE_DELAY_SEC * 1_000_000_000;
+    h.owner_ctx(0);
+    drop(h.c.execute_upgrade(FAKE_WASM.to_vec().into()));
     let batch = get_created_receipts()
         .into_iter()
         .find(|r| r.receiver_id == contract())
         .expect("upgrade receipt on the contract account");
     assert!(batch.actions.iter().any(|a| matches!(a, MockAction::DeployContract { code, .. } if code.as_slice() == FAKE_WASM)));
-    assert!(batch
-        .actions
-        .iter()
-        .any(|a| matches!(a, MockAction::FunctionCallWeight { method_name, .. } if method_name == b"migrate")));
     assert!(h.c.get_security_events(Some(5)).iter().any(|e| e.kind == "contract_upgraded"));
+    assert_eq!(h.c.get_pending_upgrade(), None, "a spent proposal cannot be replayed");
+}
+
+#[test]
+#[should_panic(expected = "PHALANX_E_UPGRADE: the upgrade delay has not elapsed")]
+fn an_upgrade_cannot_execute_before_its_delay() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    h.now += MIN_UPGRADE_DELAY_SEC * 1_000_000_000 - 1;
+    h.owner_ctx(0);
+    drop(h.c.execute_upgrade(FAKE_WASM.to_vec().into()));
+}
+
+#[test]
+#[should_panic(expected = "PHALANX_E_UPGRADE: code hash differs from the proposal")]
+fn a_proposal_cannot_be_cashed_in_for_different_bytecode() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    h.now += MIN_UPGRADE_DELAY_SEC * 1_000_000_000;
+    h.owner_ctx(0);
+    // Same length, different bytes: the hash check is the only thing standing between a reviewed
+    // proposal and unreviewed code.
+    let mut other = FAKE_WASM;
+    other[7] = 0xff;
+    drop(h.c.execute_upgrade(other.to_vec().into()));
+}
+
+#[test]
+#[should_panic(expected = "PHALANX_E_UPGRADE: nothing proposed")]
+fn executing_without_a_proposal_panics() {
+    let mut h = H::new();
+    h.owner_ctx(0);
+    drop(h.c.execute_upgrade(FAKE_WASM.to_vec().into()));
+}
+
+#[test]
+fn a_new_proposal_replaces_the_pending_one_and_restarts_the_clock() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    let first = h.c.get_pending_upgrade().unwrap();
+    h.now += 600 * 1_000_000_000;
+    h.owner_ctx(0);
+    let other: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x01];
+    let second = h.c.propose_upgrade(to_hex(&near_sdk::env::sha256(&other)), other.len() as u64, MIN_UPGRADE_DELAY_SEC);
+    assert_ne!(second.code_hash, first.code_hash);
+    assert_eq!(h.c.get_pending_upgrade().unwrap(), second);
+}
+
+#[test]
+fn the_owner_can_cancel_a_pending_upgrade() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    h.c.cancel_upgrade();
+    assert_eq!(h.c.get_pending_upgrade(), None);
+    assert!(h.c.get_security_events(Some(5)).iter().any(|e| e.kind == "upgrade_cancelled"));
+}
+
+#[test]
+#[should_panic(expected = "PHALANX_E_UPGRADE: delay_sec must be 3600..=2592000")]
+fn an_upgrade_delay_below_the_minimum_is_refused() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC - 1);
 }
 
 #[test]
 #[should_panic(expected = "PHALANX_E_OWNER_ONLY")]
-fn non_owner_cannot_upgrade_the_contract() {
+fn non_owner_cannot_propose_an_upgrade() {
     let mut h = H::new();
     h.account_ctx(&acc("attacker.testnet"), 0);
-    drop(h.c.upgrade_contract(FAKE_WASM.to_vec().into(), None));
+    h.c.propose_upgrade(fake_upgrade_hash(), FAKE_WASM.len() as u64, MIN_UPGRADE_DELAY_SEC);
 }
 
 #[test]
 #[should_panic(expected = "PHALANX_E_OWNER_ONLY")]
-fn agent_key_cannot_upgrade_a_self_owned_contract() {
+fn non_owner_cannot_execute_a_proposed_upgrade() {
+    let mut h = H::new();
+    propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
+    h.now += MIN_UPGRADE_DELAY_SEC * 1_000_000_000;
+    h.account_ctx(&acc("attacker.testnet"), 0);
+    drop(h.c.execute_upgrade(FAKE_WASM.to_vec().into()));
+}
+
+#[test]
+#[should_panic(expected = "PHALANX_E_OWNER_ONLY")]
+fn agent_key_cannot_propose_an_upgrade_of_a_self_owned_contract() {
     let mut h = H::with_owner(contract());
     h.fund(10, 0);
     let rogue = h.spawn("mallory-rogue-worker", AgentRole::ComputeWorker, SpawnMode::ContractKey, 67);
     h.agent_ctx(&rogue);
-    drop(h.c.upgrade_contract(FAKE_WASM.to_vec().into(), None));
+    h.c.propose_upgrade(fake_upgrade_hash(), FAKE_WASM.len() as u64, MIN_UPGRADE_DELAY_SEC);
 }
 
 const GOLDEN_NEP413_HASH: &str = "74ab5a206c06eca4460d3950e95cf7983230bff8a7717dfbb8c5a75a438bf615";
@@ -2690,6 +2782,67 @@ fn a_missed_deadline_reopens_the_order_and_an_undelivered_order_is_refunded() {
     assert_eq!((t.orders_escrow.0, t.total_revenue.0), (0, 0));
 }
 
+/// End-to-end conservation with a short product: the treasury must never both pay a worker and
+/// refund a customer for the same order. `a_task_awarded_for_an_order_never_outlives_the_orders_deadline`
+/// covers the clamp in isolation; this asserts the money.
+#[test]
+fn a_short_product_never_pays_a_worker_and_refunds_the_customer_for_the_same_order() {
+    let mut h = H::new();
+    h.fund(100, 0);
+    h.register_enclave();
+    h.register_nearai_model();
+    let mut policy = h.c.get_global_policy();
+    policy.products = vec![Product {
+        product_id: PRODUCT.into(),
+        title: "Confidential GPU procurement plan".into(),
+        price: U128(near(10)),
+        delivery_sec: 60,
+        max_cost_bps: 8_000,
+    }];
+    h.owner_ctx(0);
+    h.c.update_global_policy(policy, None);
+    let nexus = h.spawn("nexus-orchestrator", AgentRole::Orchestrator, SpawnMode::SubAccount, 1);
+    let cipher = h.spawn("cipher-compute-worker", AgentRole::ComputeWorker, SpawnMode::SubAccount, 2);
+    h.account_ctx(&customer(), near(10));
+    let order_id = h.c.place_order(PRODUCT.into(), sha_hex(SPEC_TEXT)).order_id;
+    let order_deadline = h.c.get_order(order_id).unwrap().deadline_ns.0;
+
+    let mut rfp = h.rfp(AuctionKind::SealedBid, near(8));
+    rfp.order_id = Some(order_id);
+    h.agent_ctx(&nexus);
+    let posted = h.c.post_task_rfp(rfp);
+    let task_id = posted.task.unwrap().task_id;
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(
+        task_id,
+        BidAction::Commit { commitment: bid_commitment(task_id.0, cipher.id.as_str(), near(6), 300, "salt-short-e2e") },
+    );
+    h.advance(601);
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(task_id, BidAction::Reveal { price: U128(near(6)), est_latency_sec: 300, salt: "salt-short-e2e".into() });
+    h.agent_ctx(&nexus);
+    let task = h.c.close_auction(task_id);
+
+    // Whatever the auction decided, the two outcome spaces are disjoint.
+    if task.status == TaskStatus::Awarded {
+        assert!(task.execution_deadline_ns.0 <= order_deadline, "an awarded task may never outlive its order's refund deadline");
+    }
+
+    // Drive past the order deadline and let anyone reclaim.
+    h.advance(61);
+    let before_refund = h.c.get_treasury();
+    h.account_ctx(&acc("keeper.testnet"), 0);
+    let after_refund = h.c.refund_order(order_id);
+
+    if after_refund.status == OrderStatus::Refunding {
+        // Refunded: no worker may have been paid for this order.
+        assert_eq!(after_refund.status, OrderStatus::Refunding);
+        assert_eq!(h.c.get_agent(cipher.id.clone()).unwrap().balance.0, 0, "a refunded order must not also have paid the worker");
+        let t = h.c.get_treasury();
+        assert_eq!(t.orders_escrow.0 + near(10), before_refund.orders_escrow.0, "the price leaves order escrow once");
+    }
+}
+
 #[test]
 #[should_panic(expected = "PHALANX_E_ORDER: budget exceeds the product's cost share")]
 fn an_order_cannot_be_procured_at_a_loss() {
@@ -2717,6 +2870,112 @@ fn an_order_cannot_be_refunded_before_its_deadline() {
     let (_nexus, _cipher, order_id) = ordered(&mut h);
     h.account_ctx(&customer(), 0);
     h.c.refund_order(order_id);
+}
+
+/// Regression: a short product lets the execution window outlive the order's refund deadline.
+/// The winner used to be paid from escrow while `deliver_order` silently declined the delivery, and
+/// the customer was then refunded in full — the treasury absorbing the payout. `award_task` now
+/// clamps the execution deadline to the order's deadline, so delivery and refund cannot both land.
+#[test]
+fn a_task_awarded_for_an_order_never_outlives_the_orders_deadline() {
+    let mut h = H::new();
+    h.fund(100, 0);
+    h.register_enclave();
+    h.register_nearai_model();
+    let mut policy = h.c.get_global_policy();
+    policy.products = vec![Product {
+        product_id: PRODUCT.into(),
+        title: "Confidential GPU procurement plan".into(),
+        price: U128(near(10)),
+        // Longer than the auction (600 s bidding + 600 s reveal) but shorter than the 1 200 s
+        // execution window the bid promises, so the clamp is what keeps the two in step.
+        delivery_sec: 1_800,
+        max_cost_bps: 8_000,
+    }];
+    h.owner_ctx(0);
+    h.c.update_global_policy(policy, None);
+    let nexus = h.spawn("nexus-orchestrator", AgentRole::Orchestrator, SpawnMode::SubAccount, 1);
+    let cipher = h.spawn("cipher-compute-worker", AgentRole::ComputeWorker, SpawnMode::SubAccount, 2);
+    h.account_ctx(&customer(), near(10));
+    let order_id = h.c.place_order(PRODUCT.into(), sha_hex(SPEC_TEXT)).order_id;
+    let order_deadline = h.c.get_order(order_id).unwrap().deadline_ns.0;
+
+    let mut rfp = h.rfp(AuctionKind::SealedBid, near(8));
+    rfp.order_id = Some(order_id);
+    rfp.execution_window_sec = 3_600;
+    h.agent_ctx(&nexus);
+    let task_id = h.c.post_task_rfp(rfp).task.unwrap().task_id;
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(
+        task_id,
+        BidAction::Commit { commitment: bid_commitment(task_id.0, cipher.id.as_str(), near(6), 3_000, "salt-short") },
+    );
+    h.advance(601);
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(task_id, BidAction::Reveal { price: U128(near(6)), est_latency_sec: 3_000, salt: "salt-short".into() });
+    h.agent_ctx(&nexus);
+    h.c.close_auction(task_id);
+
+    let task = h.c.get_task(task_id).unwrap().task;
+    assert_eq!(task.status, TaskStatus::Awarded, "a 3 000 s bid on an 1 800 s order is still awardable");
+    assert_eq!(task.winning_latency_sec, Some(3_000), "the bid's own terms are still recorded");
+    assert!(
+        task.execution_deadline_ns.0 <= order_deadline,
+        "task deadline {} must not outlive the order deadline {}",
+        task.execution_deadline_ns.0,
+        order_deadline
+    );
+    assert_eq!(task.execution_deadline_ns.0, order_deadline, "the execution window is clamped to the order's deadline");
+}
+
+/// The other side of the regression: with no time left to deliver, the auction awards nobody and
+/// returns the budget instead of locking escrow for work that can no longer be delivered.
+#[test]
+fn an_auction_whose_order_expired_awards_nobody_and_refunds_the_budget() {
+    let mut h = H::new();
+    h.fund(100, 0);
+    h.register_enclave();
+    h.register_nearai_model();
+    let mut policy = h.c.get_global_policy();
+    policy.products = vec![Product {
+        product_id: PRODUCT.into(),
+        title: "Confidential GPU procurement plan".into(),
+        price: U128(near(10)),
+        delivery_sec: 60,
+        max_cost_bps: 8_000,
+    }];
+    h.owner_ctx(0);
+    h.c.update_global_policy(policy, None);
+    let nexus = h.spawn("nexus-orchestrator", AgentRole::Orchestrator, SpawnMode::SubAccount, 1);
+    let cipher = h.spawn("cipher-compute-worker", AgentRole::ComputeWorker, SpawnMode::SubAccount, 2);
+    h.account_ctx(&customer(), near(10));
+    let order_id = h.c.place_order(PRODUCT.into(), sha_hex(SPEC_TEXT)).order_id;
+
+    let mut rfp = h.rfp(AuctionKind::SealedBid, near(8));
+    rfp.order_id = Some(order_id);
+    h.agent_ctx(&nexus);
+    let task_id = h.c.post_task_rfp(rfp).task.unwrap().task_id;
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(
+        task_id,
+        BidAction::Commit { commitment: bid_commitment(task_id.0, cipher.id.as_str(), near(6), 300, "salt-late") },
+    );
+    h.advance(601);
+    h.agent_ctx(&cipher);
+    h.c.submit_bid(task_id, BidAction::Reveal { price: U128(near(6)), est_latency_sec: 300, salt: "salt-late".into() });
+    // Outlive the customer's 60 s delivery deadline before the auction closes.
+    h.advance(60);
+    let before = h.c.get_treasury();
+    h.agent_ctx(&nexus);
+    let closed = h.c.close_auction(task_id);
+
+    assert_eq!(closed.status, TaskStatus::Expired, "nothing may be awarded once the order cannot be delivered");
+    assert_eq!(closed.winner, None);
+    let after = h.c.get_treasury();
+    assert_eq!(after.escrow_locked.0, before.escrow_locked.0, "no escrow may be locked for an undeliverable order");
+    assert_eq!(after.reserved_for_tasks.0, before.reserved_for_tasks.0 - near(8), "the budget returns to liquidity");
+    assert_eq!(after.liquid.0, before.liquid.0 + near(8));
+    assert_eq!(h.c.get_order(order_id).unwrap().status, OrderStatus::Paid, "the order reopens for procurement");
 }
 
 #[test]

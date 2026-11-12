@@ -205,6 +205,8 @@ const FALLBACK_MODEL = process.env.PHALANX_FALLBACK_MODEL ?? "deepseek-ai/DeepSe
 /** Every NEAR AI model the swarm may use; each one's attested key is registered at setup. */
 const liveModels: NearAiBackend[] = [];
 const EVM_VALUE_WEI = 10n ** 14n;
+/** The shortest delay the contract accepts; the run has to wait it out once. */
+const MIN_UPGRADE_DELAY_SEC = 3_600;
 /** `basesepolia` (test ETH, default) or `base` (real ETH: the treasury address must be funded first, e.g. with pnpm oneclick:fund). */
 const EVM_CHAIN = process.env.PHALANX_EVM_CHAIN ?? "basesepolia";
 if (EVM_CHAIN !== "basesepolia" && EVM_CHAIN !== "base") throw new Error("PHALANX_EVM_CHAIN must be basesepolia or base");
@@ -320,6 +322,8 @@ const evidence = {
     }>;
     reputation_bps: Record<string, number>;
   } | null,
+  /** v3.1: the DAO proposes an upgrade hash, waits out the delay, then executes it. */
+  upgrade: null as { code_hash: string; proposed_tx: string; deployed_tx: string } | null,
   /** v3: a customer buys a plan; the first winner misses its deadline, the order reopens, a second auction delivers it. */
   order: null as {
     order_id: string;
@@ -819,6 +823,35 @@ async function main() {
 
   if (cfg.daoFactory) {
     must("transfer_ownership", await send(funderAccount, contractId, [call("transfer_ownership", { new_owner_id: daoId }, 30n)]));
+  }
+
+  // Prove the upgrade path end to end on the live contract: the DAO publishes only a hash, the
+  // clock runs, an early execute is refused, and the deployment goes through from that same hash.
+  // The build was already deployed at step 1, so re-deploying these exact bytes changes nothing
+  // and keeps the deployed code hash equal to the artifact.
+  if (!evidence.upgrade) {
+    const codeLen = wasm.length;
+    const proposedAfter = Date.now() + MIN_UPGRADE_DELAY_SEC * 1_000;
+    await ownerCall(
+      "upgrade_propose",
+      "propose_upgrade",
+      { code_hash: wasmSha, code_len: codeLen, delay_sec: MIN_UPGRADE_DELAY_SEC },
+      "Propose the v3.1 upgrade: publish the WASM hash for review",
+    );
+    const pending = await viewC<{ code_hash: string } | null>("get_pending_upgrade", {});
+    if (pending?.code_hash !== wasmSha) throw new Error("get_pending_upgrade does not report the proposed hash");
+    const early = await send(funderAccount, contractId, [call("execute_upgrade", { code: wasm }, 300n)]);
+    if (early.ok || !/upgrade delay has not elapsed/.test(early.error ?? "")) {
+      throw new Error(`an upgrade executed before its delay (ok=${early.ok}, ${early.error ?? "no error"})`);
+    }
+    const waitMs = Math.max(0, proposedAfter - Date.now()) + 3_000;
+    console.log(`  waiting ${Math.round(waitMs / 1000)}s for the upgrade delay…`);
+    await new Promise((r) => setTimeout(r, waitMs));
+    await ownerCall("upgrade_execute", "execute_upgrade", { code: wasm }, "Execute the reviewed upgrade");
+    const stillPending = await viewC("get_pending_upgrade", {});
+    if (stillPending !== null) throw new Error("the upgrade is still pending after execute_upgrade");
+    const txHash = (name: string) => evidence.transactions[`${name}_approved`]?.hash ?? evidence.transactions[name]?.hash ?? "—";
+    evidence.upgrade = { code_hash: wasmSha, proposed_tx: txHash("upgrade_propose"), deployed_tx: txHash("upgrade_execute") };
   }
 
   const { nexus, cipher, vega, orion, sentinel, rhea, mallory } = agents;

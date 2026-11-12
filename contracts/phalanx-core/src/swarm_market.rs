@@ -285,14 +285,36 @@ impl PhalanxCore {
         self.tasks.get(&task_id).cloned().unwrap_or_else(|| env::panic_str("PHALANX_E_UNKNOWN_TASK"))
     }
 
-    fn award_task(&mut self, task: &mut TaskRfp, winner: &AgentRecord, price: u128, score: Option<u32>, latency_sec: u32) {
+    /// Awards a task and locks its escrow. Returns `false` without touching the ledger when the
+    /// task procures a customer order that has no delivery time left: awarding it would take the
+    /// worker's money for work that can no longer be delivered, because `deliver_order` refuses a
+    /// delivery past the order's deadline while `refund_order` returns the price to the customer.
+    /// The caller must release the budget instead.
+    fn award_task(
+        &mut self,
+        task: &mut TaskRfp,
+        winner: &AgentRecord,
+        price: u128,
+        score: Option<u32>,
+        latency_sec: u32,
+    ) -> bool {
         let ceiling = task.budget_ceiling.0;
         let now = env::block_timestamp();
+        // A task that procures an order may never outlive that order. Clamping the execution window
+        // keeps a verified delivery and the customer's refund mutually exclusive.
+        let mut execution_sec = u64::from(latency_sec).clamp(MIN_EXECUTION_SEC, task.execution_window_sec.max(MIN_EXECUTION_SEC));
+        if let Some(order_id) = task.order_id {
+            let order = self.order_or_panic(order_id.0);
+            let remaining_sec = order.deadline_ns.0.saturating_sub(now) / NS;
+            if remaining_sec == 0 {
+                return false;
+            }
+            execution_sec = execution_sec.min(remaining_sec);
+        }
         self.treasury.reserved_for_tasks =
             self.treasury.reserved_for_tasks.checked_sub(ceiling).unwrap_or_else(|| env::panic_str("PHALANX_E_LEDGER"));
         self.treasury.escrow_locked += price;
         self.treasury.liquid += ceiling - price;
-        let execution_sec = u64::from(latency_sec).clamp(MIN_EXECUTION_SEC, task.execution_window_sec.max(MIN_EXECUTION_SEC));
         task.status = TaskStatus::Awarded;
         task.winner = Some(winner.agent_id.clone());
         task.winning_price = Some(U128(price));
@@ -316,6 +338,7 @@ impl PhalanxCore {
         }
         .emit();
         PhalanxEvent::EscrowLocked { task_id: task.task_id, payee: winner.agent_id.clone(), amount: U128(price) }.emit();
+        true
     }
 
     fn refund_escrow(&mut self, task_id: u64) -> u128 {
@@ -572,7 +595,11 @@ impl PhalanxCore {
                 task.revealed_count += 1;
                 PhalanxEvent::BidSubmitted { task_id, agent_id: agent.agent_id.clone(), phase: "accept_dutch".to_string() }
                     .emit();
-                self.award_task(&mut task, &agent, price, Some(score), est_latency_sec);
+                if !self.award_task(&mut task, &agent, price, Some(score), est_latency_sec) {
+                    // The order behind this task can no longer be delivered. Revert the accept: the
+                    // task stays open, and `expire_task` releases its budget at the bidding deadline.
+                    env::panic_str("PHALANX_E_ORDER: the delivery deadline has passed");
+                }
                 bid
             }
         };
@@ -634,7 +661,21 @@ impl PhalanxCore {
         match best {
             Some((bid, score, price, latency)) => {
                 let winner = self.agent_or_panic(&bid.agent_id);
-                self.award_task(&mut task, &winner, price, Some(score), latency);
+                if !self.award_task(&mut task, &winner, price, Some(score), latency) {
+                    // The order's delivery deadline passed while the auction ran: award nothing and
+                    // return the budget. Paying a winner here would strand the customer's price.
+                    let refunded = self.release_budget(&task);
+                    task.status = TaskStatus::Expired;
+                    task.winner = None;
+                    self.reopen_order(&task);
+                    PhalanxEvent::AuctionClosed { task_id, winner: None, winning_price: None, score_bps: None }.emit();
+                    PhalanxEvent::TaskClosedWithoutSettlement {
+                        task_id,
+                        status: "expired".to_string(),
+                        refunded: U128(refunded),
+                    }
+                    .emit();
+                }
             }
             None => {
                 let refunded = self.release_budget(&task);

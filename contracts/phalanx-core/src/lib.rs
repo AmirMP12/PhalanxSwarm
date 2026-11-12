@@ -40,7 +40,7 @@ pub mod swarm_market;
 mod tests;
 
 use attestation::{AttestationRecord, EnclaveRecord};
-use codec::is_safe_ascii;
+use codec::{is_lower_hash32_hex, is_safe_ascii};
 use events::{PayoutLeg, PhalanxEvent};
 use evm::{EvmNonceState, EvmSpend, EvmTxRecord};
 use intents::IntentRecord;
@@ -58,6 +58,17 @@ pub const SECURITY_EVENT_CAPACITY: u32 = 128;
 pub const MAX_PAGE: u32 = 50;
 pub const CONTRACT_VERSION: &str = "3.0.0";
 pub const MAX_REVENUE_SPLITS: usize = 8;
+/// Storage key of the single pending (proposed) upgrade. It lives outside the borsh `contract_state`
+/// on purpose: adding a field to `PhalanxCore` would force a migration on the live contract, and
+/// the whole point of the timelock is that the code which *can* migrate is reviewed before it runs.
+pub(crate) const PENDING_UPGRADE_KEY: &[u8] = b"phalanx:pending_upgrade:v1";
+/// Shortest delay between `propose_upgrade` and `execute_upgrade`.
+pub const MIN_UPGRADE_DELAY_SEC: u64 = 3_600;
+/// Longest delay the owner may propose.
+pub const MAX_UPGRADE_DELAY_SEC: u64 = 30 * 24 * 3_600;
+/// The upgrade timelock as a view, so the web UI can show it without reading storage.
+pub const UPGRADE_TIMELOCK_DELAY_SEC: u64 = 86_400;
+const NS_PER_SEC: u64 = 1_000_000_000;
 
 #[near(serializers = [borsh])]
 #[derive(BorshStorageKey)]
@@ -225,6 +236,19 @@ pub struct ContractInfo {
     pub event_standard: String,
     pub event_version: String,
     pub nep413_recipient: AccountId,
+}
+
+/// An announced contract upgrade, waiting out its timelock.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PendingUpgrade {
+    /// Hex sha256 of the announced WASM. Compare it with a local reproducible build.
+    pub code_hash: String,
+    pub code_len: U64,
+    pub proposed_at_ns: U64,
+    /// The earliest block timestamp `execute_upgrade` accepts.
+    pub execute_after_ns: U64,
+    pub proposer: AccountId,
 }
 
 /// Everything the command-center UI renders, in one view call.
@@ -625,28 +649,100 @@ impl PhalanxCore {
         self.record_security_event("ownership_transferred", None, Severity::Notice, vec![], detail);
     }
 
-    /// Upgrades the contract bytecode. Owner-only (SputnikDAO / Trezu multisig).
+    /// Step one of an upgrade: announce the bytecode hash and start the clock. Owner-only.
     ///
-    /// Deploys new WASM bytecode to the contract account via a Promise batch and
-    /// optionally calls `migrate()` with provided arguments in the same transaction.
-    pub fn upgrade_contract(&mut self, code: Base64VecU8, migrate_args: Option<Base64VecU8>) -> Promise {
+    /// Only the hash is sent and stored, never the bytecode: a DAO owner would otherwise have to
+    /// upload a ~1.3 MB WASM to its proposal, and then a second time to execute. The hash is the
+    /// thing reviewers compare with a local reproducible build, and `execute_upgrade` refuses
+    /// anything that does not hash to it. A new proposal replaces the pending one and restarts the
+    /// clock, so a reviewer can never be looking at a hash that is about to change.
+    pub fn propose_upgrade(&mut self, code_hash: String, code_len: u64, delay_sec: u64) -> PendingUpgrade {
         self.assert_owner();
-        require!(!code.0.is_empty(), "PHALANX_E_UPGRADE: code must not be empty");
-        let current = env::current_account_id();
-        let promise = Promise::new(current).deploy_contract(code.0);
+        require!(is_lower_hash32_hex(&code_hash), "PHALANX_E_UPGRADE: code_hash must be 32-byte lower-case hex");
+        require!(code_len > 0, "PHALANX_E_UPGRADE: code_len must be > 0");
+        require!(
+            (MIN_UPGRADE_DELAY_SEC..=MAX_UPGRADE_DELAY_SEC).contains(&delay_sec),
+            "PHALANX_E_UPGRADE: delay_sec must be 3600..=2592000"
+        );
+        let now = env::block_timestamp();
+        let pending = PendingUpgrade {
+            code_hash,
+            code_len: U64(code_len),
+            proposed_at_ns: U64(now),
+            execute_after_ns: U64(now + delay_sec * NS_PER_SEC),
+            proposer: env::predecessor_account_id(),
+        };
+        env::storage_write(PENDING_UPGRADE_KEY, &near_sdk::borsh::to_vec(&pending).unwrap_or_default());
+        PhalanxEvent::PolicyUpdated { scope: "upgrade_proposed".to_string() }.emit();
+        self.record_security_event(
+            "upgrade_proposed",
+            None,
+            Severity::Notice,
+            vec![],
+            format!("upgrade {} proposed, executable after {} ns", pending.code_hash, pending.execute_after_ns.0),
+        );
+        pending
+    }
+
+    /// Step two: deploy the exact bytecode `propose_upgrade` announced, once the delay has passed.
+    ///
+    /// The caller re-supplies the code, and it must hash to the announced value: a proposal for
+    /// reviewed bytes cannot be cashed in for different bytes. The pending entry is cleared before
+    /// any promise is built, so a deployment that fails cannot be replayed.
+    pub fn execute_upgrade(&mut self, code: Base64VecU8) -> Promise {
+        self.assert_owner();
+        let pending = self.get_pending_upgrade().unwrap_or_else(|| env::panic_str("PHALANX_E_UPGRADE: nothing proposed"));
+        require!(code.0.len() as u64 == pending.code_len.0, "PHALANX_E_UPGRADE: code length differs from the proposal");
+        let hash = codec::to_hex(&env::sha256(&code.0));
+        require!(hash == pending.code_hash, "PHALANX_E_UPGRADE: code hash differs from the proposal");
+        require!(env::block_timestamp() >= pending.execute_after_ns.0, "PHALANX_E_UPGRADE: the upgrade delay has not elapsed");
+        env::storage_remove(PENDING_UPGRADE_KEY);
         PhalanxEvent::PolicyUpdated { scope: "contract_upgraded".to_string() }.emit();
         self.record_security_event(
             "contract_upgraded",
             None,
             Severity::Notice,
             vec![],
-            format!("contract bytecode upgraded by owner {}", self.owner_id),
+            format!("contract bytecode upgraded to {} by owner {}", hash, self.owner_id),
         );
-        if let Some(args) = migrate_args {
-            promise.function_call("migrate".to_string(), args.0, NearToken::from_yoctonear(0), Gas::from_tgas(30))
-        } else {
-            promise
-        }
+        // Deploy, then run the new code's migration hook in the same batch. `migrate` is
+        // `#[init(ignore_state)]` and `#[private]`, so this very promise is the only thing that
+        // can call it. A migrate that fails is a separate receipt and does not undo the deploy.
+        Promise::new(env::current_account_id()).deploy_contract(code.0).function_call(
+            "migrate".to_string(),
+            Vec::new(),
+            NearToken::from_yoctonear(0),
+            Gas::from_tgas(30),
+        )
+    }
+
+    /// Withdraw a pending upgrade (owner). Nothing is deployed.
+    pub fn cancel_upgrade(&mut self) {
+        self.assert_owner();
+        let pending = self.get_pending_upgrade().unwrap_or_else(|| env::panic_str("PHALANX_E_UPGRADE: nothing proposed"));
+        env::storage_remove(PENDING_UPGRADE_KEY);
+        PhalanxEvent::PolicyUpdated { scope: "upgrade_cancelled".to_string() }.emit();
+        self.record_security_event(
+            "upgrade_cancelled",
+            None,
+            Severity::Notice,
+            vec![],
+            format!("upgrade {} cancelled by owner {}", pending.code_hash, self.owner_id),
+        );
+    }
+
+    /// Re-initialises storage after a layout change. `#[init(ignore_state)]`: it runs instead of the
+    /// constructor, and only the contract account itself can call it (the `deploy_contract` promise
+    /// in `execute_upgrade`), so an outsider cannot re-initialise the state.
+    ///
+    /// This contract has no migration to perform today: `PENDING_UPGRADE_KEY` sits outside the borsh
+    /// state, so adding the timelock did not change the layout. The method exists because
+    /// `#[contract_state]` refuses to deserialise state written by an older layout, and a future
+    /// upgrade that does change it needs exactly this entry point.
+    #[init(ignore_state)]
+    #[private]
+    pub fn migrate() -> Self {
+        env::state_read().unwrap_or_else(|| env::panic_str("PHALANX_E_MIGRATE: state is not readable"))
     }
 
     // Views
@@ -678,6 +774,26 @@ impl PhalanxCore {
         (0..len).rev().take(limit).filter_map(|i| self.distributions.get(i).cloned()).collect()
     }
 
+    /// The pending timelocked upgrade, or `null`. Anyone can read it: publishing the hash is the
+    /// point, so reviewers have the whole delay to compare it with a local build.
+    pub fn get_pending_upgrade(&self) -> Option<PendingUpgrade> {
+        env::storage_read(PENDING_UPGRADE_KEY).and_then(|raw| near_sdk::borsh::from_slice(&raw).ok())
+    }
+
+    /// One aggregate call for the UI. Every list is bounded, so the call stays inside a single
+    /// receipt's gas budget however much history the contract accumulates:
+    ///
+    /// | field               | bound |
+    /// |---------------------|-------|
+    /// | `agents`            | every registered agent; the protocol caps registration, and 32 agents serialise to far less than 1 Tgas |
+    /// | `tasks`, `intents`, `attestations`, `evm_txs`, `orders` | newest 20 |
+    /// | `security_events`   | newest 40 (the log itself is a 128-slot ring) |
+    /// | `distributions`     | newest 10 |
+    /// | `blocked_recipients`| `MAX_PAGE` = 50 |
+    ///
+    /// `agents` is the one unbounded list. It is bounded in practice by the deposit each
+    /// `register_and_spawn_agent` / `spawn_agent` call must cover, not by a constant; a deployment
+    /// that ever exceeds a few hundred agents should page it (`list_agents` is not paged today).
     pub fn get_dashboard(&self) -> Dashboard {
         Dashboard {
             info: self.info(),

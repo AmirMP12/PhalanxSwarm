@@ -34,7 +34,7 @@ pnpm install
 pnpm build:contract
 ```
 
-The build writes `contracts/phalanx-core/target/wasm32-unknown-unknown/release/phalanx_core.wasm`. To reproduce the byte-identical artifact the testnet deployment runs (sha256 `7c37d8ef728c54b62259e3a44ec4be0028322d453e750ba6d09705964d7f1895`), use the digest-pinned Docker build instead:
+The build writes `contracts/phalanx-core/target/wasm32-unknown-unknown/release/phalanx_core.wasm`. To reproduce the byte-identical artifact the testnet deployment runs (sha256 `6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68`), use the digest-pinned Docker build instead:
 
 ```bash
 pnpm verify:reproducible
@@ -386,7 +386,7 @@ Eleven steps against the compiled WASM in PhalanxSim, the in-process NEAR VM, en
 pnpm dev
 ```
 
-Open http://localhost:3000. The command center runs the same WASM in the browser, so every panel is live without a deployment. The "Live on NEAR testnet" section reads `phalanx-v3d1.phalanxswarm.testnet` over public RPC.
+Open http://localhost:3000. The command center runs the same WASM in the browser, so every panel is live without a deployment. The "Live on NEAR testnet" section reads `phalanx-v3d4.phalanxswarm.testnet` over public RPC.
 
 ---
 

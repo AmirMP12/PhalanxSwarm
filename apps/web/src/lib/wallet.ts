@@ -14,7 +14,7 @@ type FinalExecutionOutcome = Awaited<ReturnType<NearWalletBase["signAndSendTrans
 export { NETWORK };
 
 /** The DAO-owned v3.0.0 deployment recorded in artifacts/testnet-swarm.json. */
-const VERIFIED_TESTNET_CONTRACT_ID = "phalanx-v3d1.phalanxswarm.testnet";
+const VERIFIED_TESTNET_CONTRACT_ID = "phalanx-v3d4.phalanxswarm.testnet";
 export const TESTNET_CONTRACT_ID = process.env.NEXT_PUBLIC_PHALANX_CONTRACT_ID ?? VERIFIED_TESTNET_CONTRACT_ID;
 
 let connectorPromise: Promise<NearConnector> | null = null;

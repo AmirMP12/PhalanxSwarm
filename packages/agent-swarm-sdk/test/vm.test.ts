@@ -100,6 +100,23 @@ describe("PhalanxSim NEAR VM", () => {
     expect(retry.error).toMatch(/InvalidAccessKeyError/);
   });
 
+  it("meters gas per host call instead of reporting a flat estimate", async () => {
+    // A cheap view and an expensive one must not report the same number: that is what tells a
+    // reader the meter is live rather than a constant. nearcore charges per instruction, which a
+    // JS host cannot see, so PhalanxSim charges per host call and enforces the prepaid ceiling.
+    await rt.vm.view(ACCOUNTS.contract, "contract_info", {});
+    const cheap = rt.vm.lastViewGas();
+    await rt.vm.view(ACCOUNTS.contract, "get_treasury", {});
+    const treasury = rt.vm.lastViewGas();
+    await rt.vm.view(ACCOUNTS.contract, "get_dashboard", {});
+    const dashboard = rt.vm.lastViewGas();
+
+    expect(cheap).toBeGreaterThan(0n);
+    expect(dashboard).toBeGreaterThan(cheap);
+    expect(dashboard).toBeGreaterThan(treasury);
+    expect(dashboard).toBeLessThan(300n * 10n ** 12n); // a real view fits in one receipt's budget
+  });
+
   it("enforces storage staking (contract balance must cover its bytes)", () => {
     const usage = rt.vm.storageUsage(ACCOUNTS.contract);
     expect(usage).toBeGreaterThan(600_000n);

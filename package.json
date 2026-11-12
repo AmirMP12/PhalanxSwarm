@@ -2,7 +2,7 @@
   "name": "phalanx-swarm",
   "version": "0.1.0",
   "private": true,
-  "description": "PhalanxSwarm Protocol: policy-enforced autonomous agent treasury, swarm bidding market and NEAR Intents / Chain Signatures settlement on NEAR",
+  "description": "PhalanxSwarm: TEE-verified AI agent treasury with on-chain policy enforcement, swarm coordination markets, and cross-chain settlement via NEAR Chain Signatures",
   "license": "MIT",
   "packageManager": "pnpm@10.17.1",
   "engines": {
@@ -38,6 +38,7 @@
     "testnet:smoke": "tsx scripts/testnet-smoke.ts",
     "testnet:wallet": "node scripts/wallet-smoke.mjs",
     "testnet:swarm": "tsx scripts/testnet-swarm.ts",
+    "testnet:deploy": "tsx scripts/deploy-resilient.ts",
     "evm:relay": "tsx scripts/evm-relay.ts",
     "oneclick:fund": "tsx scripts/oneclick-fund.ts",
     "verify:tee": "tsx scripts/nearai-smoke.ts",

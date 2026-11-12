@@ -9,11 +9,15 @@
  *   (receiver, method names, zero deposit, gas allowance) and FullAccess keys;
  * - receipts executed in causal order, callbacks receiving `promise_result`s, per-receipt
  *   atomic rollback with deposit refunds, and the storage-staking balance check;
- * - a block clock (1 block per second) and epochs, advanced explicitly.
+ * - a block clock (1 block per second) and epochs, advanced explicitly;
+ * - gas: every host call is charged from `HOST_CALL_GAS` and the receipt's prepaid gas is enforced
+ *   as a hard ceiling, so a method that outruns its budget fails with `ExceededGasLimit` instead of
+ *   succeeding. Views report theirs through `lastViewGas()`.
  *
- * What it does not model: gas metering (a fixed per-receipt estimate is reported instead),
- * validators, sharding and finality. Cross-contract calls to accounts without WASM can be
- * served by registered `ExternalContract` handlers (used for the simulated MPC signer).
+ * What it does not model: nearcore's per-WASM-instruction gas (a JS host cannot see instructions,
+ * so gas is charged per host call and is therefore a lower bound, not a consensus-accurate figure),
+ * validators, sharding and finality. Cross-contract calls to accounts without WASM can be served by
+ * registered `ExternalContract` handlers (used for the simulated MPC signer).
  */
 import {
   bytesEqual,
@@ -35,6 +39,20 @@ const U64_MAX = 0xffff_ffff_ffff_ffffn;
 const STORAGE_BYTE_COST = 10_000_000_000_000_000_000n; // 10^19 yocto per byte
 const GAS_PRICE = 100_000_000n; // yocto per gas unit (0.0001 NEAR per Tgas)
 const RECEIPT_GAS_ESTIMATE = 5_000_000_000_000n; // 5 Tgas burnt per executed receipt (estimate)
+/** Per-host-call gas, in gas units. Approximates nearcore's `wasmer` host costs. */
+const HOST_CALL_GAS: Record<string, bigint> = {
+  sha256: 3_000_000_000n,
+  keccak256: 6_000_000_000n,
+  ed25519_verify: 15_000_000_000n,
+  read_register: 200_000_000n,
+  write_register: 300_000_000n,
+  register_len: 100_000_000n,
+  storage_read: 2_000_000_000n,
+  storage_write: 3_000_000_000n,
+  storage_remove: 1_000_000_000n,
+  storage_has_key: 500_000_000n,
+};
+const DEFAULT_HOST_CALL_GAS = 100_000_000n;
 const MAX_RECEIPTS_PER_TX = 256;
 
 export type Bytes = Uint8Array;
@@ -178,6 +196,9 @@ interface ExecContext {
   promises: LocalPromise[];
   registers: Map<bigint, Bytes>;
   codeSize: number;
+  /** Gas granted to this receipt, and how much the metered host calls have consumed. */
+  prepaidGas: bigint;
+  usedGas: bigint;
 }
 
 export interface VmOptions {
@@ -393,6 +414,11 @@ export class NearVm {
     return this.exclusive(() => this.executeView(accountId, methodName, args));
   }
 
+  /** Gas a view burned on its last call. Views have no receipt, so this is how a caller reads it. */
+  lastViewGas(): bigint {
+    return this.viewGas;
+  }
+
   private async executeView(accountId: string, methodName: string, args: unknown): Promise<{ value: Bytes; logs: string[] }> {
     const account = this.mustAccount(accountId);
     if (!account.codeHash) throw new VmError("CodeDoesNotExist", accountId);
@@ -406,8 +432,11 @@ export class NearVm {
       promiseResults: [],
     });
     await this.runWasm(account.codeHash, methodName, ctx);
+    this.viewGas = ctx.usedGas;
     return { value: ctx.returnData ?? new Uint8Array(), logs: ctx.logs };
   }
+
+  private viewGas = 0n;
 
   private newReceiptId(): string {
     this.receiptSeq += 1;
@@ -461,6 +490,8 @@ export class NearVm {
     let createdHere = false;
     let spawned: PendingReceipt[] = [];
     let result: ReceiptResult = { kind: "value", value: new Uint8Array() };
+    /** Gas the executed WASM actually consumed (0 for receipts with no contract call). */
+    let gasBurnt = 0n;
     const refundable = receipt.actions.reduce((d, a) => d + (a.type === "Transfer" || a.type === "FunctionCall" ? a.deposit : 0n), 0n);
 
     try {
@@ -543,6 +574,7 @@ export class NearVm {
               logs.push(...ctx.logs);
             }
             account.storage = ctx.storage;
+            gasBurnt = ctx.usedGas;
             const created = ctx.promises.flatMap((p) => (p.kind === "receipt" ? [p.receipt] : []));
             spawned = spawned.concat(created);
             if (ctx.returnPromise !== null) {
@@ -589,7 +621,7 @@ export class NearVm {
             ? { type: "SuccessReceiptId", receiptId: result.to }
             : { type: "Failure", error: result.error },
       logs,
-      gasBurnt: RECEIPT_GAS_ESTIMATE,
+      gasBurnt: gasBurnt > 0n ? gasBurnt : RECEIPT_GAS_ESTIMATE,
       blockHeight: this.blockHeight,
     };
     return { outcome, result, spawned };
@@ -597,7 +629,9 @@ export class NearVm {
 
   private newContext(
     account: VmAccount,
-    c: Pick<ExecContext, "predecessorId" | "signerId" | "signerPublicKey" | "input" | "deposit" | "isView" | "promiseResults">,
+    c: Pick<ExecContext, "predecessorId" | "signerId" | "signerPublicKey" | "input" | "deposit" | "isView" | "promiseResults"> & {
+      prepaidGas?: bigint;
+    },
   ): ExecContext {
     return {
       ...c,
@@ -610,6 +644,8 @@ export class NearVm {
       promises: [],
       registers: new Map(),
       codeSize: this.codeSizeOf(account),
+      prepaidGas: c.prepaidGas ?? RECEIPT_GAS_ESTIMATE,
+      usedGas: 0n,
     };
   }
 
@@ -627,7 +663,20 @@ export class NearVm {
           throw new HostError(`host function ${imp.name} is not supported by the PhalanxSim VM`);
         });
     }
-    const instance = await WebAssembly.instantiate(code.module, { env: imports });
+    // Gas metering. nearcore charges per WASM instruction and per host call; PhalanxSim cannot see
+    // instructions, so it charges a fixed cost per host call (the dominant term for this contract,
+    // whose work is hashing, storage I/O and signature checks) and enforces the receipt's prepaid
+    // gas as a hard ceiling. A method that would outrun its gas now fails here with
+    // `ExceededGasLimit` instead of silently succeeding.
+    const metered: Record<string, WebAssembly.ImportValue> = {};
+    for (const [name, fn] of Object.entries(imports)) {
+      metered[name] = (...args: bigint[]) => {
+        ctx.usedGas += HOST_CALL_GAS[name] ?? DEFAULT_HOST_CALL_GAS;
+        if (ctx.usedGas > ctx.prepaidGas) throw new HostError("ExceededGasLimit: the receipt ran out of gas");
+        return (fn as (...a: bigint[]) => unknown)(...args);
+      };
+    }
+    const instance = await WebAssembly.instantiate(code.module, { env: metered });
     memory.current = instance.exports.memory as WebAssembly.Memory;
     const fn = instance.exports[methodName];
     if (typeof fn !== "function") throw new VmError("MethodNotFound", `${ctx.accountId}.${methodName}`);
@@ -759,11 +808,11 @@ export class NearVm {
       },
       prepaid_gas: () => {
         prohibitedInView("prepaid_gas");
-        return 300n * 10n ** 12n;
+        return ctx.prepaidGas;
       },
       used_gas: () => {
         prohibitedInView("used_gas");
-        return RECEIPT_GAS_ESTIMATE;
+        return ctx.usedGas;
       },
       random_seed: (id) => setRegister(id, sha256Bytes(utf8(`phalanx-sim-seed:${this.blockHeight}`))),
       sha256: (len, ptr, id) => setRegister(id, sha256Bytes(read(ptr, len))),

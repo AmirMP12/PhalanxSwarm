@@ -275,7 +275,7 @@ function useChecks(s: LiveSnapshot, swarm: SwarmEvidence | null) {
     {
       ok: s.contractKeys.full_access === 0,
       label: "No FullAccess key on the contract account",
-      detail: `${s.contractKeys.public_keys.length} access keys · only the owner can change the code (upgrade_contract)`,
+      detail: `${s.contractKeys.public_keys.length} access keys · only the owner can change the code, and only after a published delay (propose_upgrade → execute_upgrade)`,
     },
     {
       ok: s.dao !== null && s.dao.id === d.owner_id,

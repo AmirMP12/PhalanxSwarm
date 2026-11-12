@@ -50,7 +50,7 @@ export function OverviewHero() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11.5px] font-semibold text-emerald-300 shadow-[0_0_14px_rgba(0,236,151,0.25)]">
               <Sparkles className="size-3.5 text-emerald-400" />
-              NEAR BUILD BEYOND BOUNDARIES 2026
+              NEAR HACKATHON 2026
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11.5px] font-medium text-slate-300">
               <ShieldCheck className="size-3.5 text-sky-400" />
@@ -68,16 +68,23 @@ export function OverviewHero() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
               </span>
-              Testnet Contract Active:{" "}
+              Live on testnet:{" "}
               <a
-                href="https://testnet.nearblocks.io/address/phalanx-v3d1.phalanxswarm.testnet"
+                href="https://testnet.nearblocks.io/address/phalanx-v3d4.phalanxswarm.testnet"
                 target="_blank"
                 rel="noreferrer"
                 className="font-mono text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1"
               >
-                phalanx-v3d1
+                phalanx-v3d4
                 <ExternalLink className="size-3" />
               </a>
+              <span className="text-slate-600">·</span>
+              <span
+                className="text-slate-500"
+                title="Two agents were quarantined by the circuit breaker during the recorded testnet run, and one third-party agent's key was deleted. That is the product working, not a fault: see the Security panel."
+              >
+                2 quarantined by the breaker
+              </span>
             </span>
           </div>
         </div>
@@ -146,7 +153,7 @@ export function OverviewHero() {
             </div>
             <h2 className="mt-3 text-[14px] font-semibold text-white tracking-tight">Chain Signatures &amp; Intents</h2>
             <p className="mt-1 text-[12px] text-slate-400 leading-snug">
-              EIP-1559 MPC execution on Base Sepolia and NEAR Intents (1Click) with no agent holding EVM keys.
+              EIP-1559 MPC execution confirmed on Base Sepolia, with 1Click dry quotes bound to each signed request. No agent holds an EVM key.
             </p>
           </div>
         </div>
@@ -161,7 +168,7 @@ export function OverviewHero() {
             <div className="h-7 w-px bg-white/10 hidden sm:block" />
             <div className="flex flex-col">
               <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Automated Tests</span>
-              <span className="num text-[17px] font-bold text-white">195 Passing</span>
+              <span className="num text-[17px] font-bold text-white">198 Total</span>
             </div>
             <div className="h-7 w-px bg-white/10 hidden sm:block" />
             <div className="flex flex-col">
@@ -216,12 +223,17 @@ export function OverviewHero() {
         </div>
 
         <div className="flex items-center gap-2.5 self-end sm:self-auto">
+          {/* One primary action: run the attack demo, the fastest route to the thesis. Deployment
+              is a secondary link, not the thing a judge should click first. */}
+          <Button variant="primary" size="sm" icon={MousePointerClick} onClick={() => setOverviewTab("try")}>
+            Run the attack demo
+          </Button>
           <Button
             as="a"
             href="https://github.com/AmirMP12/PhalanxSwarm/blob/main/docs/QUICKSTART.md"
             target="_blank"
             rel="noopener noreferrer"
-            variant="primary"
+            variant="ghost"
             size="sm"
             icon={Rocket}
           >
