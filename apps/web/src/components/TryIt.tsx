@@ -695,7 +695,7 @@ export function TryIt() {
           )}
         </div>
 
-        <ol className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <ol className="mt-5 grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
           <StepCard
             n={1}
             icon={FileWarning}

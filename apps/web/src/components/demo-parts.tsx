@@ -38,7 +38,7 @@ export function StepCard({
     <li
       aria-current={current && !done ? "step" : undefined}
       className={cx(
-        "relative flex h-full min-w-0 flex-col rounded-2xl border p-4 sm:p-5 transition-all duration-300 backdrop-blur-md",
+        "relative flex min-w-0 flex-col rounded-2xl border p-4 sm:p-5 transition-all duration-300 backdrop-blur-md",
         done
           ? "border-emerald-400/35 bg-gradient-to-b from-emerald-500/[0.07] to-emerald-950/[0.04] shadow-[0_8px_24px_-8px_rgba(0,236,151,0.15)]"
           : current
@@ -87,7 +87,7 @@ export function StepCard({
           </div>
         </div>
       </div>
-      <p className="mt-3 flex-1 text-[13px] leading-relaxed text-slate-300/90">{lead}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-slate-300/90 sm:min-h-[2.625rem]">{lead}</p>
       <div className="mt-4 flex min-w-0 flex-col gap-3">{children}</div>
     </li>
   );
