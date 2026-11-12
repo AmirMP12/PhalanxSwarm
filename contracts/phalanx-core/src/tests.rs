@@ -1919,7 +1919,7 @@ fn propose_fake_upgrade(h: &mut H, delay_sec: u64) -> PendingUpgrade {
 }
 
 fn fake_upgrade_hash() -> String {
-    to_hex(&near_sdk::env::sha256(&FAKE_WASM))
+    to_hex(&near_sdk::env::sha256(FAKE_WASM))
 }
 
 #[test]
@@ -1927,7 +1927,7 @@ fn proposing_an_upgrade_starts_the_clock_without_deploying_anything() {
     let mut h = H::new();
     let pending = propose_fake_upgrade(&mut h, MIN_UPGRADE_DELAY_SEC);
     assert_eq!(pending.code_len.0, FAKE_WASM.len() as u64);
-    assert_eq!(pending.code_hash, to_hex(&near_sdk::env::sha256(&FAKE_WASM)));
+    assert_eq!(pending.code_hash, to_hex(&near_sdk::env::sha256(FAKE_WASM)));
     assert_eq!(pending.execute_after_ns.0, h.now + MIN_UPGRADE_DELAY_SEC * 1_000_000_000);
     assert_eq!(h.c.get_pending_upgrade().as_ref(), Some(&pending));
     assert!(get_created_receipts().is_empty(), "a proposal must not deploy code");
@@ -1990,7 +1990,7 @@ fn a_new_proposal_replaces_the_pending_one_and_restarts_the_clock() {
     h.now += 600 * 1_000_000_000;
     h.owner_ctx(0);
     let other: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x01];
-    let second = h.c.propose_upgrade(to_hex(&near_sdk::env::sha256(&other)), other.len() as u64, MIN_UPGRADE_DELAY_SEC);
+    let second = h.c.propose_upgrade(to_hex(&near_sdk::env::sha256(other)), other.len() as u64, MIN_UPGRADE_DELAY_SEC);
     assert_ne!(second.code_hash, first.code_hash);
     assert_eq!(h.c.get_pending_upgrade().unwrap(), second);
 }
