@@ -97,7 +97,7 @@ export function chatRequestBody(model: string, messages: ChatMessage[], opts: { 
 
 interface ChatCompletionBody {
   id?: string;
-  choices?: Array<{ finish_reason?: string | null; message?: { content?: string | null } }>;
+  choices?: Array<{ finish_reason?: string | null; message?: { content?: string | null; reasoning_content?: string | null } }>;
   usage?: { completion_tokens?: number; completion_tokens_details?: { reasoning_tokens?: number } | null };
 }
 
@@ -105,7 +105,14 @@ interface ChatCompletionBody {
 export function completionContent(parsed: ChatCompletionBody, provider: string): string {
   const choice = parsed.choices?.[0];
   const content = choice?.message?.content;
+  const reasoningContent = choice?.message?.reasoning_content;
+  
+  // Try regular content first
   if (typeof content === "string" && content.length > 0) return content;
+  
+  // Fall back to reasoning_content if available (some models return only this)
+  if (typeof reasoningContent === "string" && reasoningContent.length > 0) return reasoningContent;
+  
   const reasoning = parsed.usage?.completion_tokens_details?.reasoning_tokens;
   if (choice?.finish_reason === "length") {
     throw new Error(
