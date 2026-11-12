@@ -46,13 +46,21 @@
   scroll-padding-top: 8.5rem;
 }
 
-html,
-body {
+html {
   min-width: 0;
   max-width: 100%;
   background: var(--color-ink);
   color: #e6e9ef;
+  /* Keep overflow-x off html so position: sticky behaves consistently in Safari/WebKit */
+}
+
+body {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 @media (min-width: 64rem) {
@@ -62,7 +70,15 @@ body {
   }
 }
 
-/* Prevent iOS from zooming the page when compact dashboard fields receive focus. */
+/* Prevent iOS & mobile webkit browsers from zooming the page when fields receive focus (<16px triggers zoom) */
+@media screen and (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @media (hover: none) and (pointer: coarse) {
   input,
   select,

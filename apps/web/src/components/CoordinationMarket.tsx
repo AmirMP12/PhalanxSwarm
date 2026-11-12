@@ -115,7 +115,7 @@ export function CoordinationMarket() {
                     </Badge>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-[11.5px]">
+                  <div className="mt-3 grid grid-cols-1 min-[360px]:grid-cols-3 gap-2 text-[11.5px]">
                     <div className="rounded-lg bg-black/20 px-2.5 py-2">
                       <div className="flex items-center gap-1 text-slate-500">
                         <AuctionIcon className="size-3" aria-hidden /> auction

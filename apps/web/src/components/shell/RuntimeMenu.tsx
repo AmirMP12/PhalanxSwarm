@@ -1,7 +1,7 @@
 "use client";
 
 import type { IntentsMode } from "@phalanx/agent-swarm-sdk";
-import { ArrowRight, Bot, Globe, Settings2, WifiOff, Zap } from "lucide-react";
+import { ArrowRight, Bot, Globe, Settings2, WifiOff, X, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { usePhalanx, type AgentBrains } from "@/lib/phalanx-context";
@@ -130,23 +130,33 @@ export function RuntimeMenu({ className }: { className?: string }) {
         title="Local contract: status and settings"
         onClick={() => setOpen((o) => !o)}
         className={cx(
-          "touch-target inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[12.5px] font-medium transition",
+          "touch-target inline-flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border px-3 text-[12px] min-[380px]:text-[12.5px] font-medium transition",
           open ? "border-white/20 bg-white/[0.08] text-white" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:text-white",
         )}
       >
         <StatusDot tone={tone} pulse={status === "loading"} />
-        {status === "ready" ? "Local contract" : status === "error" ? "Local contract failed" : "Starting local contract…"}
-        <Settings2 className="size-3.5 text-slate-400" aria-hidden />
+        <span className="truncate">{status === "ready" ? "Local contract" : status === "error" ? "Local contract failed" : "Starting local contract…"}</span>
+        <Settings2 className="size-3.5 text-slate-400 shrink-0" aria-hidden />
       </button>
       <div
         id={panelId}
         hidden={!open}
-        className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] space-y-3 rounded-xl border border-white/15 bg-[#0c1018] p-3.5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl ring-1 ring-white/10"
+        className="max-sm:fixed max-sm:inset-x-3 max-sm:bottom-4 max-sm:top-auto max-sm:w-auto max-sm:mt-0 sm:absolute sm:right-0 sm:top-full sm:bottom-auto sm:w-[22rem] z-50 sm:mt-2 space-y-3 rounded-xl border border-white/15 bg-[#0c1018] p-3.5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.95)] backdrop-blur-2xl ring-1 ring-white/10"
       >
-        <p className="text-[12px] leading-relaxed text-slate-400">
-          This tab runs the compiled contract (<span className="num text-slate-300">phalanx_core.wasm</span>) locally, in your browser. The same steps also ran
-          on NEAR testnet; each step&apos;s details link to its transaction.
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[12px] leading-relaxed text-slate-400">
+            This tab runs the compiled contract (<span className="num text-slate-300">phalanx_core.wasm</span>) locally, in your browser. The same steps also
+            ran on NEAR testnet; each step&apos;s details link to its transaction.
+          </p>
+          <button
+            type="button"
+            aria-label="Close settings"
+            onClick={() => setOpen(false)}
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.08] hover:text-white sm:hidden"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
         <SandboxSettings />
         <div className="border-t border-white/[0.06] pt-3">
           <RuntimeDetails />

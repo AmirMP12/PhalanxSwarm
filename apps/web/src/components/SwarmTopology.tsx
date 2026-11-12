@@ -243,7 +243,31 @@ export function SwarmTopology() {
                   })}
                 </div>
 
-                {/* Narrow containers: the same agents as a list. */}
+                {/* Narrow containers: central hub & external actors summary, then the agent list. */}
+                <div className="mb-3 rounded-xl border border-emerald-400/30 bg-gradient-to-r from-emerald-500/[0.08] to-emerald-950/[0.05] p-3 @3xl:hidden">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-semibold text-emerald-300">PhalanxCore Treasury</div>
+                      <div className="num truncate text-[11px] text-slate-400">{ACCOUNTS.contract}</div>
+                    </div>
+                    <div className="num shrink-0 text-[14px] font-bold text-white">{nearFmt(dashboard.treasury.liquid, 1)}</div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-white/[0.06] pt-2">
+                    {EXTERNAL.map((e) => {
+                      const Icon = e.icon;
+                      return (
+                        <span
+                          key={e.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[10.5px] text-slate-300"
+                        >
+                          <Icon className="size-3" style={{ color: e.hex }} aria-hidden />
+                          {e.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <ul className="space-y-2 @3xl:hidden">
                   {PERSONAS.map((p) => {
                     const rec = byPersona.get(p);

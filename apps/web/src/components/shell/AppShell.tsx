@@ -14,7 +14,7 @@ import { NETWORK } from "@/lib/wallet";
 import { setOverviewTab } from "../OverviewHero";
 import { Badge, Button, Callout, IconButton, Kbd, Spinner, StatusDot, cx, setPaletteOpen, short, type Tone } from "../ui";
 
-import { EXPLORE_SUBGROUPS, SECTIONS, useScrollSpy, type NavSection } from "./nav";
+import { SECTIONS, useScrollSpy, type NavSection } from "./nav";
 
 const noSubscription = () => () => {};
 
@@ -132,9 +132,7 @@ function Sidebar({ active }: { active: NavSection["id"] }) {
               </div>
               <ul className="space-y-1">
                 {SECTIONS.filter((s) => s.group === group).map((s) => {
-                  // "Explore" is the only entry that ever holds the whole panel list, so it stays
-                  // collapsed until opened instead of auto-expanding on scroll.
-                  const on = s.id === "explore" ? false : active === s.id;
+                  const on = active === s.id;
                   const c = counts[s.id];
                   const Icon = s.icon;
                   const hasSubs = Boolean(s.subItems && s.subItems.length > 0);
@@ -181,13 +179,8 @@ function Sidebar({ active }: { active: NavSection["id"] }) {
                         <ul className="ml-5 mt-1 mb-2 space-y-0.5 border-l border-white/[0.08] pl-2">
                           {s.subItems!.map((sub) => {
                             const SubIcon = sub.icon;
-                            // "Explore" mixes seven panel groups: print a heading when one starts.
-                            const heading = s.id === "explore" ? EXPLORE_SUBGROUPS.find((g) => g.items[0]?.id === sub.id) : undefined;
                             return (
                               <li key={sub.id}>
-                                {heading && (
-                                  <div className="pt-2 pb-1 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{heading.label}</div>
-                                )}
                                 <a
                                   href={sub.href}
                                   aria-current={active === sub.href.slice(1) ? "location" : undefined}
@@ -235,7 +228,7 @@ function WalletButton() {
     <Button
       icon={Wallet}
       size="sm"
-      className="h-8.5 px-2.5 text-[12px] sm:h-9 sm:px-3 sm:text-[12.5px] max-sm:min-h-0 max-sm:py-0"
+      className="h-8 px-2 text-[11.5px] sm:h-9 sm:px-3 sm:text-[12.5px] max-sm:min-h-0 max-sm:py-0"
       onClick={() => void connectWallet()}
     >
       <span className="hidden sm:inline">Connect NEAR wallet</span>
@@ -277,7 +270,7 @@ function Topbar({ active, onOpenMobileMenu, mobileOpen }: { active: NavSection["
             type="button"
             aria-label="Open command menu"
             onClick={() => setPaletteOpen(true)}
-            className="flex size-8.5 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-400 transition hover:bg-white/[0.08] hover:text-white lg:hidden"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-400 transition hover:bg-white/[0.08] hover:text-white sm:size-8.5 lg:hidden"
           >
             <Command className="size-3.5" aria-hidden />
           </button>
@@ -307,7 +300,7 @@ function Topbar({ active, onOpenMobileMenu, mobileOpen }: { active: NavSection["
             aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
             onClick={onOpenMobileMenu}
             className={cx(
-              "flex size-8.5 shrink-0 items-center justify-center rounded-lg border transition lg:hidden",
+              "flex size-8 shrink-0 items-center justify-center rounded-lg border transition sm:size-8.5 lg:hidden",
               mobileOpen
                 ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
                 : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white",
@@ -449,7 +442,7 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
                     </div>
                     <ul className="space-y-1">
                       {SECTIONS.filter((s) => s.group === group).map((s) => {
-                        const on = s.id === "explore" ? false : active === s.id;
+                        const on = active === s.id;
                         const c = counts[s.id];
                         const Icon = s.icon;
                         const hasSubs = Boolean(s.subItems && s.subItems.length > 0);
@@ -485,14 +478,8 @@ function MobileDrawer({ open, onClose, active }: { open: boolean; onClose: () =>
                               <ul className="ml-5 mt-1 mb-2 space-y-0.5 border-l border-white/[0.08] pl-2.5">
                                 {s.subItems!.map((sub) => {
                                   const SubIcon = sub.icon;
-                                  const heading = s.id === "explore" ? EXPLORE_SUBGROUPS.find((g) => g.items[0]?.id === sub.id) : undefined;
                                   return (
                                     <li key={sub.id}>
-                                      {heading && (
-                                        <div className="pt-2 pb-1 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                          {heading.label}
-                                        </div>
-                                      )}
                                       <a
                                         href={sub.href}
                                         onClick={() => {

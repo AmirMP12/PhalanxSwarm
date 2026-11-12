@@ -382,7 +382,7 @@ export function CustomerOrders() {
                 </Button>
               </div>
 
-              <ol className="mt-3 grid grid-cols-4 gap-1.5 text-[10.5px]" aria-label="Order progress">
+              <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 text-[10.5px]" aria-label="Order progress">
                 {steps.map((st) => (
                   <li
                     key={st.key}

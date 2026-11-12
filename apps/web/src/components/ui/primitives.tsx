@@ -27,9 +27,9 @@ const buttonVariants: Record<ButtonVariant, string> = {
   danger: "border border-red-400/35 bg-red-500/10 text-red-200 hover:border-red-400/60 hover:bg-red-500/20",
 };
 const buttonSizes: Record<ButtonSize, string> = {
-  sm: "h-8 gap-1.5 px-2.5 text-[12.5px]",
-  md: "h-9 gap-2 px-3.5 text-[13px]",
-  lg: "h-11 gap-2.5 px-5 text-[15px]",
+  sm: "h-8 gap-1.5 px-2.5 text-[12.5px] max-sm:min-h-8 max-sm:h-8 max-sm:py-1 max-sm:whitespace-nowrap",
+  md: "h-9 gap-2 px-3.5 text-[13px] max-sm:min-h-10 max-sm:py-2",
+  lg: "h-11 gap-2.5 px-5 text-[15px] max-sm:min-h-11 max-sm:py-2.5",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -62,7 +62,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const classes = cx(
-    "touch-target inline-flex max-w-full shrink-0 select-none items-center justify-center whitespace-nowrap rounded-lg font-medium transition-[background,border,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 max-sm:h-auto max-sm:min-h-10 max-sm:whitespace-normal max-sm:py-2",
+    "touch-target inline-flex max-w-full shrink-0 select-none items-center justify-center whitespace-nowrap rounded-lg font-medium transition-[background,border,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40",
     buttonVariants[variant],
     buttonSizes[size],
     shine && !disabled && !loading && "shine",

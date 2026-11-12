@@ -76,8 +76,10 @@ export function SegmentedControl<T extends string>({
             onKeyDown={(e) => move(e, i)}
             className={cx(
               "relative isolate inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors disabled:cursor-not-allowed",
-              fullWidth && "flex-1",
-              size === "sm" ? "h-7.5 px-2.5 text-[12px]" : "h-8.5 px-3 text-[12.5px]",
+              fullWidth && "flex-1 min-w-0 shrink",
+              size === "sm"
+                ? "h-7.5 px-2 min-[380px]:px-2.5 text-[11.5px] min-[380px]:text-[12px]"
+                : "h-8.5 px-2 min-[380px]:px-3 text-[11.5px] min-[380px]:text-[12.5px]",
               active ? "text-white" : "text-slate-400 hover:text-slate-200",
             )}
           >
@@ -198,7 +200,7 @@ export function Field({
           aria-invalid={error ? true : undefined}
           aria-describedby={error || hint ? msgId : undefined}
           {...input}
-          className="num h-full w-full min-w-0 bg-transparent px-3 text-[13px] text-slate-100 outline-none placeholder:text-slate-600 focus-visible:outline-none"
+          className="num h-full w-full min-w-0 bg-transparent px-3 text-[16px] sm:text-[13px] text-slate-100 outline-none placeholder:text-slate-600 focus-visible:outline-none"
         />
         {suffix && <span className="shrink-0 pr-3 text-[11.5px] text-slate-500">{suffix}</span>}
       </div>

@@ -571,38 +571,42 @@ export function TryIt() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_350px_at_0%_0%,rgba(0,236,151,0.15),transparent_65%),radial-gradient(800px_320px_at_100%_0%,rgba(56,189,248,0.12),transparent_65%)]"
       />
-      <div className="relative p-5 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-5">
+      <div className="relative p-4 min-[400px]:p-5 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-5">
           <div className="min-w-0 max-w-3xl">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
-                <ShieldCheck className="size-3.5" />
-                INTERACTIVE ON-CHAIN ATTACK SIMULATION
+            <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[10.5px] min-[400px]:text-[11px] font-semibold text-emerald-300 max-w-full">
+                <ShieldCheck className="size-3.5 shrink-0" />
+                <span className="hidden min-[420px]:inline">INTERACTIVE ON-CHAIN ATTACK SIMULATION</span>
+                <span className="min-[420px]:hidden">ATTACK SIMULATION</span>
               </span>
-              <span className="text-[12px] text-slate-400 num font-medium">{completedCount}/3 verified</span>
+              <span className="text-[12px] text-slate-400 num font-medium shrink-0 whitespace-nowrap">{completedCount}/3 verified</span>
             </div>
-            <h2 id="try-title" className="text-balance text-[24px] sm:text-[30px] font-bold leading-[1.18] tracking-tight text-white">
+            <h2
+              id="try-title"
+              className="text-balance text-[20px] min-[400px]:text-[24px] sm:text-[30px] font-bold leading-[1.2] sm:leading-[1.18] tracking-tight text-white"
+            >
               A TEE signature proves which model answered, not what it was asked.
             </h2>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-slate-300/90 max-w-2xl">
+            <p className="mt-2 text-[13px] sm:text-[13.5px] leading-relaxed text-slate-300/90 max-w-2xl">
               The NEAR contract checks both: the DAO pins the auditor&apos;s prompt and the contract writes its evidence, so a signed approval over a
               self-written prompt or invented facts fails. When an agent breaks a critical rule, the attacking transaction deletes its access key.
             </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11.5px] sm:text-[12px] text-slate-400">
               <span className="inline-flex items-center gap-1 text-emerald-300 font-medium">
-                <Cpu className="size-3.5" /> In-Browser Sandbox (phalanx_core.wasm)
+                <Cpu className="size-3.5 shrink-0" /> In-Browser Sandbox (phalanx_core.wasm)
               </span>
-              <span className="text-slate-600">·</span>
-              <span>Instant zero-gas execution for evaluator testing</span>
+              <span className="text-slate-600 hidden min-[480px]:inline">·</span>
+              <span className="hidden min-[480px]:inline">Instant zero-gas execution for evaluator testing</span>
               <span className="text-slate-600">·</span>
               <a href="#onchain" className="text-sky-300 hover:text-sky-200 hover:underline">
                 View 65 Live On-Chain Testnet TXs ↓
               </a>
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-2.5">
             <Button
-              className="w-full min-[480px]:w-auto shadow-[0_0_20px_rgba(0,236,151,0.3)]"
+              className="flex-1 min-[480px]:flex-none min-[480px]:w-auto shadow-[0_0_20px_rgba(0,236,151,0.3)] justify-center"
               size="md"
               variant="primary"
               icon={Play}
@@ -613,7 +617,7 @@ export function TryIt() {
               Run all 3 steps
             </Button>
             <Button
-              className="w-full min-[480px]:w-auto"
+              className="flex-1 min-[480px]:flex-none min-[480px]:w-auto justify-center"
               size="md"
               variant="secondary"
               icon={RotateCcw}
@@ -629,13 +633,13 @@ export function TryIt() {
         <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 sm:p-4 backdrop-blur-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-[12px] font-semibold text-white tracking-wide uppercase">Defense Progression</span>
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-mono text-slate-300">
+              <span className="text-[11.5px] sm:text-[12px] font-semibold text-white tracking-wide uppercase">Defense Progression</span>
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10.5px] sm:text-[11px] font-mono text-slate-300">
                 {completedCount === 3 ? "All Attacks Neutralized" : `${3 - completedCount} Steps Remaining`}
               </span>
             </div>
             {/* Visual Step Pills */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [scrollbar-width:none] pb-1 sm:pb-0">
               <span
                 className={cx(
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-medium border transition-all",
@@ -700,7 +704,7 @@ export function TryIt() {
             current={nextStep === 1}
             lead="Mallory, an AI payables agent, reads an invoice that swaps in a scammer's bank details."
           >
-            <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
+            <div className="flex min-h-11 h-auto min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="mallory" size={28} status={mallory?.status.kind} />}
               <span className="min-w-0 flex-1 truncate text-slate-300">
                 Mallory-AP-Agent · rep {mallory ? `${(mallory.reputation_bps / 100).toFixed(0)}%` : "…"}
@@ -822,7 +826,7 @@ export function TryIt() {
             current={nextStep === 2}
             lead="Cipher, a hacked agent, asks the auditor to approve a doctored copy of the payment's facts."
           >
-            <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
+            <div className="flex min-h-11 h-auto min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="cipher" size={28} status={cipher?.status.kind} />}
               <span className="min-w-0 flex-1 truncate text-slate-300" title="Cipher-Compute-Worker · pays allow-listed GPU Vendor A, 1 NEAR">
                 Cipher-Compute · GPU Vendor A
@@ -942,7 +946,7 @@ export function TryIt() {
             current={nextStep === 3}
             lead="Nexus pays GPU Vendor B, which the DAO hasn't approved yet."
           >
-            <div className="flex h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
+            <div className="flex min-h-11 h-auto min-w-0 items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px]">
               {runtime && <PersonaAvatar persona="nexus" size={28} status={nexus?.status.kind} />}
               <span className="min-w-0 flex-1 truncate text-slate-300" title={`Nexus-Orchestrator → ${ACCOUNTS.newVendor}, 1 NEAR`}>
                 Nexus → {ACCOUNTS.newVendor}

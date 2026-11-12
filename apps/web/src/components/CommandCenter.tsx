@@ -69,10 +69,12 @@ function ExploreDivider() {
     <div role="separator" aria-label="Explore" className="my-8 flex min-w-0 items-center gap-4">
       <span className="h-px flex-1 bg-gradient-to-r from-transparent via-white/15 to-white/5" aria-hidden />
       <span
-        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-slate-300 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-md"
+        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 sm:px-4 sm:py-1.5 text-center text-[10.5px] sm:text-[11.5px] font-semibold uppercase tracking-[0.1em] sm:tracking-[0.18em] text-slate-300 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-md"
         aria-hidden
       >
-        <Compass className="size-3.5 text-emerald-400" /> Deep Dive Architecture &amp; Protocol State
+        <Compass className="size-3.5 text-emerald-400 shrink-0" />
+        <span className="hidden sm:inline">Deep Dive Architecture &amp; Protocol State</span>
+        <span className="sm:hidden">Architecture &amp; State</span>
       </span>
       <span className="h-px flex-1 bg-gradient-to-l from-transparent via-white/15 to-white/5" aria-hidden />
     </div>

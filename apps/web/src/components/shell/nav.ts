@@ -3,7 +3,6 @@
 import {
   ArrowRightLeft,
   CheckCircle2,
-  Compass,
   Cpu,
   FileCheck2,
   FileCode2,
@@ -14,7 +13,9 @@ import {
   Landmark,
   LayoutDashboard,
   MousePointerClick,
+  Network,
   PackageCheck,
+  RadioTower,
   Scale,
   ScrollText,
   ShieldAlert,
@@ -117,27 +118,90 @@ export const SECTIONS: NavSection[] = [
       { id: "sandbox-state", label: "Local Contract State", href: "#sandbox-state", icon: Gauge },
     ],
   },
-  // Every panel below the demo lives behind this one entry, so a judge meets the thesis before
-  // the surface area. The panel sections keep their ids for scroll-spy and anchors.
   {
-    id: "explore",
-    label: "Explore",
-    icon: Compass,
+    id: "onchain",
+    label: "Live on NEAR",
+    icon: RadioTower,
     group: "explore",
-    subItems: EXPLORE_GROUPS.flatMap((g) => g.items),
+    subItems: [
+      { id: "onchain-deployment", label: "Testnet Contract & Keys", href: "#onchain", icon: KeyRound },
+      { id: "onchain-preflight", label: "Recipient Pre-flight", href: "#onchain-preflight", icon: ShieldCheck },
+      { id: "onchain-history", label: "Execution & Audit Log", href: "#onchain-history", icon: FileCode2 },
+    ],
+  },
+  {
+    id: "swarm",
+    label: "Agent swarm",
+    icon: Network,
+    group: "explore",
+    subItems: [
+      { id: "swarm-topology", label: "Swarm Topology", href: "#swarm-topology", icon: Cpu },
+      { id: "swarm-tee", label: "Model Keys & TEE Evidence", href: "#model-tee-evidence", icon: Fingerprint },
+      { id: "swarm-market", label: "Coordination Market", href: "#coordination-market", icon: Scale },
+      { id: "swarm-sim", label: "Market Simulation", href: "#market-simulation", icon: TrendingUp },
+    ],
+  },
+  {
+    id: "orders",
+    label: "Customer orders",
+    icon: Store,
+    group: "explore",
+    subItems: [
+      { id: "customer-orders", label: "Product Catalogue & Orders", href: "#customer-orders", icon: Store },
+      { id: "order-book", label: "Order Book", href: "#customer-orders", icon: PackageCheck },
+    ],
+  },
+  {
+    id: "treasury",
+    label: "Treasury",
+    icon: Landmark,
+    group: "explore",
+    subItems: [
+      { id: "treasury-vault", label: "Treasury Vault", href: "#treasury-vault", icon: Landmark },
+      { id: "treasury-dao", label: "DAO Export & Governance", href: "#dao-export", icon: FileCode2 },
+    ],
+  },
+  {
+    id: "policy",
+    label: "Security",
+    icon: ShieldCheck,
+    group: "explore",
+    subItems: [
+      { id: "policy-firewall", label: "Policy Firewall", href: "#policy-firewall", icon: ShieldCheck },
+      { id: "policy-events", label: "Security Events Log", href: "#security-events", icon: ShieldAlert },
+      { id: "policy-controls", label: "Agent Controls", href: "#agent-controls", icon: Sliders },
+    ],
+  },
+  {
+    id: "intents",
+    label: "Settlement",
+    icon: ArrowRightLeft,
+    group: "explore",
+    subItems: [
+      { id: "intents-terminal", label: "Cross-chain Terminal", href: "#intent-terminal", icon: ArrowRightLeft },
+      { id: "intents-ledger", label: "Settlement Ledger", href: "#intent-ledger", icon: ScrollText },
+      { id: "evm-transfers", label: "EVM Transfers (MPC)", href: "#evm-transfers", icon: Signature },
+    ],
+  },
+  {
+    id: "activity",
+    label: "Activity",
+    icon: ScrollText,
+    group: "explore",
+    subItems: [{ id: "activity-feed", label: "Transaction Feed & Receipts", href: "#activity-feed", icon: CheckCircle2 }],
   },
 ];
 
 /** One anchor per rendered `<section>` on the page, in document order (scroll spy only). */
-export const ANCHORED_SECTIONS: { id: NavSection["id"]; label: string }[] = [
-  { id: "overview", label: "Guided demo" },
-  { id: "onchain", label: "On-chain" },
-  { id: "swarm", label: "Agent swarm" },
-  { id: "orders", label: "Customer orders" },
-  { id: "treasury", label: "Treasury" },
-  { id: "policy", label: "Security" },
-  { id: "intents", label: "Settlement" },
-  { id: "activity", label: "Activity" },
+export const ANCHORED_SECTIONS: { id: NavSection["id"]; label: string; icon: LucideIcon }[] = [
+  { id: "overview", label: "Guided demo", icon: LayoutDashboard },
+  { id: "onchain", label: "Live on NEAR", icon: RadioTower },
+  { id: "swarm", label: "Agent swarm", icon: Network },
+  { id: "orders", label: "Customer orders", icon: Store },
+  { id: "treasury", label: "Treasury", icon: Landmark },
+  { id: "policy", label: "Security", icon: ShieldCheck },
+  { id: "intents", label: "Settlement", icon: ArrowRightLeft },
+  { id: "activity", label: "Activity", icon: ScrollText },
 ];
 
 /** The section that crosses the upper third of the viewport. */

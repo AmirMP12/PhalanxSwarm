@@ -294,7 +294,7 @@ export function CommandPalette() {
                   setIndex(0);
                 }}
                 placeholder="Type a command or search…"
-                className="h-14 flex-1 bg-transparent text-[15px] text-slate-100 outline-none placeholder:text-slate-500 focus-visible:outline-none"
+                className="h-14 flex-1 bg-transparent text-[16px] sm:text-[15px] text-slate-100 outline-none placeholder:text-slate-500 focus-visible:outline-none"
               />
               <div className="flex items-center gap-1.5">
                 <Kbd className="hidden sm:inline-flex">Esc</Kbd>

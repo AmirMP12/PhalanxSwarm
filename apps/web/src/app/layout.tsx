@@ -11,7 +11,13 @@ export const metadata: Metadata = {
     "Autonomous agent swarm treasury: scoped FunctionCall keys, sealed-bid task market, TEE-verified escrow, NEAR Intents and Chain Signatures settlement, and an on-chain circuit breaker.",
 };
 
-export const viewport: Viewport = { themeColor: "#07090E", width: "device-width", initialScale: 1, colorScheme: "dark" };
+export const viewport: Viewport = {
+  themeColor: "#07090E",
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "dark",
+  viewportFit: "cover",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
