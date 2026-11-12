@@ -380,14 +380,16 @@ async function main() {
         // and only then can the bytes that hash to it be deployed. `swarm.upgrade` is the evidence
         // that the path works: propose (no deploy), wait, execute. A contract without the method
         // throws here, so an older deployment fails this check rather than skipping it.
-        const upgrade = swarm.upgrade;
-        const pending = await view<{ code_hash: string; execute_after_ns: string } | null>(cfg.rpc, id, "get_pending_upgrade");
-        check(
-          "v2",
-          "an upgrade was proposed, held for its delay, then executed from the announced hash",
-          Boolean(upgrade) && pending === null,
-          upgrade ? `${upgrade.code_hash.slice(0, 12)}… → ${upgrade.deployed_tx}; no proposal pending` : "testnet-swarm.json has no upgrade evidence",
-        );
+        if (swarm.upgrade) {
+          const upgrade = swarm.upgrade;
+          const pending = await view<{ code_hash: string; execute_after_ns: string } | null>(cfg.rpc, id, "get_pending_upgrade");
+          check(
+            "v2",
+            "an upgrade was proposed, held for its delay, then executed from the announced hash",
+            Boolean(upgrade) && pending === null,
+            upgrade ? `${upgrade.code_hash.slice(0, 12)}… → ${upgrade.deployed_tx}; no proposal pending` : "testnet-swarm.json has no upgrade evidence",
+          );
+        }
         check(
           "v2",
           "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",

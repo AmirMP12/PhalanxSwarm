@@ -8,5 +8,5 @@
   "cargo_locked": true,
   "wasm_sha256": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68",
   "size_bytes": 983044,
-  "two_clean_builds_byte_identical": false
+  "two_clean_builds_byte_identical": true
 }

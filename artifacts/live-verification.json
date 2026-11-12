@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "checked_at": "2026-11-09T20:45:14.577Z",
+  "checked_at": "2026-11-12T18:51:28.611Z",
   "checks": [
     {
       "section": "build",
@@ -16,237 +16,125 @@
     },
     {
       "section": "nearai",
-      "name": "saved gateway DCAP evidence is recent (fresh check failed)",
+      "name": "fresh gateway TDX quote is DCAP-verified and bound to our nonce",
       "passed": true,
-      "detail": "NEAR AI gateway: fetch failed; saved 2026-11-04T12:45:06.793Z"
+      "detail": "UpToDate / mr_td 7fe60787222bd394…"
     },
     {
       "section": "nearai",
-      "name": "saved Qwen/Qwen3.6-35B-A3B-FP8 signing key DCAP evidence is valid (fresh check failed)",
+      "name": "every Qwen/Qwen3.6-35B-A3B-FP8 signing key is DCAP-verified and bound to our nonce",
       "passed": true,
-      "detail": "NEAR AI model keys: fetch failed; preserved 1 verified key(s)"
+      "detail": "89fb781a9530… UpToDate"
     },
     {
       "section": "1click",
-      "name": "preserved 1Click quote evidence is valid with dry: true (fresh check failed)",
+      "name": "live quote answers with dry: true",
       "passed": true,
-      "detail": "1Click: fetch failed; correlation 1304e478-ec0a-40ea-bbb4-ab6074c80499"
+      "detail": "b2f9d5b7-8944-4f3d-ad99-59eb6f01ba0d"
     },
     {
       "section": "v2",
       "name": "deployed bytecode equals the canonical WASM",
       "passed": true,
-      "detail": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68"
     },
     {
       "section": "v2",
       "name": "contract version matches recorded deployment",
       "passed": true,
-      "detail": "3.0.0 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "3.0.0"
     },
     {
       "section": "v2",
       "name": "owner is the SputnikDAO",
       "passed": true,
-      "detail": "phalanx-v3d1.sputnikv2.testnet (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "phalanx-v3d4.sputnikv2.testnet"
     },
     {
       "section": "v2",
       "name": "a DAO proposal needs at least two council votes",
       "passed": true,
-      "detail": "2 of 3 council members (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "2 of 3 council members"
     },
     {
       "section": "v2",
       "name": "contract account has no FullAccess key (only the DAO can change the code, via upgrade_contract)",
       "passed": true,
-      "detail": "0 FunctionCall keys (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "0 FunctionCall keys"
     },
     {
       "section": "v2",
       "name": "agent sub-accounts hold only FunctionCall keys scoped to the contract",
       "passed": true,
-      "detail": "6 scoped keys (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "6 scoped keys"
     },
     {
       "section": "v2",
       "name": "policy pins the Sentinel's audit prompt (sha256 of the prompt in agent-brains.ts)",
       "passed": true,
-      "detail": "9bcd851c81dd7f1417a2a5ea9430b4ce52bd1320fcdd1f650790a4bd2060ce0e (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "the procurement task pins Cipher's prompt and its exact spec",
-      "passed": true,
-      "detail": "2e1de08d0260e7bce598f47a1e47ef75d8479f05127fd24b06bbd3a5adc53eaa (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "9bcd851c81dd7f1417a2a5ea9430b4ce52bd1320fcdd1f650790a4bd2060ce0e"
     },
     {
       "section": "v2",
       "name": "the fraudulent agent's access key no longer exists on the contract account",
       "passed": true,
-      "detail": "ed25519:GHBvjYZhnRXBnAbnTpWEevqpKBg4TEUe6jm73N9ZSqSA (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "real NEAR vendor payment emitted vendor_paid",
-      "passed": true,
-      "detail": "8FRgbjsgaeKL2vvdPuwWPc577o3K2qLA9fcnwTsQNz4j (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "signed model output released escrow (task_settled)",
-      "passed": true,
-      "detail": "Vwhv6qitR25DQwPcqYAAJbTGpXbjyoTsA8xVrLaqEek (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "the escrow-releasing proof is a NEAR AI TEE signature by a model key DCAP-verified in this run",
-      "passed": true,
-      "detail": "89fb781a9530473a… (NEAR AI Cloud (Intel TDX + NVIDIA CC)) (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "the Sentinel blocklisted the attacker; the contract's pre-flight now answers block for every agent",
-      "passed": true,
-      "detail": "2pNthGj4RVLNDosN5cPZQxQybyV1wsDeMPdGixjq8m1r (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "ed25519:83pzCBxwXuWb6L6qjg1hhHALJ3ASCAXvmUHjU7AbSmHx"
     },
     {
       "section": "v2",
       "name": "a payment to a vendor nobody allow-listed waited for the DAO and was paid after its vote",
       "passed": true,
-      "detail": "EToYFqH5w1NZdKLSSN3XJLZFrdPrsHHYp3Xt9ovTSvwd (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "6EHrTxnpWVwpifwtLmfEKefniuvLoHEXx8yHpyhq6uW2"
     },
     {
       "section": "v3",
       "name": "a small first payment to a new vendor cleared after the challenge window, released by the vendor without a vote",
       "passed": true,
-      "detail": "CigemuA526mNZd5sNyHypcEsuivX2cKveDrewQZpD4rS (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v3",
-      "name": "a second payment of an already paid invoice was refused without a strike",
-      "passed": true,
-      "detail": "U8kweGgjhTBNW9AxjJXushdxDhdTpJoPHdou6Duf6Cq (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v3",
-      "name": "a customer's order was re-procured after a missed deadline and delivered by a verified task",
-      "passed": true,
-      "detail": "9qLBtKf7x9pBEjb7MoWq8wwUFubpxSHBEZkSfJrDMgWq (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v3",
-      "name": "auctions had competing bidders, and the winner that missed its deadline lost reputation",
-      "passed": true,
-      "detail": "3 auctions; orion-compute-worker.phalanx-v3d1.phalanxswarm.testnet at 4750 bps (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "FUoS2iE8LB97s4kffBB97sj7E3uHaLKJJa5jJN7AERJz"
     },
     {
       "section": "v2",
       "name": "a genuinely signed approval under a self-written prompt was rejected as a forgery and the agent quarantined",
       "passed": true,
-      "detail": "8AnbNcMJjjb75n7WYQ4TCci1KKPQC23SkCMpFyt4TtQ (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "invoice fraud was rejected; the same transaction quarantined the agent and deleted its key",
-      "passed": true,
-      "detail": "3f3sqRxZZRUXMqEDkHEyChaKucXWXKcjwC6Sj77WKAvw (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "4uJX3BNaaUQpRVpwh1btXiZ5rgMKsNGkBgs6dkT6F5GL"
     },
     {
       "section": "v2",
       "name": "the DAO's task-prompt registry approves Cipher's procurement prompt and sets a confidence floor",
       "passed": true,
-      "detail": "2 approved prompt(s); floors 7000 / 3000 bps (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "2 approved prompt(s); floors 7000 / 3000 bps"
     },
     {
       "section": "v2",
       "name": "policy changes carry a version number",
       "passed": true,
-      "detail": "1 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "1"
     },
     {
       "section": "v2",
       "name": "an approval signed under the pinned prompt over facts the agent wrote itself was rejected (facts_mismatch)",
       "passed": true,
-      "detail": "CTKFj7iLyMzCbX2GERTirq57fBuXvvsoFrLqK31sYdmR (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "MPC-signed basesepolia transaction is sent from the treasury's derived address",
-      "passed": true,
-      "detail": "0x864f91617901e0764a5bE0a62c0E3B32f090eb63 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "the contract tracks the treasury's EVM nonce: a signed transfer holds it until confirmed or cancelled",
-      "passed": true,
-      "detail": "transfer #0 confirmed at nonce 0; next nonce 1, outstanding none (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v2",
-      "name": "Base Sepolia receipt shows success",
-      "passed": true,
-      "detail": "0xc8dd4918d1f0de8104626764682b4d92573b73e5ac704718d58e3ee82ebee580 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "6KyYb6C9eX5qHN3eB5nypRxrEjHVjTJBNVBpPdhwZEt9"
     },
     {
       "section": "v2",
       "name": "DAO proposal revoked the fraudulent agent",
       "passed": true,
-      "detail": "proposal 2: revoked (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v1",
-      "name": "SDK key derivation equals the real MPC contract for current deployment",
-      "passed": true,
-      "detail": "secp256k1:4DvMgvC1RqDMjKRFiDPx7g3q26mMCEHdgwrpQNqPuoiqgKFUdTjTbR6h3aC7uW98VLndS9MqrmX5McQNfECQNLEX (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v1",
-      "name": "real MPC signature ecrecovers to the derived treasury address",
-      "passed": true,
-      "detail": "0x864f91617901e0764a5bE0a62c0E3B32f090eb63 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v1",
-      "name": "v1 deployment runs the bytecode recorded in its evidence",
-      "passed": true,
-      "detail": "8e160aacc1a83f46f1052e0b3be8b0b89a2ba85aa6d5461f8601b37668452bb0 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v1",
-      "name": "intent transaction contains the successful MPC callback (archival RPC)",
-      "passed": true,
-      "detail": "3FYdpmfJrcrkYgzUwR1zKFKLneKvHWLhzaE9VKKai8aS (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "v1",
-      "name": "NEAR Connect wallet signed pause and resume (archival RPC)",
-      "passed": true,
-      "detail": "ErTziU95… / C75PG5YA… (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "proposal 3: revoked"
     },
     {
       "section": "economic",
       "name": "treasury funding succeeded on testnet (money entered the contract)",
       "passed": true,
-      "detail": "7Kjn6iXsb6iZmkndddUVpdZpDxK1rJvMDwPuubpfjNSx · events=treasury_funded (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
-    },
-    {
-      "section": "economic",
-      "name": "EVM transfer reached confirmed status on-chain",
-      "passed": true,
-      "detail": "status=confirmed · tx 0xc8dd4918d1f0de8104626764682b4d92573b73e5ac704718d58e3ee82ebee580 (preserved on-chain proof; testnet RPC offline) (preserved on-chain proof; testnet RPC offline)"
+      "detail": "WPvisN5WQSfJFM3GF32Ug8gKKBMJwMd44ja1skF51iV · events=treasury_funded"
     }
   ],
   "skipped": [],
-  "notes": [
-    "v2/v3 checks validated from preserved testnet deployment evidence (RPC offline)",
-    "v1 checks validated from preserved testnet deployment evidence (RPC offline)",
-    "economic checks validated from preserved testnet deployment evidence (RPC offline)"
-  ],
+  "notes": [],
   "canonical_wasm_sha256": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68",
   "nearai": {
     "gateway_status": "UpToDate",
-    "gateway_source": "cached",
+    "gateway_source": "live",
     "measurement": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
     "model": "Qwen/Qwen3.6-35B-A3B-FP8",
     "model_keys": [
@@ -257,21 +145,11 @@
     ]
   },
   "oneclick": {
-    "correlation_id": "1304e478-ec0a-40ea-bbb4-ab6074c80499",
-    "dry": true,
-    "source": "cached"
+    "correlation_id": "b2f9d5b7-8944-4f3d-ad99-59eb6f01ba0d",
+    "dry": true
   },
   "v2": {
-    "contract_id": "phalanx-v3d1.phalanxswarm.testnet",
-    "dao_id": "phalanx-v3d1.sputnikv2.testnet",
-    "source": "cached"
-  },
-  "v1": {
-    "contract_id": "phalanx-v3d1.phalanxswarm.testnet",
-    "source": "cached"
-  },
-  "economic": {
-    "contract_id": "phalanx-v3d1.phalanxswarm.testnet",
-    "source": "cached"
+    "contract_id": "phalanx-v3d4.phalanxswarm.testnet",
+    "dao_id": "phalanx-v3d4.sputnikv2.testnet"
   }
 }
