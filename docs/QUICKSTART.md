@@ -372,6 +372,16 @@ pnpm --filter @phalanx/agent-swarm-sdk test
 
 14 Vitest files, 73 passing and 3 skipped. The skipped tests call live services and run with `PHALANX_LIVE_MPC=1`, `PHALANX_LIVE_INTENTS=1` or `PHALANX_LIVE_TEE=1` plus `NEARAI_API_KEY`.
 
+### Smart contract unit tests
+
+```bash
+cargo test -p phalanx-core
+# or:
+pnpm test:contract
+```
+
+Runs 121 unit tests (`tests.rs`, `codec.rs`, `facts.rs`). On Windows, native `cargo test` requires the MSVC C++ Linker (`link.exe` from Visual Studio Build Tools). If evaluating on Windows without MSVC, run via WSL or execute `pnpm test` and `pnpm judge:offline`, which run the complete test suite against `artifacts/phalanx_core.wasm` inside PhalanxSim.
+
 ### The judge scenario
 
 ```bash

@@ -146,7 +146,7 @@ export interface SavedNearAiEvidence {
  * `cached`. Evidence older than `staleAfterMs` is still returned, flagged `stale`, so callers
  * can label it instead of failing; unverified evidence is never returned.
  */
-export function cachedNearAiEvidence(saved: SavedNearAiEvidence, nowMs = Date.now(), staleAfterMs = 7 * 24 * 60 * 60 * 1000): AttestationResult | null {
+export function cachedNearAiEvidence(saved: SavedNearAiEvidence, nowMs = Date.now(), staleAfterMs = 30 * 24 * 60 * 60 * 1000): AttestationResult | null {
   const age = nowMs - Date.parse(saved.timestamp);
   if (!saved.verified || !saved.nonce_bound || !saved.measurement_match || !Number.isFinite(age) || age < 0) return null;
   return {
@@ -174,10 +174,10 @@ export function cachedNearAiEvidence(saved: SavedNearAiEvidence, nowMs = Date.no
   };
 }
 
-export function loadCachedNearAiEvidence(path: string, nowMs = Date.now()): AttestationResult | null {
+export function loadCachedNearAiEvidence(path: string, nowMs = Date.now(), staleAfterMs?: number): AttestationResult | null {
   if (!existsSync(path)) return null;
   try {
-    return cachedNearAiEvidence(JSON.parse(readFileSync(path, "utf8")) as SavedNearAiEvidence, nowMs);
+    return cachedNearAiEvidence(JSON.parse(readFileSync(path, "utf8")) as SavedNearAiEvidence, nowMs, staleAfterMs);
   } catch {
     return null;
   }

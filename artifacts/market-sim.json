@@ -1,6 +1,6 @@
 {
   "schema": "phalanx.market-sim.v1",
-  "checked_at": "2026-11-12T18:05:31.713Z",
+  "checked_at": "2026-11-13T10:40:36.738Z",
   "wasm_sha256": "6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68",
   "seed": 7,
   "rounds": 12,
@@ -2395,6 +2395,6 @@
       ]
     }
   ],
-  "duration_ms": 1642,
+  "duration_ms": 1580,
   "note": "12 sealed-bid rounds among 20 bidders (at most 16 admitted per auction, reputation floor 40%). 10 rounds delivered verified work for 31.853 NEAR; in 2 the winner did not deliver and 4.966 NEAR of escrow went back to the treasury. No-show bids delayed 12 closes to the reveal deadline but never blocked one. market-w01 won 9 of 10 delivered rounds: reputation is 30% of the score and every verified delivery adds 2.5%, so the incumbent's lead grows."
 }

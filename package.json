@@ -22,7 +22,7 @@
     "build:contract": "bash scripts/build-contract.sh",
     "build:contract:reproducible": "bash scripts/build-reproducible.sh",
     "verify:reproducible": "bash scripts/build-reproducible.sh --verify",
-    "test:contract": "bash -lc 'cargo test -p phalanx-core --locked'",
+    "test:contract": "node scripts/test-contract.mjs",
     "test:sandbox": "bash scripts/sandbox-docker.sh",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json",
     "test": "pnpm -r test",

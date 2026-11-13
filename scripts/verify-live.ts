@@ -239,7 +239,7 @@ async function main() {
         "nearai",
         "saved gateway DCAP evidence is recent (fresh check failed)",
         Boolean(cached?.verified && !cached.stale),
-        `${freshError.slice(0, 120)}; saved ${cached?.verifiedAt ?? "none"}${cached?.stale ? " (older than 7 days)" : ""}`,
+        `${freshError.slice(0, 120)}; saved ${cached?.verifiedAt ?? "none"}${cached?.stale ? " (older than 30 days)" : ""}`,
       );
       gateway = cached;
     }
