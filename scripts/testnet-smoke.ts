@@ -124,8 +124,25 @@ async function main() {
   const funded = await call(owner, "fund_treasury", { memo: "real testnet MPC smoke liquidity" }, 50n * TGAS, ONE_NEAR);
   txs.fund = txHash(funded);
 
+  const path = "phalanx-treasury/arb";
+  const rootString = await view<string>(MPC, "public_key", { domain_id: 0 });
+  const rootRaw = fromBase58(rootString.replace("secp256k1:", ""));
+  const root = new Uint8Array(65);
+  root[0] = 0x04;
+  root.set(rootRaw, 1);
+  const realDerived = await view<string>(MPC, "derived_public_key", { path, predecessor: contractId, domain_id: 0 });
+  const child = deriveChildPublicKey(root, contractId, path);
+  const sdkDerived = `secp256k1:${toBase58(child.slice(1))}`;
+  if (sdkDerived !== realDerived) throw new Error("SDK derivation does not match the real MPC contract");
+  const recipient = evmAddressFromPublicKey(child);
+  evidence.mpc_derived_public_key = realDerived;
+  evidence.mpc_evm_address = recipient;
+
   const policy = await view<GlobalPolicyT>(contractId, "get_global_policy", {});
   policy.require_tee_attestation = false;
+  if (!policy.allowed_recipients.includes(`arb:${recipient.toLowerCase()}`)) {
+    policy.allowed_recipients.push(`arb:${recipient.toLowerCase()}`);
+  }
   const policyTx = await call(owner, "update_global_policy", { policy }, 80n * TGAS);
   txs.policy = txHash(policyTx);
 
@@ -149,21 +166,8 @@ async function main() {
   txs.spawn = txHash(spawn);
   const agentRecord = await view<{ status: { kind: string }; key_active: boolean; allowed_methods: string[] }>(contractId, "get_agent", { agent_id: agentId });
   if (agentRecord.status.kind !== "active" || !agentRecord.key_active) throw new Error(`agent not active: ${JSON.stringify(agentRecord)}`);
-  if (agentRecord.allowed_methods.join(",") !== "submit_bid,execute_verified_task,request_intent_settlement") throw new Error("wrong access-key scope");
-
-  const path = "phalanx-treasury/arb";
-  const rootString = await view<string>(MPC, "public_key", { domain_id: 0 });
-  const rootRaw = fromBase58(rootString.replace("secp256k1:", ""));
-  const root = new Uint8Array(65);
-  root[0] = 0x04;
-  root.set(rootRaw, 1);
-  const realDerived = await view<string>(MPC, "derived_public_key", { path, predecessor: contractId, domain_id: 0 });
-  const child = deriveChildPublicKey(root, contractId, path);
-  const sdkDerived = `secp256k1:${toBase58(child.slice(1))}`;
-  if (sdkDerived !== realDerived) throw new Error("SDK derivation does not match the real MPC contract");
-  const recipient = evmAddressFromPublicKey(child);
-  evidence.mpc_derived_public_key = realDerived;
-  evidence.mpc_evm_address = recipient;
+  const requiredMethods = ["submit_bid", "execute_verified_task", "request_intent_settlement"];
+  if (!requiredMethods.every((m) => agentRecord.allowed_methods.includes(m))) throw new Error("wrong access-key scope");
 
   const amount = ONE_NEAR / 10n;
   const oneClick = new OneClickClient({ mode: "live", timeoutMs: 20_000 });

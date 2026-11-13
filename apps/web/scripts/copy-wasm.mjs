@@ -41,6 +41,16 @@ for (const name of EVIDENCE) {
   copyFileSync(src, resolve(evidenceDir, name));
   copied.push(name);
 }
+// Clean stale .next/types before build to prevent Next.js / TypeScript missing-file type errors
+const nextTypes = resolve(here, "../.next/types");
+if (existsSync(nextTypes)) {
+  try {
+    rmSync(nextTypes, { recursive: true, force: true });
+  } catch (_err) {
+    // Stale type cache may already be removed or locked by an active process
+  }
+}
+
 // The UI reads this list so it never requests evidence that was not produced.
 writeFileSync(resolve(evidenceDir, "index.json"), `${JSON.stringify({ files: copied }, null, 2)}\n`);
 console.log(`[copy-wasm] evidence copied to apps/web/public/evidence/: ${copied.join(", ") || "none"}`);

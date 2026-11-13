@@ -121,7 +121,7 @@ Requirements:
 - Node.js 20.19 or newer and pnpm 10 (`packageManager: pnpm@10.17.1`).
 - Rust through rustup. `rust-toolchain.toml` pins rustc 1.99.1 with the `wasm32-unknown-unknown` target.
 - bash for the `.sh` scripts. Docker for the reproducible build and, on hosts with glibc older than 2.39, for the sandbox suite.
-- On Windows, the Node commands (rows 1-3, 5-9, 12 and 14) run natively. Run `cargo` and the bash scripts (rows 4, 10, 11 and 13) in WSL; native Windows `cargo test` needs the MSVC linker (`link.exe`).
+- On Windows, the Node commands (rows 1-3, 5-9, 12-14) run natively via Node and `pnpm verify`. Run `cargo` and the Docker/bash scripts (rows 4, 10, 11) in WSL or Docker; native Windows `cargo test` needs the MSVC linker (`link.exe`).
 
 After `pnpm install`, rows 1-7 and 9 run offline and need no API key.
 
@@ -139,7 +139,7 @@ After `pnpm install`, rows 1-7 and 9 run offline and need no API key.
 | 10  | `pnpm test:sandbox`                                                                      | `9 passed` against a real nearcore 2.14.0 sandbox node: scoped keys, protocol-enforced key scope, key deletion, a NEAR AI proof that releases escrow, real transfers, a held payment that moves only after the owner approves it, a failed MPC call that releases its reservation, revenue distribution, and an audit that counts only over the contract's own facts. On macOS or Linux with glibc 2.39+, `cargo test -p phalanx-sandbox-tests` runs it without Docker.                                                                                               | Docker                |
 | 11  | `pnpm verify:reproducible`                                                               | Two clean builds in a digest-pinned Docker image, both with sha256 `6b311e6625d719cd3274c1f544019c108af75d6be12f923b6800c4091ccd4e68`, then `REPRODUCIBLE: PASS`. Rewrites `artifacts/phalanx_core.wasm` (same bytes) and `artifacts/reproducible-build.json`.                                                                                                                                                                                                                                                                                                     | Docker                |
 | 12  | `pnpm verify:live`                                                                       | Re-checks the public evidence against live networks without any key: deployed code hash, owner, access keys, prompt pins, the recorded payments, proofs, rejections and DAO votes, a fresh DCAP verification of NEAR AI's gateway and model key, the Base Sepolia receipt and a dry 1Click quote. The recorded run passed 39 of 39 checks. Rewrites `artifacts/live-verification.json`.                                                                                                                                                                                       | Internet              |
-| 13  | `bash scripts/verify-all.sh`                                                             | 9 stages: clippy, unit tests, WASM build, typecheck, lint and format checks, SDK tests, the judge scenario, the web build and the sandbox suite (skipped with a note when the host cannot run it). Ends `VERIFICATION PASSED`. `PHALANX_LIVE=1` appends row 12, `PHALANX_AUDIT=1` adds dependency audits.                                                                                                                                                                                                                                                              | Rust, bash            |
+| 13  | `pnpm verify` (or `bash scripts/verify-all.sh`)                                          | 9 stages: clippy, unit tests, WASM build, typecheck, lint and format checks, SDK tests, the judge scenario, the web build and the sandbox suite (skipped with a note when the host cannot run it). Ends `VERIFICATION PASSED`. `PHALANX_LIVE=1` appends row 12, `PHALANX_AUDIT=1` adds dependency audits. On Windows, `pnpm verify` runs the native verification pipeline. | Node (or Rust, bash)  |
 | 14  | `NEARAI_API_KEY=… pnpm judge --live`                                                     | The same 11 steps with every agent decision made by NEAR AI Cloud (`Qwen/Qwen3.6-35B-A3B-FP8`, TEE-signed) and live 1Click dry quotes. Spends NEAR AI credits. No live run of this scenario is recorded in `artifacts/`.                                                                                                                                                                                                                                                                                                                                          | NEAR AI key, internet |
 
 `pnpm judge`, `pnpm eval:injection` and `pnpm market` accept `--json` for a machine-readable report.
@@ -542,15 +542,15 @@ apps/web/                      Next.js 15 command center
   src/components/              guided demo (TryIt), judge runner, live testnet view, explore panels
   public/                      phalanx_core.wasm and evidence/, copied from artifacts/
 scripts/
-  verify-all.sh                one-command verification (row 13)
-  verify-live.ts               public live-network checks (row 12)
+  verify-all.mjs, verify-all.sh            cross-platform verification (pnpm verify, row 13)
+  verify-live.ts                           public live-network checks (pnpm verify:live, row 12)
   build-contract.sh, build-reproducible.sh, sandbox-docker.sh
-  testnet-swarm.ts             the v3.0.0 testnet run
-  evm-relay.ts                 broadcast an MPC-signed EVM transaction
-  oneclick-fund.ts             optional mainnet funding through 1Click
-  nearai-smoke.ts              pnpm verify:tee (writes artifacts/nearai-attestation.json)
-  testnet-smoke.ts, wallet-smoke.mjs       the v1 smoke tests
-  create-account.ts, check-source-integrity.mjs, lint-shell.sh, lib/near.ts
+  testnet-swarm.ts, deploy-resilient.ts    the v3.0.0 testnet run & resilient deployer
+  evm-relay.ts                             broadcast an MPC-signed EVM transaction (pnpm evm:relay)
+  oneclick-fund.ts                         optional mainnet funding through 1Click (pnpm oneclick:fund)
+  nearai-smoke.ts                          pnpm verify:tee (writes artifacts/nearai-attestation.json)
+  testnet-smoke.ts, wallet-smoke.mjs       the smoke test suites (pnpm testnet:smoke, pnpm testnet:wallet)
+  test-contract.mjs, audit-js.mjs, audit-rust.mjs, create-account.ts, check-source-integrity.mjs, lint-shell.mjs, lint-shell.sh, lib/near.ts
 artifacts/                     the canonical WASM and public evidence (no keys)
 .github/workflows/ci.yml       CI: format, lint, ShellCheck, source integrity, typecheck, rustfmt, clippy,
                                unit tests, contract and web builds, judge, eval, market, sandbox suite

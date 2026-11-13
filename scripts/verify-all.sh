@@ -84,11 +84,12 @@ fi
 CANONICAL="$(mktemp -d)"
 if [ -f artifacts/phalanx_core.wasm ]; then cp artifacts/phalanx_core.wasm artifacts/phalanx_core.wasm.sha256 "$CANONICAL/"; fi
 restore_canonical() {
-  if [ -f "$CANONICAL/phalanx_core.wasm" ]; then
+  if [ -n "${CANONICAL:-}" ] && [ -f "$CANONICAL/phalanx_core.wasm" ]; then
     cp "$CANONICAL/phalanx_core.wasm" "$CANONICAL/phalanx_core.wasm.sha256" artifacts/
     if [ -d apps/web/public ]; then cp "$CANONICAL/phalanx_core.wasm" apps/web/public/phalanx_core.wasm; fi
+    rm -rf "$CANONICAL"
+    CANONICAL=""
   fi
-  rm -rf "$CANONICAL"
 }
 trap restore_canonical EXIT
 
@@ -114,7 +115,7 @@ bash scripts/build-contract.sh
 ok "wasm build"
 
 step "pnpm install + TypeScript typecheck (SDK, web, scripts)"
-run_pnpm install --frozen-lockfile
+run_pnpm install --frozen-lockfile --prefer-offline
 run_node apps/web/scripts/copy-wasm.mjs
 run_pnpm typecheck
 ok "typecheck"

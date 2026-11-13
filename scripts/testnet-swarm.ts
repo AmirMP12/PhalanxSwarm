@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Real testnet run of the PhalanxSwarm v2 contract and its agents (`pnpm testnet:swarm`).
+ * Real testnet run of the PhalanxSwarm v3 contract and its agents (`pnpm testnet:swarm`).
  *
  * Without `--confirm` it only prints the plan: account names, the treasury's Chain Signatures
  * address on Base Sepolia and the NEAR it will spend. With `--confirm` it:

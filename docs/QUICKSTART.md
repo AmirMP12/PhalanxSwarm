@@ -370,7 +370,7 @@ The web app's **Customer orders** panel drives this whole loop against the in-br
 pnpm --filter @phalanx/agent-swarm-sdk test
 ```
 
-14 Vitest files, 73 passing and 3 skipped. The skipped tests call live services and run with `PHALANX_LIVE_MPC=1`, `PHALANX_LIVE_INTENTS=1` or `PHALANX_LIVE_TEE=1` plus `NEARAI_API_KEY`.
+14 Vitest files, 74 passing and 3 skipped (77 total). The skipped tests call live services and run with `PHALANX_LIVE_MPC=1`, `PHALANX_LIVE_INTENTS=1` or `PHALANX_LIVE_TEE=1` plus `NEARAI_API_KEY`.
 
 ### Smart contract unit tests
 
